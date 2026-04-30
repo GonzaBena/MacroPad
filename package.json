@@ -4,7 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "electron . --enable-logging",
     "build": "electron-builder"
   },
   "build": {
@@ -21,6 +21,7 @@
     }
   },
   "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "@serialport/parser-readline": "^12.0.0",
     "serialport": "^12.0.0"
   },
