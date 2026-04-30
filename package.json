@@ -1,0 +1,32 @@
+{
+  "name": "poketech",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.arduino.controller",
+    "productName": "Arduino Controller",
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "@serialport/parser-readline": "^12.0.0",
+    "serialport": "^12.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
