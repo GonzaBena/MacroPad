@@ -148,7 +148,8 @@ async function refreshPorts() {
   ports.forEach((p) => {
     const o = document.createElement("option");
     o.value = p.path;
-    o.textContent = p.path + (p.manufacturer ? ` (${p.manufacturer})` : "");
+    const desc = p.signature ? p.signature : (p.manufacturer || "");
+    o.textContent = p.path + (desc ? ` (${desc})` : "");
     if (p.path === prev) o.selected = true;
     sel.appendChild(o);
   });
@@ -248,20 +249,21 @@ function loadSignals() {
             steps:
               val.type && val.type !== "none"
                 ? [
-                    {
-                      id: uid(),
-                      type: migrateType(val.type),
-                      params: migrateParams(val.type, val.value),
-                    },
-                  ]
+                  {
+                    id: uid(),
+                    type: migrateType(val.type),
+                    params: migrateParams(val.type, val.value),
+                  },
+                ]
                 : [],
+            assignedToButton: val.assignedToButton || false,
           };
         } else {
           signals[sig] = val;
         }
       });
     }
-  } catch {}
+  } catch { }
   renderSignalList();
   pushSignals();
 }
@@ -304,7 +306,7 @@ function addSignal() {
     return;
   }
   const color = SIG_COLORS[Object.keys(signals).length % SIG_COLORS.length];
-  signals[sig] = { label: "", color, steps: [] };
+  signals[sig] = { label: "", color, steps: [], assignedToButton: false };
   input.value = "";
   saveSignals();
   renderSignalList();
@@ -344,7 +346,44 @@ function selectSignal(sig) {
   document.getElementById("se-content").style.display = "";
   document.getElementById("se-signal-tag").textContent = sig;
   document.getElementById("se-label-input").value = signals[sig]?.label || "";
+  
+  updateAssignButtonUI();
+  
   renderFlow();
+}
+
+function toggleAssignButton() {
+  if (!selectedSig) return;
+  const isAssigned = signals[selectedSig].assignedToButton;
+  
+  if (!isAssigned) {
+    // Unassign all others
+    for (const key in signals) {
+      signals[key].assignedToButton = false;
+    }
+    signals[selectedSig].assignedToButton = true;
+    showToast("Asignado", `"${selectedSig}" ejecutará cuando presiones el botón.`);
+  } else {
+    signals[selectedSig].assignedToButton = false;
+    showToast("Desasignado", `"${selectedSig}" ya no está asignado al botón.`);
+  }
+  
+  saveSignals();
+  updateAssignButtonUI();
+  renderSignalList();
+}
+
+function updateAssignButtonUI() {
+  if (!selectedSig) return;
+  const btn = document.getElementById("btn-assign");
+  if (!btn) return;
+  if (signals[selectedSig].assignedToButton) {
+    btn.classList.add("assigned");
+    btn.innerHTML = "✅ Botón Asignado";
+  } else {
+    btn.classList.remove("assigned");
+    btn.innerHTML = "🔌 Asignar a Botón";
+  }
 }
 
 function renderSignalList() {
@@ -354,10 +393,15 @@ function renderSignalList() {
     const div = document.createElement("div");
     div.className = "sig-card" + (sig === selectedSig ? " active" : "");
     div.dataset.sig = sig;
+    
+    const badge = entry.assignedToButton 
+      ? `<span title="Asignado al botón físico" style="font-size: 9px; background: var(--green); color: #000; padding: 2px 5px; border-radius: 4px; margin-left: 6px; font-weight: 700;">🔌 BOTÓN</span>` 
+      : '';
+
     div.innerHTML = `
       <div class="sig-card-top">
         <span style="width:8px;height:8px;border-radius:50%;background:${entry.color};flex-shrink:0;display:inline-block"></span>
-        <span class="sig-name">${escHtml(sig)}</span>
+        <span class="sig-name">${escHtml(sig)}${badge}</span>
         <span class="sig-pulse"></span>
       </div>
       ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
@@ -405,11 +449,11 @@ function makeStepCard(step, idx, total) {
       <span class="step-icon">${meta.icon}</span>
       <select class="step-type-select" onchange="changeStepType(${idx}, this.value)">
         ${Object.entries(STEP_TYPES)
-          .map(
-            ([k, v]) =>
-              `<option value="${k}" ${step.type === k ? "selected" : ""}>${v.label}</option>`,
-          )
-          .join("")}
+      .map(
+        ([k, v]) =>
+          `<option value="${k}" ${step.type === k ? "selected" : ""}>${v.label}</option>`,
+      )
+      .join("")}
       </select>
     </span>
     <span class="step-num">#${idx + 1}</span>

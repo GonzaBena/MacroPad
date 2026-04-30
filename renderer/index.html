@@ -1,199 +1,164 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arduino Controller</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="app">
-      <div class="titlebar">
-        <div class="tb-brand">
-          <span class="tb-dot" id="tb-dot"></span>
-          Arduino Controller
-        </div>
-        <div class="tb-controls">
-          <button class="wbtn" onclick="window.arduino.minimize()">−</button>
-          <button class="wbtn" onclick="window.arduino.maximize()">□</button>
-          <button class="wbtn close" onclick="window.arduino.close()">✕</button>
-        </div>
-      </div>
 
-      <div class="content" id="main-content">
-        <div class="sidebar" id="main-sidebar">
-          <div class="s-section">
-            <div class="s-label">Conexión Serial</div>
-            <div class="field">
-              <label>Puerto</label>
-              <div style="display: flex; gap: 6px">
-                <select id="port-sel" style="flex: 1">
-                  <option value="">— Seleccioná un puerto —</option>
-                </select>
-                <button class="btn-icon" onclick="refreshPorts()">↺</button>
-              </div>
-            </div>
-            <div class="field">
-              <label>Baud Rate</label>
-              <select id="baud-sel">
-                <option value="9600" selected>9600</option>
-                <option value="19200">19200</option>
-                <option value="38400">38400</option>
-                <option value="57600">57600</option>
-                <option value="115200">115200</option>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MacroPad</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app">
+    <div class="titlebar">
+      <div class="tb-brand">
+        <span class="tb-dot" id="tb-dot"></span>
+        Arduino Controller
+      </div>
+      <div class="tb-controls">
+        <button class="wbtn" onclick="window.arduino.minimize()">−</button>
+        <button class="wbtn" onclick="window.arduino.maximize()">□</button>
+        <button class="wbtn close" onclick="window.arduino.close()">✕</button>
+      </div>
+    </div>
+
+    <div class="content" id="main-content">
+      <div class="sidebar" id="main-sidebar">
+        <div class="s-section">
+          <div class="s-label">Conexión Serial</div>
+          <div class="field">
+            <label>Puerto</label>
+            <div style="display: flex; gap: 6px">
+              <select id="port-sel" style="flex: 1">
+                <option value="">— Seleccioná un puerto —</option>
               </select>
+              <button class="btn-icon" onclick="refreshPorts()">↺</button>
             </div>
-            <div class="status-badge">
-              <span class="s-dot" id="s-dot"></span>
-              <span class="s-text" id="s-text">Desconectado</span>
-            </div>
-            <div class="btn-row">
-              <button
-                class="btn btn-primary"
-                id="btn-conn"
-                onclick="toggleConnect()"
-              >
-                Conectar
-              </button>
-              <button class="btn btn-ghost" onclick="refreshPorts()">
-                ↺ Puertos
-              </button>
-            </div>
+          </div>
+          <div class="field">
+            <label>Baud Rate</label>
+            <select id="baud-sel">
+              <option value="9600" selected>9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+            </select>
+          </div>
+          <div class="status-badge">
+            <span class="s-dot" id="s-dot"></span>
+            <span class="s-text" id="s-text">Desconectado</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-conn" onclick="toggleConnect()">
+              Conectar
+            </button>
+            <button class="btn btn-ghost" onclick="refreshPorts()">
+              ↺ Puertos
+            </button>
           </div>
         </div>
-        <div class="resizer" id="main-resizer"></div>
+      </div>
+      <div class="resizer" id="main-resizer"></div>
 
-        <div class="panel">
-          <div class="tabs">
-            <div class="tab active" onclick="switchTab('monitor', this)">
-              Monitor
-            </div>
-            <div class="tab" onclick="switchTab('configure', this)">
-              Configurar
-            </div>
+      <div class="panel">
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('monitor', this)">
+            Monitor
           </div>
+          <div class="tab" onclick="switchTab('configure', this)">
+            Configurar
+          </div>
+        </div>
 
-          <!-- Monitor -->
-          <div class="tab-pane active" id="tab-monitor">
-            <div class="log-bar">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <span style="font-size: 12px; font-weight: 600"
-                  >Señales recibidas</span
-                >
-                <span class="log-count" id="log-count">0 entradas</span>
-              </div>
-              <div style="display: flex; gap: 8px">
-                <input
-                  class="log-filter-in"
-                  type="text"
-                  placeholder="Filtrar..."
-                  id="log-filter"
-                  oninput="filterLog()"
-                />
-                <button
-                  class="btn btn-ghost"
-                  style="padding: 4px 10px; font-size: 11px"
-                  onclick="clearLog()"
-                >
-                  Limpiar
-                </button>
-              </div>
+        <!-- Monitor -->
+        <div class="tab-pane active" id="tab-monitor">
+          <div class="log-bar">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span style="font-size: 12px; font-weight: 600">Señales recibidas</span>
+              <span class="log-count" id="log-count">0 entradas</span>
             </div>
-            <div class="log-entries" id="log-entries">
-              <div class="log-empty" id="log-empty">
-                <span class="ico">◎</span
-                ><span>Esperando datos del Arduino...</span>
-              </div>
-            </div>
-            <div class="stats-row">
-              <div class="stat">
-                <div class="stat-l">Señales</div>
-                <div class="stat-v a" id="st-sig">0</div>
-              </div>
-              <div class="stat">
-                <div class="stat-l">Acciones</div>
-                <div class="stat-v" id="st-act">0</div>
-              </div>
-              <div class="stat">
-                <div class="stat-l">Errores</div>
-                <div class="stat-v" id="st-err">0</div>
-              </div>
-            </div>
-            <div class="send-bar">
-              <input
-                type="text"
-                id="send-input"
-                placeholder="Enviar al Arduino (Enter)..."
-              />
-              <button
-                class="btn btn-ghost"
-                style="flex: none"
-                onclick="sendSerial()"
-              >
-                Enviar ↗
+            <div style="display: flex; gap: 8px">
+              <input class="log-filter-in" type="text" placeholder="Filtrar..." id="log-filter" oninput="filterLog()" />
+              <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 11px" onclick="clearLog()">
+                Limpiar
               </button>
             </div>
           </div>
+          <div class="log-entries" id="log-entries">
+            <div class="log-empty" id="log-empty">
+              <span class="ico">◎</span><span>Esperando datos del Arduino...</span>
+            </div>
+          </div>
+          <div class="stats-row">
+            <div class="stat">
+              <div class="stat-l">Señales</div>
+              <div class="stat-v a" id="st-sig">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-l">Acciones</div>
+              <div class="stat-v" id="st-act">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-l">Errores</div>
+              <div class="stat-v" id="st-err">0</div>
+            </div>
+          </div>
+          <div class="send-bar">
+            <input type="text" id="send-input" placeholder="Enviar al Arduino (Enter)..." />
+            <button class="btn btn-ghost" style="flex: none" onclick="sendSerial()">
+              Enviar ↗
+            </button>
+          </div>
+        </div>
 
-          <!-- Configure -->
-          <div class="tab-pane" id="tab-configure">
-            <div class="configure-split" id="config-content">
-              <div class="signal-list-panel" id="siglist-panel">
-                <div class="slp-header">
-                  <div class="s-label" style="margin-bottom: 8px">Señales</div>
-                  <div class="slp-add">
-                    <input
-                      type="text"
-                      id="new-sig-cfg"
-                      placeholder="NUEVA_SEÑAL"
-                      maxlength="40"
-                    />
-                    <button onclick="addSignal()">+</button>
-                  </div>
+        <!-- Configure -->
+        <div class="tab-pane" id="tab-configure">
+          <div class="configure-split" id="config-content">
+            <div class="signal-list-panel" id="siglist-panel">
+              <div class="slp-header">
+                <div class="s-label" style="margin-bottom: 8px">Señales</div>
+                <div class="slp-add">
+                  <input type="text" id="new-sig-cfg" placeholder="NUEVA_SEÑAL" maxlength="40" />
+                  <button onclick="addSignal()">+</button>
                 </div>
-                <div class="signal-list" id="signal-list"></div>
               </div>
-              
-              <div class="resizer" id="siglist-resizer"></div>
+              <div class="signal-list" id="signal-list"></div>
+            </div>
 
-              <div class="step-editor-panel">
-                <div class="se-empty" id="se-empty">
-                  <span class="ico">↰</span>
-                  <span>Seleccioná una señal</span>
+            <div class="resizer" id="siglist-resizer"></div>
+
+            <div class="step-editor-panel">
+              <div class="se-empty" id="se-empty">
+                <span class="ico">↰</span>
+                <span>Seleccioná una señal</span>
+              </div>
+              <div class="se-content" id="se-content" style="display: none">
+                <div class="se-header">
+                  <span class="se-signal-tag" id="se-signal-tag"></span>
+                  <input class="se-label-input" type="text" id="se-label-input" placeholder="Nombre descriptivo..."
+                    oninput="updateSignalLabel(this.value)" />
+                  <button class="btn-assign" id="btn-assign" onclick="toggleAssignButton()"
+                    title="Asignar al botón físico del Arduino">
+                    🔌
+                  </button>
+                  <button class="btn-test" onclick="testCurrentSignal()">
+                    ▶ Probar
+                  </button>
+                  <button class="btn-del-sig" onclick="deleteCurrentSignal()">
+                    ✕
+                  </button>
                 </div>
-                <div class="se-content" id="se-content" style="display: none">
-                  <div class="se-header">
-                    <span class="se-signal-tag" id="se-signal-tag"></span>
-                    <input
-                      class="se-label-input"
-                      type="text"
-                      id="se-label-input"
-                      placeholder="Nombre descriptivo..."
-                      oninput="updateSignalLabel(this.value)"
-                    />
-                    <button class="btn-test" onclick="testCurrentSignal()">
-                      ▶ Probar
+                <div class="flow-container" id="flow-container"></div>
+                <div class="add-step-bar">
+                  <div class="add-step-wrap">
+                    <button class="add-step-btn" id="add-step-btn" onclick="toggleStepMenu()">
+                      + Agregar paso
                     </button>
-                    <button class="btn-del-sig" onclick="deleteCurrentSignal()">
-                      ✕
-                    </button>
-                  </div>
-                  <div class="flow-container" id="flow-container"></div>
-                  <div class="add-step-bar">
-                    <div class="add-step-wrap">
-                      <button
-                        class="add-step-btn"
-                        id="add-step-btn"
-                        onclick="toggleStepMenu()"
-                      >
-                        + Agregar paso
-                      </button>
-                      <div class="step-menu" id="step-menu"></div>
-                    </div>
+                    <div class="step-menu" id="step-menu"></div>
                   </div>
                 </div>
               </div>
@@ -202,24 +167,26 @@
         </div>
       </div>
     </div>
-    <div id="toasts"></div>
+  </div>
+  <div id="toasts"></div>
 
-    <!-- Modal para el resultado de comandos -->
-    <div class="cmd-modal-overlay" id="cmd-modal-overlay" style="display: none;">
-      <div class="cmd-modal">
-        <div class="cmd-modal-header">
-          <div class="cmd-modal-title">
-            <span class="cmd-icon">$</span>
-            <span id="cmd-modal-cmd" class="cmd-name">Comando</span>
-          </div>
-          <button class="wbtn close" onclick="closeCmdModal()">✕</button>
+  <!-- Modal para el resultado de comandos -->
+  <div class="cmd-modal-overlay" id="cmd-modal-overlay" style="display: none;">
+    <div class="cmd-modal">
+      <div class="cmd-modal-header">
+        <div class="cmd-modal-title">
+          <span class="cmd-icon">$</span>
+          <span id="cmd-modal-cmd" class="cmd-name">Comando</span>
         </div>
-        <div class="cmd-modal-body">
-          <pre id="cmd-modal-output"></pre>
-        </div>
+        <button class="wbtn close" onclick="closeCmdModal()">✕</button>
+      </div>
+      <div class="cmd-modal-body">
+        <pre id="cmd-modal-output"></pre>
       </div>
     </div>
+  </div>
 
-    <script src="app.js"></script>
-  </body>
+  <script src="app.js"></script>
+</body>
+
 </html>
