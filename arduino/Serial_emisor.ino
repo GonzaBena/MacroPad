@@ -1,32 +1,26 @@
-const int buttonPin = 2; 
-
-// Variable para recordar cómo estaba el botón hace un instante
-int estadoAnteriorBoton = HIGH; 
+const int buttonPin = 2; // Pin donde conectas el switch
 
 void setup() {
   Serial.begin(9600);
-  pinMode(buttonPin, INPUT_PULLUP); 
+  // Usamos INPUT_PULLUP para no necesitar resistencias externas
+  pinMode(buttonPin, INPUT_PULLUP);
 }
 
 void loop() {
-  // 1. Escuchar a la PC
+
+  // Escuchar si la PC pregunta "¿Quién eres?"
+
   if (Serial.available() > 0) {
     String comando = Serial.readStringUntil('\n');
-    comando.trim(); // MUY IMPORTANTE: Limpia espacios y enter invisibles
     if (comando == "IDENTIFY") {
-      Serial.println("POKEPAD_V1");
+      Serial.println("POKEPAD_V1"); // Esta es tu firma ahora
     }
   }
-  
-  // 2. Leer el botón
-  int estadoActualBoton = digitalRead(buttonPin);
 
-  // Si antes estaba sin presionar (HIGH) y AHORA está presionado (LOW)
-  if (estadoAnteriorBoton == HIGH && estadoActualBoton == LOW) {
-    Serial.println("BOTON_1"); // Enviamos la orden
-    delay(50); // Debounce de 50ms es suficiente para un switch mecánico
+  int buttonState = digitalRead(buttonPin);
+  // Si el estado es LOW, significa que presionaste el botón
+  if (buttonState == LOW) {
+    Serial.println("PRESIONADO");
+    delay(200); // Un pequeño delay para evitar rebotes (debounce)
   }
-
-  // Actualizamos el recuerdo del botón para la próxima vuelta del loop
-  estadoAnteriorBoton = estadoActualBoton;
 }
