@@ -43,4 +43,6 @@ contextBridge.exposeInMainWorld("arduino", {
   saveData: (data) => ipcRenderer.invoke("save-data", data),
   exportData: () => ipcRenderer.invoke("export-data"),
   importData: () => ipcRenderer.invoke("import-data"),
+  exportSingleWorkflow: (name, data) => ipcRenderer.invoke("export-single-workflow", { name, data }),
+  importSingleWorkflow: () => ipcRenderer.invoke("import-single-workflow"),
 });

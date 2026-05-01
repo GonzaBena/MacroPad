@@ -2,7 +2,7 @@ import { state, loadSignalsData, loadConfig } from './state.js';
 import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
-import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignButton, testCurrentSignal, toggleStepMenu } from './workflows.js';
+import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignButton, testCurrentSignal, toggleStepMenu, importWorkflow } from './workflows.js';
 
 window.addEventListener("DOMContentLoaded", async () => {
   // 1. Cargar las vistas
@@ -59,6 +59,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Enter") addSignal();
   });
   document.getElementById("btn-add-signal")?.addEventListener("click", addSignal);
+  document.getElementById("btn-import-workflow")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    importWorkflow(e);
+  });
   document.getElementById("add-step-btn")?.addEventListener("click", toggleStepMenu);
   document.getElementById("se-label-input")?.addEventListener("input", (e) => updateSignalLabel(e.target.value));
   document.getElementById("btn-assign")?.addEventListener("click", toggleAssignButton);

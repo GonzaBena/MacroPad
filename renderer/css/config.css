@@ -1,9 +1,16 @@
+#config-view {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    z-index: 10000;
+    background: var(--bg);
+}
+
 #config-view .config-page {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: var(--bg);
 }
 
 #config-view .config-header {
@@ -47,12 +54,13 @@
 }
 
 #config-view .config-body {
-    padding: 32px;
+    padding: 32px 24px;
     overflow-y: auto;
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 24px;
 }
 
 #config-view .config-body::-webkit-scrollbar {
@@ -66,7 +74,7 @@
 
 #config-view .config-section {
     width: 100%;
-    height: 100%;
+    max-width: 800px;
     border: 1px solid var(--border);
     border-radius: 12px;
     background: var(--surface2);
@@ -74,6 +82,7 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    flex-shrink: 0;
 }
 
 #config-view .config-section-title {

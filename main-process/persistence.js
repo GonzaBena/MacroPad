@@ -164,6 +164,49 @@ function setupPersistence() {
 
   ipcMain.handle("export-data", () => exportData());
   ipcMain.handle("import-data", () => importData());
+
+  ipcMain.handle("export-single-workflow", async (_, { name, data }) => {
+    const win = getWindow();
+    if (!win) return { ok: false, error: "No window" };
+
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: `Exportar workflow: ${name}`,
+      defaultPath: `workflow-${name.toLowerCase()}.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+
+    if (canceled || !filePath) return { ok: false, error: "Cancelled" };
+
+    try {
+      fs.writeFileSync(filePath, JSON.stringify({ version: "1.0", type: "single-workflow", name, data }, null, 2), "utf-8");
+      return { ok: true, path: filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("import-single-workflow", async () => {
+    const win = getWindow();
+    if (!win) return { ok: false, error: "No window" };
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: "Importar workflow",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+
+    if (canceled || !filePaths.length) return { ok: false, error: "Cancelled" };
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(filePaths[0], "utf-8"));
+      if (raw.type !== "single-workflow" || !raw.name || !raw.data) {
+        throw new Error("Formato de workflow inválido");
+      }
+      return { ok: true, name: raw.name, data: raw.data };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
 }
 
 module.exports = {

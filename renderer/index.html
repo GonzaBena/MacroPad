@@ -72,6 +72,21 @@
 
   <!-- Modales -->
   <div class="cmd-modal-overlay d-none" id="cmd-modal-overlay"></div>
+  
+  <div class="modal-overlay d-none" id="prompt-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="prompt-title">Título</span>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="prompt-input" class="param-input" spellcheck="false" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="prompt-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="prompt-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>

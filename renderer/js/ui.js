@@ -37,7 +37,48 @@ export function showCmdModal() {
   document.getElementById("cmd-modal-overlay").classList.remove("d-none");
 }
 
-function initConfigColorPicker() {
+let promptCallback = null;
+
+export function showPrompt(title, defaultValue, callback) {
+  const modal = document.getElementById("prompt-modal");
+  const input = document.getElementById("prompt-input");
+  const titleEl = document.getElementById("prompt-title");
+  
+  if (!modal || !input || !titleEl) return;
+  
+  titleEl.textContent = title;
+  input.value = defaultValue || "";
+  promptCallback = callback;
+  
+  modal.classList.remove("d-none");
+  input.focus();
+  input.select();
+}
+window.showPrompt = showPrompt;
+
+function handlePromptConfirm() {
+  const input = document.getElementById("prompt-input");
+  const val = input.value;
+  if (promptCallback) {
+    promptCallback(val);
+  }
+  closePrompt();
+}
+
+function closePrompt() {
+  document.getElementById("prompt-modal").classList.add("d-none");
+  promptCallback = null;
+}
+
+// Attach listeners to prompt modal buttons
+document.getElementById("prompt-ok")?.addEventListener("click", handlePromptConfirm);
+document.getElementById("prompt-cancel")?.addEventListener("click", closePrompt);
+document.getElementById("prompt-input")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") handlePromptConfirm();
+  if (e.key === "Escape") closePrompt();
+});
+
+export function initConfigColorPicker() {
   const hexInput = document.getElementById("cfg-accent");
   const btn      = document.getElementById("cfg-accent-btn");
   const preview  = document.getElementById("cfg-accent-preview");

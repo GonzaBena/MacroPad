@@ -1,45 +1,33 @@
 import { state, SIG_COLORS, saveSignals, pushUndo, uid, STEP_TYPES, MEDIA_OPTIONS } from './state.js';
-import { escHtml, escAttr, showToast } from './ui.js';
+import { escHtml, escAttr, showToast, showPrompt } from './ui.js';
 
-// ── Event delegation para el flow-container (evita inline onclick bloqueados por CSP) ──
+// ── Event delegation para el flow-container ──
 export function initFlowDelegation() {
   const panel = document.querySelector('.panel');
   if (!panel) return;
 
   panel.addEventListener('click', (e) => {
     const target = e.target;
-
-    // Botón eliminar step
     const delBtn = target.closest('.btn-del-step');
     if (delBtn) { deleteStep(Number(delBtn.dataset.idx)); return; }
-
-    // Botón capturar tecla
     const keyBtn = target.closest('.btn-key-capture');
     if (keyBtn) { startKeyCapture(Number(keyBtn.dataset.idx)); return; }
-
-    // Botón examinar archivo
     const browseBtn = target.closest('.btn-browse-file');
     if (browseBtn) { browseFile(Number(browseBtn.dataset.idx)); return; }
   });
 
   panel.addEventListener('change', (e) => {
     const target = e.target;
-
-    // Selector de tipo de step
     if (target.classList.contains('step-type-select')) {
       changeStepType(Number(target.dataset.idx), target.value);
       return;
     }
-
-    // Selector de lenguaje de script
     if (target.classList.contains('script-lang-select')) {
       const idx = Number(target.dataset.idx);
       updateParam(idx, 'lang', target.value);
       updateScriptEditor(idx);
       return;
     }
-
-    // Selector de acción media
     if (target.classList.contains('media-action-select')) {
       updateParam(Number(target.dataset.idx), 'action', target.value);
       return;
@@ -48,13 +36,9 @@ export function initFlowDelegation() {
 
   panel.addEventListener('input', (e) => {
     const target = e.target;
-
-    // Inputs de parámetros
     if (target.dataset.param && target.dataset.idx !== undefined) {
       updateParam(Number(target.dataset.idx), target.dataset.param, target.value);
     }
-
-    // Textarea de script
     if (target.classList.contains('script-textarea')) {
       handleScriptInput(Number(target.dataset.idx));
     }
@@ -72,6 +56,78 @@ export function initFlowDelegation() {
     }
   });
 }
+
+// ── Context Menu Logic ──
+let activeContextMenu = null;
+
+function closeContextMenu() {
+  if (activeContextMenu) {
+    activeContextMenu.remove();
+    activeContextMenu = null;
+  }
+}
+
+document.addEventListener('click', closeContextMenu);
+document.addEventListener('contextmenu', (e) => {
+  if (!e.target.closest('.sig-card') && !e.target.closest('.context-menu')) {
+    closeContextMenu();
+  }
+});
+
+function showSignalContextMenu(e, sig) {
+  e.preventDefault();
+  closeContextMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  
+  const options = [
+    { label: 'Duplicar', ico: '👯', action: () => duplicateSignal(sig) },
+    { label: 'Cambiar nombre', ico: '✏️', action: () => renameSignal(sig) },
+    { label: 'Copiar JSON', ico: '📋', action: () => copySignalToClipboard(sig) },
+    { label: 'Exportar archivo', ico: '📦', action: () => exportSingleWorkflow(sig) },
+    { type: 'divider' },
+    { label: 'Eliminar', ico: '✕', action: () => {
+      state.selectedSig = sig;
+      deleteCurrentSignal();
+    }}
+  ];
+
+  options.forEach(opt => {
+    if (opt.type === 'divider') {
+      const div = document.createElement('div');
+      div.className = 'context-menu-divider';
+      menu.appendChild(div);
+      return;
+    }
+    const item = document.createElement('div');
+    item.className = 'context-menu-item';
+    item.innerHTML = `<span class="ico">${opt.ico}</span><span>${opt.label}</span>`;
+    item.onclick = () => {
+      opt.action();
+      closeContextMenu();
+    };
+    menu.appendChild(item);
+  });
+
+  menu.onclick = (e) => e.stopPropagation();
+  document.body.appendChild(menu);
+  
+  // Position
+  const menuWidth = 160;
+  const menuHeight = menu.offsetHeight;
+  let x = e.clientX;
+  let y = e.clientY;
+  
+  if (x + menuWidth > window.innerWidth) x -= menuWidth;
+  if (y + menuHeight > window.innerHeight) y -= menuHeight;
+  
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  activeContextMenu = menu;
+}
+
+// ── Signal Logic ──
 
 export function renderSignalList() {
   const list = document.getElementById("signal-list");
@@ -92,7 +148,10 @@ export function renderSignalList() {
       </div>
       ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
       <div class="sig-steps-count">${entry.steps?.length || 0} paso${(entry.steps?.length || 0) === 1 ? "" : "s"}</div>`;
+    
     div.addEventListener('click', () => selectSignal(sig));
+    div.addEventListener('contextmenu', (e) => showSignalContextMenu(e, sig));
+    
     list.appendChild(div);
     const dot = div.querySelector('.sig-color-dot');
     if (dot) dot.style.background = entry.color;
@@ -112,14 +171,192 @@ export function addSignal() {
 }
 window.addSignal = addSignal;
 
+export function renameSignal(oldName) {
+  const originalData = state.signals[oldName];
+  if (!originalData) return;
+
+  showPrompt(`Nuevo nombre para "${oldName}"`, oldName, (rawInput) => {
+    if (rawInput === null || rawInput === undefined) return;
+
+    const newName = rawInput.trim().toUpperCase().replace(/\s+/g, "_");
+    
+    if (!newName) {
+      showToast("Error", "El nombre no puede estar vacío");
+      return;
+    }
+
+    if (newName === oldName) return;
+
+    if (state.signals[newName]) {
+      showToast("Ya existe", `El nombre "${newName}" ya está en uso.`);
+      return;
+    }
+
+    pushUndo();
+    
+    const newSignals = {};
+    Object.keys(state.signals).forEach(key => {
+      if (key === oldName) {
+        newSignals[newName] = originalData;
+      } else {
+        newSignals[key] = state.signals[key];
+      }
+    });
+
+    state.signals = newSignals;
+    
+    if (state.selectedSig === oldName) {
+      state.selectedSig = newName;
+    }
+
+    saveSignals();
+    renderSignalList();
+    if (state.selectedSig === newName) selectSignal(newName);
+    
+    showToast("Renombrado", `"${oldName}" ahora se llama "${newName}"`);
+  });
+}
+window.renameSignal = renameSignal;
+
+export function duplicateSignal(sig) {
+  const original = state.signals[sig];
+  if (!original) return;
+  
+  let newName = sig + "_COPY";
+  let i = 1;
+  while (state.signals[newName]) {
+    newName = `${sig}_COPY_${i}`;
+    i++;
+  }
+  
+  pushUndo();
+  state.signals[newName] = JSON.parse(JSON.stringify(original));
+  state.signals[newName].assignedToButton = false;
+  if (state.signals[newName].label) {
+    state.signals[newName].label += " (Copia)";
+  }
+  
+  saveSignals();
+  renderSignalList();
+  showToast("Duplicado", `Workflow "${sig}" duplicado como "${newName}"`);
+}
+window.duplicateSignal = duplicateSignal;
+
+export async function copySignalToClipboard(sig) {
+  const data = state.signals[sig];
+  if (!data) return;
+  
+  const payload = JSON.stringify({ version: "1.0", type: "single-workflow", name: sig, data }, null, 2);
+  try {
+    await navigator.clipboard.writeText(payload);
+    showToast("Copiado", "JSON del workflow copiado al portapapeles");
+  } catch (err) {
+    showToast("Error", "No se pudo copiar al portapapeles");
+  }
+}
+window.copySignalToClipboard = copySignalToClipboard;
+
+export async function exportSingleWorkflow(sig) {
+  const data = state.signals[sig];
+  if (!data) return;
+  
+  const result = await window.arduino.exportSingleWorkflow(sig, data);
+  if (result.ok) {
+    showToast("Exportado", `Workflow guardado en:\n${result.path}`);
+  } else if (result.error !== "Cancelled") {
+    showToast("Error", `No se pudo exportar: ${result.error}`);
+  }
+}
+window.exportSingleWorkflow = exportSingleWorkflow;
+
+export async function importWorkflow(e) {
+  // Present a choice menu at the click position
+  closeContextMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  
+  const options = [
+    { label: 'Desde archivo (.json)', ico: '📁', action: importFromFile },
+    { label: 'Desde portapapeles', ico: '📋', action: importFromClipboard }
+  ];
+
+  options.forEach(opt => {
+    const item = document.createElement('div');
+    item.className = 'context-menu-item';
+    item.innerHTML = `<span class="ico">${opt.ico}</span><span>${opt.label}</span>`;
+    item.onclick = () => {
+      opt.action();
+      closeContextMenu();
+    };
+    menu.appendChild(item);
+  });
+
+  menu.onclick = (e) => e.stopPropagation();
+  document.body.appendChild(menu);
+  
+  // Position near the event (if available) or center
+  let x = e ? e.clientX : window.innerWidth / 2;
+  let y = e ? e.clientY : window.innerHeight / 2;
+  
+  if (x + 160 > window.innerWidth) x -= 160;
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  activeContextMenu = menu;
+}
+window.importWorkflow = importWorkflow;
+
+async function importFromFile() {
+  const result = await window.arduino.importSingleWorkflow();
+  if (result.ok) {
+    addImportedWorkflow(result.name, result.data);
+  } else if (result.error !== "Cancelled") {
+    showToast("Error", `No se pudo importar: ${result.error}`);
+  }
+}
+
+async function importFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    const raw = JSON.parse(text);
+    if (raw.type === "single-workflow" && raw.name && raw.data) {
+      addImportedWorkflow(raw.name, raw.data);
+      showToast("Importado", "Workflow importado desde el portapapeles");
+    } else {
+      showToast("Error", "El contenido del portapapeles no es un workflow válido");
+    }
+  } catch (e) {
+    showToast("Error", "No se pudo leer el portapapeles o el formato JSON es inválido");
+  }
+}
+
+function addImportedWorkflow(name, data) {
+  let finalName = name.toUpperCase().replace(/\s+/g, "_");
+  if (state.signals[finalName]) {
+    let i = 1;
+    while (state.signals[`${finalName}_${i}`]) i++;
+    finalName = `${finalName}_${i}`;
+  }
+  
+  pushUndo();
+  state.signals[finalName] = data;
+  state.signals[finalName].assignedToButton = false;
+  saveSignals();
+  renderSignalList();
+  selectSignal(finalName);
+  showToast("Importado", `Workflow "${finalName}" agregado correctamente.`);
+}
+
 export function deleteCurrentSignal() {
   if (!state.selectedSig) return;
   pushUndo();
   delete state.signals[state.selectedSig];
+  const deleted = state.selectedSig;
   state.selectedSig = null;
   saveSignals(); renderSignalList();
   document.getElementById("se-empty").classList.remove("d-none");
   document.getElementById("se-content").classList.add("d-none");
+  showToast("Eliminado", `Workflow "${deleted}" eliminado.`);
 }
 window.deleteCurrentSignal = deleteCurrentSignal;
 
@@ -257,7 +494,6 @@ export function makeStepCard(step, idx) {
   return card;
 }
 
-/** Build step param elements using createElement — no inline event handlers. */
 function buildStepParams(container, step, idx) {
   const p = step.params || {};
 
@@ -338,7 +574,6 @@ function buildStepParams(container, step, idx) {
       break;
     }
     case "run_script": {
-      // Language selector
       const r1 = makeRow("Lenguaje");
       const selWrap = document.createElement("div"); selWrap.className = "param-select-row";
       const langSel = document.createElement("select");
@@ -355,7 +590,6 @@ function buildStepParams(container, step, idx) {
       }
       r1.appendChild(selWrap); container.appendChild(r1);
 
-      // Code editor
       const r2 = makeRow("Código");
       const wrap = document.createElement("div"); wrap.className = "script-editor-wrap"; wrap.id = `script-editor-${idx}`;
       const gutter = document.createElement("div"); gutter.className = "script-gutter"; gutter.id = `script-gutter-${idx}`; gutter.textContent = "1";
@@ -425,7 +659,6 @@ export function startKeyCapture(idx) {
     window.arduino.stopKeyCapture();
   }
   state.capturingIdx = idx;
-  // Find the key input by data-param and data-idx
   const input = document.querySelector(`.param-input[data-idx="${idx}"][data-param="combo"]`);
   if (!input) return;
   input.classList.add("capturing"); input.readOnly = true; input.value = "Presioná la combinación...";
