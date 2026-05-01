@@ -1,0 +1,37 @@
+<div class="log-bar">
+  <div style="display: flex; align-items: center; gap: 12px">
+    <span style="font-size: 12px; font-weight: 600">Señales recibidas</span>
+    <span class="log-count" id="log-count">0 entradas</span>
+  </div>
+  <div style="display: flex; gap: 8px">
+    <input class="log-filter-in" type="text" placeholder="Filtrar..." id="log-filter" oninput="filterLog()" />
+    <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 11px" onclick="clearLog()">
+      Limpiar
+    </button>
+  </div>
+</div>
+<div class="log-entries" id="log-entries">
+  <div class="log-empty" id="log-empty">
+    <span class="ico">◎</span><span>Esperando datos del Arduino...</span>
+  </div>
+</div>
+<div class="stats-row">
+  <div class="stat">
+    <div class="stat-l">Señales</div>
+    <div class="stat-v a" id="st-sig">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-l">Acciones</div>
+    <div class="stat-v" id="st-act">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-l">Errores</div>
+    <div class="stat-v" id="st-err">0</div>
+  </div>
+</div>
+<div class="send-bar">
+  <input type="text" id="send-input" placeholder="Enviar al Arduino (Enter)..." />
+  <button class="btn btn-ghost" style="flex: none" onclick="sendSerial()">
+    Enviar ↗
+  </button>
+</div>

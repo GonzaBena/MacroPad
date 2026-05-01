@@ -1,0 +1,47 @@
+<div class="configure-split" id="config-content">
+  <div class="signal-list-panel" id="siglist-panel">
+    <div class="slp-header">
+      <div class="s-label" style="margin-bottom: 8px">Señales</div>
+      <div class="slp-add">
+        <input type="text" id="new-sig-cfg" placeholder="NUEVA_SEÑAL" maxlength="40" />
+        <button onclick="addSignal()">+</button>
+      </div>
+    </div>
+    <div class="signal-list" id="signal-list"></div>
+  </div>
+
+  <div class="resizer" id="siglist-resizer"></div>
+
+  <div class="step-editor-panel">
+    <div class="se-empty" id="se-empty">
+      <span class="ico">↰</span>
+      <span>Seleccioná una señal</span>
+    </div>
+    <div class="se-content" id="se-content" style="display: none">
+      <div class="se-header">
+        <span class="se-signal-tag" id="se-signal-tag"></span>
+        <input class="se-label-input" type="text" id="se-label-input" placeholder="Nombre descriptivo..."
+          oninput="updateSignalLabel(this.value)" />
+        <button class="btn-assign" id="btn-assign" onclick="toggleAssignButton()"
+          title="Asignar al botón físico del Arduino">
+          🔌
+        </button>
+        <button class="btn-test" onclick="testCurrentSignal()">
+          ▶ Probar
+        </button>
+        <button class="btn-del-sig" onclick="deleteCurrentSignal()">
+          ✕
+        </button>
+      </div>
+      <div class="flow-container" id="flow-container"></div>
+      <div class="add-step-bar">
+        <div class="add-step-wrap">
+          <button class="add-step-btn" id="add-step-btn" onclick="toggleStepMenu()">
+            + Agregar paso
+          </button>
+          <div class="step-menu" id="step-menu"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
