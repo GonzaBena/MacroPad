@@ -5,7 +5,12 @@ export const state = {
   logAll: [],
   stats: { sig: 0, act: 0, err: 0 },
   dragSrcIdx: null,
-  capturingIdx: null
+  capturingIdx: null,
+  config: {
+    theme: "dark",
+    closeBehavior: "close",
+    accentColor: "#f5a623"
+  }
 };
 
 export const STEP_TYPES = {
@@ -46,6 +51,29 @@ export function pushSignals() {
 export function saveSignals() {
   localStorage.setItem("ac-signals", JSON.stringify(state.signals));
   pushSignals();
+}
+
+export function applyConfig() {
+  // Apply accent color using hex
+  const root = document.documentElement;
+  root.style.setProperty('--amber', state.config.accentColor);
+  root.style.setProperty('--amber-dim', `color-mix(in srgb, ${state.config.accentColor} 70%, black)`);
+  root.style.setProperty('--amber-bg', `color-mix(in srgb, ${state.config.accentColor} 10%, transparent)`);
+}
+
+export function loadConfig() {
+  try {
+    const c = localStorage.getItem("ac-config");
+    if (c) {
+      state.config = { ...state.config, ...JSON.parse(c) };
+    }
+  } catch (e) { console.error(e) }
+  applyConfig();
+}
+
+export function saveConfig() {
+  localStorage.setItem("ac-config", JSON.stringify(state.config));
+  applyConfig();
 }
 
 function migrateType(t) {

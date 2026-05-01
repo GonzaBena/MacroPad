@@ -1,21 +1,24 @@
-import { state, loadSignalsData } from './state.js';
-import { loadView, initResizers, showToast } from './ui.js';
+import { state, loadSignalsData, loadConfig } from './state.js';
+import { loadView, initResizers, initMenu, showToast } from './ui.js';
 import { handleConnectionStatus, refreshPorts } from './connection.js';
 import { log } from './monitor.js';
-import { buildStepMenu, renderSignalList, updateParam } from './configure.js';
+import { buildStepMenu, renderSignalList, updateParam } from './workflows.js';
 
 window.addEventListener("DOMContentLoaded", async () => {
   // 1. Cargar las vistas
   await loadView("main-sidebar", "views/sidebar.html");
   await loadView("tab-monitor", "views/monitor.html");
-  await loadView("tab-configure", "views/configure.html");
+  await loadView("tab-workflows", "views/workflows.html");
   await loadView("cmd-modal-overlay", "views/cmd-modal.html");
-  
+  await loadView("config-view", "views/config.html");
+
   // 2. Setup de elementos estáticos iniciales
   initResizers();
+  initMenu();
   buildStepMenu();
 
   // 3. Cargar datos
+  loadConfig();
   loadSignalsData();
   renderSignalList();
   refreshPorts();

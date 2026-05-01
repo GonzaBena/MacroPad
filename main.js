@@ -4,6 +4,18 @@ const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
 const { setupKeyboard } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
+const path = require("path");
+
+// Habilitar hot reload en desarrollo
+if (!app.isPackaged) {
+  try {
+    require("electron-reload")(__dirname, {
+      electron: path.join(__dirname, "node_modules", ".bin", "electron")
+    });
+  } catch (err) {
+    console.error("electron-reload failed to initialize", err);
+  }
+}
 
 // Inicialización de la App
 app.whenReady().then(() => {

@@ -1,0 +1,12 @@
+/* Resizer Handles */
+.resizer {
+    background: transparent;
+    cursor: col-resize;
+    z-index: 10;
+    transition: background 0.2s;
+}
+
+.resizer:hover, .resizer.dragging {
+    background: var(--amber);
+}
+

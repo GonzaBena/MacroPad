@@ -1,0 +1,143 @@
+/* Configure tab */
+.configure-split {
+    display: grid;
+    grid-template-columns: var(--sig-sidebar-w, 220px) 4px 1fr;
+    height: 100%;
+    overflow: hidden;
+}
+
+.signal-list-panel {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.slp-header {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.slp-add {
+    display: flex;
+    gap: 6px;
+}
+
+.slp-add input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    outline: none;
+    min-width: 0;
+}
+
+.slp-add input:focus {
+    border-color: var(--amber);
+}
+
+.slp-add input::placeholder {
+    color: var(--muted);
+}
+
+.slp-add button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: var(--amber);
+    color: #0c0e14;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.signal-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.signal-list::-webkit-scrollbar {
+    width: 3px;
+}
+
+.signal-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+
+.sig-card {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sig-card:hover {
+    border-color: var(--border2);
+}
+
+.sig-card.active {
+    border-color: var(--amber-dim);
+    background: var(--surface3);
+}
+
+.sig-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+
+.sig-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    font-weight: 700;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sig-label {
+    font-size: 11px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sig-steps-count {
+    font-size: 10px;
+    color: var(--muted2);
+    margin-top: 2px;
+}
+
+.sig-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    flex-shrink: 0;
+    animation: pulse 1s ease-in-out infinite;
+    display: none;
+}
+
+.sig-card.running .sig-pulse {
+    display: block;
+}
+

@@ -1,0 +1,44 @@
+<div class="config-page">
+  <div class="config-header">
+    <button class="btn-back" onclick="closeConfigView()">
+      <span>←</span> Volver
+    </button>
+    <h2 class="config-title">Configuraciones Generales</h2>
+  </div>
+  
+  <div class="config-body">
+    <div class="config-section">
+      <div class="config-section-title">Preferencias de la aplicación</div>
+      
+      <div class="config-row">
+        <div class="config-label">Tema visual</div>
+        <select class="config-input" id="cfg-theme">
+          <option>Oscuro (Por defecto)</option>
+        </select>
+      </div>
+      
+      <div class="config-row">
+        <div class="config-label">Color de Acento</div>
+        <div class="config-color-field">
+          <input type="text" class="config-input config-input-hex" id="cfg-accent" value="#f5a623" maxlength="7" spellcheck="false" placeholder="#f5a623">
+          <button class="config-color-btn" id="cfg-accent-btn" title="Abrir selector de color">
+            <span class="config-color-preview" id="cfg-accent-preview"></span>
+          </button>
+          <input type="color" id="cfg-accent-picker" value="#f5a623" style="display:none;">
+        </div>
+      </div>
+      
+      <div class="config-row">
+        <div class="config-label">Comportamiento al cerrar</div>
+        <select class="config-input" id="cfg-close">
+          <option value="close">Cerrar completamente</option>
+          <option value="tray">Minimizar a la bandeja del sistema (Próximamente)</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="config-actions" style="display: flex; justify-content: flex-end; width: 100%; max-width: 600px; margin-top: 20px;">
+      <button class="btn btn-save" onclick="saveConfigView()" style="background: var(--amber); color: var(--bg); padding: 10px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-family: var(--ui);">Guardar Configuraciones</button>
+    </div>
+  </div>
+</div>
