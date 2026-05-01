@@ -133,6 +133,13 @@ export function renderFlow() {
       fc.appendChild(conn);
     }
   });
+
+  // Initialize script editors (syntax highlight + gutter)
+  steps.forEach((step, i) => {
+    if (step.type === 'run_script') {
+      handleScriptInput(i);
+    }
+  });
 }
 
 export function makeStepCard(step, idx, total) {
@@ -264,6 +271,33 @@ export function renderStepParams(step, idx) {
         <input class="param-input" type="text" value="${escAttr(p.body || "")}" placeholder="Cuerpo del mensaje"
           oninput="updateParam(${i},'body',this.value)" />
       </div>`;
+    case "run_script":
+      return `
+      <div class="param-row">
+        <div class="param-label">Lenguaje</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select class="param-select" id="script-lang-${i}" onchange="updateParam(${i},'lang',this.value); updateScriptEditor(${i})" style="width: auto; min-width: 140px;">
+            <option value="python" ${(p.lang || 'python') === 'python' ? 'selected' : ''}>Python</option>
+            <option value="javascript" ${p.lang === 'javascript' ? 'selected' : ''}>JavaScript (Beta)</option>
+          </select>
+          ${(p.lang === 'javascript') ? '<span class="script-beta-badge">BETA</span>' : ''}
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-label">Código</div>
+        <div class="script-editor-wrap" id="script-editor-${i}">
+          <div class="script-gutter" id="script-gutter-${i}">1</div>
+          <div class="script-code-area">
+            <pre class="script-highlight" id="script-highlight-${i}" aria-hidden="true"></pre>
+            <textarea class="script-textarea" id="script-code-${i}"
+              spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
+              placeholder="Escribí tu código aquí..."
+              oninput="handleScriptInput(${i})"
+              onscroll="syncScriptScroll(${i})"
+              onkeydown="handleScriptKeydown(event, ${i})">${(p.code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</textarea>
+          </div>
+        </div>
+      </div>`;
     default:
       return "";
   }
@@ -311,6 +345,7 @@ export function addStep(type) {
       run_cmd: { cmd: "" },
       open_file: { path: "" },
       notify: { title: "Arduino", body: "" },
+      run_script: { lang: "python", code: "" },
     };
     return d[t] || {};
   }
@@ -394,6 +429,7 @@ export function buildStepMenu() {
     { items: ["keypress", "wait", "clipboard"] },
     { items: ["media"] },
     { items: ["open_url", "run_cmd", "open_file"] },
+    { items: ["run_script"] },
     { items: ["notify"] },
   ];
   groups.forEach((group, gi) => {
@@ -445,3 +481,96 @@ export function toggleStepMenu() {
   menu.classList.add("open");
 }
 window.toggleStepMenu = toggleStepMenu;
+
+// ── Script Editor helpers ──
+
+function highlightCode(code, lang) {
+  let html = escHtml(code);
+  const tokens = [];
+
+  // Extract strings/comments into placeholders so keyword regex
+  // won't match words like 'class' inside generated HTML attributes.
+  function hold(match, cls) {
+    const id = '\x00T' + tokens.length + '\x00';
+    tokens.push('<span class="' + cls + '">' + match + '</span>');
+    return id;
+  }
+
+  if (lang === 'python') {
+    html = html.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|&quot;(?:[^&]|&(?!quot;))*?&quot;|'[^'\n]*?')/g,
+      function(m) { return hold(m, 'sh-str'); });
+    html = html.replace(/(#.*)/g,
+      function(m) { return hold(m, 'sh-cmt'); });
+    html = html.replace(/\b(def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|pass|break|continue|and|or|not|in|is|None|True|False|lambda|yield|raise|global|nonlocal|assert|del|print)\b/g, '<span class="sh-kw">$1</span>');
+    html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="sh-num">$1</span>');
+    html = html.replace(/\b(len|range|str|int|float|list|dict|tuple|set|type|isinstance|enumerate|zip|map|filter|sorted|open|input|super|__init__|self)\b/g, '<span class="sh-fn">$1</span>');
+  } else if (lang === 'javascript') {
+    html = html.replace(/(`[\s\S]*?`|&quot;(?:[^&]|&(?!quot;))*?&quot;|'[^'\n]*?')/g,
+      function(m) { return hold(m, 'sh-str'); });
+    html = html.replace(/(\/\/.*)/g,
+      function(m) { return hold(m, 'sh-cmt'); });
+    html = html.replace(/\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|class|extends|import|export|from|default|async|await|typeof|instanceof|null|undefined|true|false|this|of|in)\b/g, '<span class="sh-kw">$1</span>');
+    html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="sh-num">$1</span>');
+    html = html.replace(/\b(console|Math|JSON|Array|Object|String|Number|Boolean|Promise|setTimeout|setInterval|require|module|exports|process)\b/g, '<span class="sh-fn">$1</span>');
+  }
+
+  // Restore placeholders
+  for (var i = 0; i < tokens.length; i++) {
+    html = html.replace('\x00T' + i + '\x00', tokens[i]);
+  }
+
+  if (!html.endsWith('\n')) html += '\n';
+  return html;
+}
+
+function updateGutter(idx) {
+  const textarea = document.getElementById(`script-code-${idx}`);
+  const gutter = document.getElementById(`script-gutter-${idx}`);
+  if (!textarea || !gutter) return;
+  const lines = textarea.value.split('\n').length;
+  gutter.innerHTML = Array.from({ length: lines }, (_, i) => `<div>${i + 1}</div>`).join('');
+}
+
+export function handleScriptInput(idx) {
+  const textarea = document.getElementById(`script-code-${idx}`);
+  if (!textarea) return;
+  const lang = document.getElementById(`script-lang-${idx}`)?.value || 'python';
+  updateParam(idx, 'code', textarea.value);
+  const highlight = document.getElementById(`script-highlight-${idx}`);
+  if (highlight) highlight.innerHTML = highlightCode(textarea.value, lang);
+  updateGutter(idx);
+}
+window.handleScriptInput = handleScriptInput;
+
+export function syncScriptScroll(idx) {
+  const textarea = document.getElementById(`script-code-${idx}`);
+  const highlight = document.getElementById(`script-highlight-${idx}`);
+  const gutter = document.getElementById(`script-gutter-${idx}`);
+  if (textarea && highlight) {
+    highlight.scrollTop = textarea.scrollTop;
+    highlight.scrollLeft = textarea.scrollLeft;
+  }
+  if (textarea && gutter) {
+    gutter.scrollTop = textarea.scrollTop;
+  }
+}
+window.syncScriptScroll = syncScriptScroll;
+
+export function handleScriptKeydown(e, idx) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ta = e.target;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + 4;
+    handleScriptInput(idx);
+  }
+}
+window.handleScriptKeydown = handleScriptKeydown;
+
+export function updateScriptEditor(idx) {
+  // Re-render the flow to update the badge and re-highlight
+  renderFlow();
+}
+window.updateScriptEditor = updateScriptEditor;

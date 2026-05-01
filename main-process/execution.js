@@ -95,6 +95,10 @@ async function executeStep(step) {
       if (win) win.webContents.send("show-notification", { title, body });
       break;
     }
+    case "run_script": {
+      await runScript(step.params?.lang || "python", step.params?.code || "");
+      break;
+    }
   }
 }
 
@@ -105,6 +109,36 @@ function runCmd(cmd) {
       if (win) {
         win.webContents.send("action-result", {
           cmd, ok: !err, output: err ? err.message : stdout,
+        });
+      }
+      resolve();
+    })
+  );
+}
+
+function runScript(lang, code) {
+  const win = getWindow();
+  const os = require("os");
+  const fs = require("fs");
+  const path = require("path");
+  const ext = lang === "javascript" ? ".js" : ".py";
+  const interpreter = lang === "javascript" ? "node" : "python";
+  const tmpFile = path.join(os.tmpdir(), `pokepad_script_${Date.now()}${ext}`);
+
+  fs.writeFileSync(tmpFile, code, "utf-8");
+  const cmd = `${interpreter} "${tmpFile}"`;
+
+  return new Promise((resolve) =>
+    exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
+      // Clean up temp file
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+
+      const output = (stdout || "") + (stderr || "");
+      if (win) {
+        win.webContents.send("action-result", {
+          cmd: `[Script ${lang}]`,
+          ok: !err,
+          output: err ? (err.killed ? "Script timed out (30s)" : output || err.message) : output,
         });
       }
       resolve();

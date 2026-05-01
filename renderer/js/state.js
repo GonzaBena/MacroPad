@@ -22,6 +22,7 @@ export const STEP_TYPES = {
   run_cmd: { label: "Ejecutar cmd", icon: "$", cls: "t-run_cmd" },
   open_file: { label: "Abrir archivo", icon: "⌂", cls: "t-open_file" },
   notify: { label: "Notificación", icon: "◉", cls: "t-notify" },
+  run_script: { label: "Ejecutar script", icon: "{ }", cls: "t-run_script" },
 };
 
 export const MEDIA_OPTIONS = [
