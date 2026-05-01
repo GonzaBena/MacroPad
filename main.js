@@ -4,6 +4,7 @@ const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
 const { setupKeyboard } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
+const { setupPersistence } = require("./main-process/persistence");
 const path = require("path");
 
 // Habilitar hot reload en desarrollo
@@ -26,6 +27,7 @@ app.whenReady().then(() => {
   setupMedia();
   setupKeyboard();
   setupExecution();
+  setupPersistence();
 
   // Handlers IPC generales (Diálogos y Ventana)
   ipcMain.handle("select-file", async () => {

@@ -1,0 +1,134 @@
+/* ── Utility Classes ──
+   Replacements for inline styles used across views.
+   Keep this file minimal — only add classes that replace
+   recurring inline patterns.
+*/
+
+/* Layout */
+.d-flex          { display: flex; }
+.d-none          { display: none; }
+.items-center    { align-items: center; }
+.justify-end     { justify-content: flex-end; }
+.flex-1          { flex: 1; }
+.flex-none       { flex: none; }
+.gap-6           { gap: 6px; }
+.gap-8           { gap: 8px; }
+.gap-12          { gap: 12px; }
+.w-full          { width: 100%; }
+.max-w-600       { max-width: 600px; }
+.mt-20           { margin-top: 20px; }
+.mb-8            { margin-bottom: 8px; }
+.p-h-10          { padding: 0 10px; }
+
+/* Typography */
+.font-12         { font-size: 12px; }
+.font-11         { font-size: 11px; }
+.font-9          { font-size: 9px; }
+.fw-600          { font-weight: 600; }
+.fw-700          { font-weight: 700; }
+
+/* Borders */
+.border-subtle   { border: 1px solid rgba(255,255,255,0.2); }
+
+/* Specific component overrides */
+.port-select-row { display: flex; gap: 6px; }
+.port-select-row select { flex: 1; }
+
+.log-bar-left    { display: flex; align-items: center; gap: 12px; }
+.log-bar-left span:first-child { font-size: 12px; font-weight: 600; }
+.log-bar-right   { display: flex; gap: 8px; }
+.log-bar-right .btn { padding: 4px 10px; font-size: 11px; }
+
+/* Config actions bar */
+.config-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 600px;
+  margin-top: 20px;
+  gap: 8px;
+}
+
+.btn-save-config {
+  background: var(--amber);
+  color: var(--bg);
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: var(--ui);
+}
+
+.btn-save-config:hover {
+  filter: brightness(1.1);
+}
+
+/* Button assigned badge (from workflows.js dynamic HTML) */
+.sig-assigned-badge {
+  font-size: 9px;
+  background: var(--green);
+  color: #000;
+  padding: 2px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 700;
+}
+
+/* Signal color dot */
+.sig-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* Step param helpers */
+.param-input-row  { display: flex; gap: 8px; }
+.param-select-row { display: flex; align-items: center; gap: 8px; }
+.btn-key-capture  { padding: 0 10px; border: 1px solid rgba(255,255,255,0.2); }
+.btn-browse-file  { padding: 0 10px; border: 1px solid rgba(255,255,255,0.2); max-width: 32px; }
+
+/* Script beta badge */
+.script-beta-badge {
+  font-size: 10px;
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+/* Flow empty state */
+.flow-empty-icon {
+  font-size: 28px;
+  opacity: .2;
+}
+
+/* Export / Import section */
+.config-data-section {
+  margin-top: 12px;
+}
+
+.config-data-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-export, .btn-import {
+  padding: 8px 16px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: var(--fg);
+  font-family: var(--ui);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-export:hover, .btn-import:hover {
+  background: rgba(255,255,255,0.1);
+}

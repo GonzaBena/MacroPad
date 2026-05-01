@@ -1,11 +1,11 @@
 <div class="log-bar">
-  <div style="display: flex; align-items: center; gap: 12px">
-    <span style="font-size: 12px; font-weight: 600">Señales recibidas</span>
+  <div class="log-bar-left">
+    <span>Señales recibidas</span>
     <span class="log-count" id="log-count">0 entradas</span>
   </div>
-  <div style="display: flex; gap: 8px">
-    <input class="log-filter-in" type="text" placeholder="Filtrar..." id="log-filter" oninput="filterLog()" />
-    <button class="btn btn-ghost" style="padding: 4px 10px; font-size: 11px" onclick="clearLog()">
+  <div class="log-bar-right">
+    <input class="log-filter-in" type="text" placeholder="Filtrar..." id="log-filter" />
+    <button class="btn btn-ghost" id="btn-clear-log">
       Limpiar
     </button>
   </div>
@@ -31,7 +31,7 @@
 </div>
 <div class="send-bar">
   <input type="text" id="send-input" placeholder="Enviar al Arduino (Enter)..." />
-  <button class="btn btn-ghost" style="flex: none" onclick="sendSerial()">
+  <button class="btn btn-ghost flex-none" id="btn-send-serial">
     Enviar ↗
   </button>
 </div>

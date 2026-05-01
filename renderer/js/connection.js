@@ -35,7 +35,16 @@ export function toggleConnect() {
 }
 window.toggleConnect = toggleConnect;
 
-export function handleConnectionStatus(c, port, baud) {
+export function cancelReconnect() {
+  window.arduino.send("cancel-reconnect-placeholder");
+  // Use the IPC channel
+  // We need a dedicated way - let's just disconnect
+  window.arduino.disconnect();
+  showToast("Reconexión cancelada", "Se detuvo la reconexión automática");
+}
+window.cancelReconnect = cancelReconnect;
+
+export function handleConnectionStatus(c, port, baud, reconnecting, attempt, maxAttempts) {
   state.connected = c;
   document.getElementById("tb-dot").classList.toggle("on", c);
   document.getElementById("s-dot").classList.toggle("on", c);
@@ -45,5 +54,26 @@ export function handleConnectionStatus(c, port, baud) {
   const btn = document.getElementById("btn-conn");
   btn.textContent = c ? "Desconectar" : "Conectar";
   btn.className = c ? "btn btn-ghost" : "btn btn-primary";
-  log(c ? `Conectado a ${port}` : "Desconectado", "sys");
+
+  // Handle reconnect indicator
+  const indicator = document.getElementById("reconnect-indicator");
+  if (indicator) {
+    if (reconnecting && !c) {
+      indicator.classList.remove("d-none");
+      const text = document.getElementById("reconnect-text");
+      if (text) text.textContent = `Reconectando... (${attempt}/${maxAttempts})`;
+    } else {
+      indicator.classList.add("d-none");
+    }
+  }
+
+  if (c) {
+    log(`Conectado a ${port}`, "sys");
+    if (reconnecting === false) {
+      // Was reconnecting, now connected
+      showToast("Reconectado", `Conexión restaurada en ${port}`);
+    }
+  } else if (!reconnecting) {
+    log("Desconectado", "sys");
+  }
 }

@@ -2,11 +2,11 @@
   <div class="s-label">Conexión Serial</div>
   <div class="field">
     <label>Puerto</label>
-    <div style="display: flex; gap: 6px">
-      <select id="port-sel" style="flex: 1">
+    <div class="port-select-row">
+      <select id="port-sel">
         <option value="">— Seleccioná un puerto —</option>
       </select>
-      <button class="btn-icon" onclick="refreshPorts()">↺</button>
+      <button class="btn-icon" id="btn-refresh-ports">↺</button>
     </div>
   </div>
   <div class="field">
@@ -23,11 +23,16 @@
     <span class="s-dot" id="s-dot"></span>
     <span class="s-text" id="s-text">Desconectado</span>
   </div>
+  <div id="reconnect-indicator" class="reconnect-indicator d-none">
+    <span class="reconnect-spinner">⟳</span>
+    <span id="reconnect-text">Reconectando...</span>
+    <button class="btn-ghost-sm" id="btn-cancel-reconnect">✕</button>
+  </div>
   <div class="btn-row">
-    <button class="btn btn-primary" id="btn-conn" onclick="toggleConnect()">
+    <button class="btn btn-primary" id="btn-conn">
       Conectar
     </button>
-    <button class="btn btn-ghost" onclick="refreshPorts()">
+    <button class="btn btn-ghost" id="btn-refresh-ports2">
       ↺ Puertos
     </button>
   </div>

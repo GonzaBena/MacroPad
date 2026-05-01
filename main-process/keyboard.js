@@ -1,5 +1,5 @@
 const { ipcMain } = require("electron");
-const { exec } = require("child_process");
+const { exec, execFile } = require("child_process");
 const { getWindow } = require("./window");
 
 const KEY_CODES_MAC = {
@@ -51,6 +51,15 @@ function setupKeyboard() {
   });
 }
 
+/**
+ * Escape a string for safe inclusion in PowerShell commands.
+ * Prevents injection via crafted key combo values.
+ */
+function escapePowerShell(str) {
+  // Only allow safe characters for key simulation
+  return str.replace(/[^a-zA-Z0-9+\-_ ]/g, "");
+}
+
 function simulateKey(combo) {
   return new Promise((resolve) => {
     if (!combo) return resolve();
@@ -58,6 +67,20 @@ function simulateKey(combo) {
     const parts = combo.toLowerCase().split("+").map((s) => s.trim());
     const key = parts[parts.length - 1];
     const mods = parts.slice(0, -1);
+
+    // Validate key parts — only allow alphanumeric and known key names
+    const validKeyPattern = /^[a-z0-9]+$/;
+    if (!validKeyPattern.test(key)) {
+      if (win) win.webContents.send("serial-error", `Tecla inválida: "${key}"`);
+      return resolve();
+    }
+    for (const mod of mods) {
+      if (!["cmd", "command", "ctrl", "control", "alt", "option", "shift"].includes(mod)) {
+        if (win) win.webContents.send("serial-error", `Modificador inválido: "${mod}"`);
+        return resolve();
+      }
+    }
+
     const modMap = {
       cmd: "command down", command: "command down",
       ctrl: "control down", control: "control down",
@@ -78,10 +101,19 @@ function simulateKey(combo) {
         resolve();
       });
     } else if (process.platform === "win32") {
+      const safeKey = escapePowerShell(key);
       const modPre = mods.map((m) => ({ cmd: "", ctrl: "^", alt: "%", shift: "+" })[m] || "").join("");
-      exec(`powershell -command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${modPre}${key}')"`, () => resolve());
+      const sendKeysArg = `${modPre}${safeKey}`;
+
+      // Use execFile with arguments to prevent shell injection
+      const psScript = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${sendKeysArg}')`;
+      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], (err) => {
+        if (err && win) win.webContents.send("serial-error", `Teclas: ${err.message}`);
+        resolve();
+      });
     } else {
-      exec(`xdotool key ${combo.replace(/cmd/g, "super").replace(/\+/g, "+")}`, () => resolve());
+      const safeCombo = escapePowerShell(combo).replace(/cmd/g, "super");
+      execFile("xdotool", ["key", safeCombo], () => resolve());
     }
   });
 }

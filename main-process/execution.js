@@ -1,11 +1,21 @@
 const { ipcMain, shell, clipboard, Notification } = require("electron");
-const { exec } = require("child_process");
+const { execFile, exec } = require("child_process");
 const { getWindow } = require("./window");
 const { simulateKey } = require("./keyboard");
 const { mediaControl } = require("./media");
+const os = require("os");
+const fs = require("fs");
+const path = require("path");
 
 let signalMap = {};
 const runningSequences = new Set();
+
+// Private temp directory for scripts
+const SCRIPT_DIR = path.join(os.tmpdir(), "pokepad_scripts");
+try { fs.mkdirSync(SCRIPT_DIR, { recursive: true }); } catch (_) {}
+
+// Maximum command length to prevent abuse
+const MAX_CMD_LENGTH = 4096;
 
 function setupExecution() {
   ipcMain.on("update-signal-map", (_, map) => {
@@ -21,7 +31,7 @@ function sleep(ms) {
 
 async function executeSequence(incomingSignal) {
   const win = getWindow();
-  
+
   let signal = incomingSignal;
   let entry = signalMap[signal];
 
@@ -44,19 +54,22 @@ async function executeSequence(incomingSignal) {
     runningSequences.delete(signal);
     return;
   }
-  
+
   if (win) win.webContents.send("sequence-start", signal);
-  
-  for (const step of entry.steps) {
-    try {
-      await executeStep(step);
-    } catch (e) {
-      if (win) win.webContents.send("serial-error", `[${step.type}] ${e.message}`);
+
+  try {
+    for (const step of entry.steps) {
+      try {
+        await executeStep(step);
+      } catch (e) {
+        if (win) win.webContents.send("serial-error", `[${step.type}] ${e.message}`);
+      }
     }
+  } finally {
+    // Siempre limpiar el estado, incluso si hay error inesperado
+    if (win) win.webContents.send("sequence-end", signal);
+    runningSequences.delete(signal);
   }
-  
-  if (win) win.webContents.send("sequence-end", signal);
-  runningSequences.delete(signal);
 }
 
 async function executeStep(step) {
@@ -77,14 +90,26 @@ async function executeStep(step) {
     case "open_url": {
       let targetUrl = step.params?.url || "";
       if (targetUrl && !/^https?:\/\//i.test(targetUrl)) targetUrl = "https://" + targetUrl;
-      await shell.openExternal(targetUrl);
+      // Validar estrictamente que solo se permitan URLs HTTP/HTTPS
+      try {
+        const parsed = new URL(targetUrl);
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          throw new Error(`Protocolo no permitido: ${parsed.protocol}`);
+        }
+        await shell.openExternal(parsed.href);
+      } catch (e) {
+        throw new Error(`URL inválida: ${e.message}`);
+      }
       break;
     }
     case "run_cmd":
       await runCmd(step.params?.cmd || "");
       break;
     case "open_file": {
-      const error = await shell.openPath(step.params?.path || "");
+      const filePath = step.params?.path || "";
+      // Validar que el path no esté vacío y que exista
+      if (!filePath) throw new Error("Ruta vacía");
+      const error = await shell.openPath(filePath);
       if (error) throw new Error(error);
       break;
     }
@@ -104,8 +129,19 @@ async function executeStep(step) {
 
 function runCmd(cmd) {
   const win = getWindow();
+
+  // Validar longitud del comando
+  if (cmd.length > MAX_CMD_LENGTH) {
+    if (win) {
+      win.webContents.send("action-result", {
+        cmd, ok: false, output: `Comando demasiado largo (máx ${MAX_CMD_LENGTH} chars)`,
+      });
+    }
+    return Promise.resolve();
+  }
+
   return new Promise((resolve) =>
-    exec(cmd, (err, stdout) => {
+    exec(cmd, { timeout: 30000 }, (err, stdout) => {
       if (win) {
         win.webContents.send("action-result", {
           cmd, ok: !err, output: err ? err.message : stdout,
@@ -118,18 +154,35 @@ function runCmd(cmd) {
 
 function runScript(lang, code) {
   const win = getWindow();
-  const os = require("os");
-  const fs = require("fs");
-  const path = require("path");
-  const ext = lang === "javascript" ? ".js" : ".py";
-  const interpreter = lang === "javascript" ? "node" : "python";
-  const tmpFile = path.join(os.tmpdir(), `pokepad_script_${Date.now()}${ext}`);
 
-  fs.writeFileSync(tmpFile, code, "utf-8");
-  const cmd = `${interpreter} "${tmpFile}"`;
+  // Validar lenguaje permitido
+  const allowedLangs = { python: ".py", javascript: ".js" };
+  const ext = allowedLangs[lang];
+  if (!ext) {
+    if (win) {
+      win.webContents.send("action-result", {
+        cmd: `[Script ${lang}]`, ok: false, output: `Lenguaje no soportado: ${lang}`,
+      });
+    }
+    return Promise.resolve();
+  }
+
+  const interpreter = lang === "javascript" ? "node" : "python";
+  const tmpFile = path.join(SCRIPT_DIR, `script_${Date.now()}${ext}`);
+
+  try {
+    fs.writeFileSync(tmpFile, code, { encoding: "utf-8", mode: 0o600 });
+  } catch (writeErr) {
+    if (win) {
+      win.webContents.send("action-result", {
+        cmd: `[Script ${lang}]`, ok: false, output: `Error escribiendo script: ${writeErr.message}`,
+      });
+    }
+    return Promise.resolve();
+  }
 
   return new Promise((resolve) =>
-    exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
+    execFile(interpreter, [tmpFile], { timeout: 30000 }, (err, stdout, stderr) => {
       // Clean up temp file
       try { fs.unlinkSync(tmpFile); } catch (_) {}
 

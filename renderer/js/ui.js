@@ -1,4 +1,5 @@
-import { state, saveConfig } from './state.js';
+import { state, saveConfig, undo as stateUndo, redo as stateRedo, canUndo, canRedo } from './state.js';
+import { renderSignalList, renderFlow } from './workflows.js';
 
 export async function loadView(elementId, viewPath) {
   const response = await fetch(viewPath);
@@ -28,9 +29,13 @@ export function showToast(title, body) {
 }
 
 export function closeCmdModal() {
-  document.getElementById("cmd-modal-overlay").style.display = "none";
+  document.getElementById("cmd-modal-overlay").classList.add("d-none");
 }
 window.closeCmdModal = closeCmdModal;
+
+export function showCmdModal() {
+  document.getElementById("cmd-modal-overlay").classList.remove("d-none");
+}
 
 function initConfigColorPicker() {
   const hexInput = document.getElementById("cfg-accent");
@@ -73,8 +78,8 @@ function initConfigColorPicker() {
 }
 
 export function openConfigView() {
-  document.getElementById("main-content").style.display = "none";
-  document.getElementById("config-view").style.display = "flex";
+  document.getElementById("main-content").classList.add("d-none");
+  document.getElementById("config-view").classList.remove("d-none");
 
   // Load current config into inputs
   const themeEl = document.getElementById("cfg-theme");
@@ -106,10 +111,66 @@ export function saveConfigView() {
 window.saveConfigView = saveConfigView;
 
 export function closeConfigView() {
-  document.getElementById("config-view").style.display = "none";
-  document.getElementById("main-content").style.display = "";
+  document.getElementById("config-view").classList.add("d-none");
+  document.getElementById("main-content").classList.remove("d-none");
 }
 window.closeConfigView = closeConfigView;
+
+// ── Undo / Redo ──
+
+export function undo() {
+  if (stateUndo()) {
+    renderSignalList();
+    if (state.selectedSig) renderFlow();
+    showToast("Deshacer", "Se deshizo el último cambio");
+  } else {
+    showToast("Deshacer", "No hay cambios para deshacer");
+  }
+}
+window.undo = undo;
+
+export function redo() {
+  if (stateRedo()) {
+    renderSignalList();
+    if (state.selectedSig) renderFlow();
+    showToast("Rehacer", "Se rehizo el último cambio");
+  } else {
+    showToast("Rehacer", "No hay cambios para rehacer");
+  }
+}
+window.redo = redo;
+
+// ── Export / Import ──
+
+export async function exportConfig() {
+  const result = await window.arduino.exportData();
+  if (result.ok) {
+    showToast("Exportado", `Configuración guardada en:\n${result.path}`);
+  } else if (result.error !== "Cancelled") {
+    showToast("Error", `No se pudo exportar: ${result.error}`);
+  }
+}
+window.exportConfig = exportConfig;
+
+export async function importConfig() {
+  const result = await window.arduino.importData();
+  if (result.ok) {
+    // Reload the imported data into state
+    if (result.data) {
+      state.signals = result.data.signals || {};
+      if (result.data.config) {
+        state.config = { ...state.config, ...result.data.config };
+      }
+    }
+    renderSignalList();
+    showToast("Importado", "Configuración importada exitosamente. Reiniciá la app para aplicar todos los cambios.");
+  } else if (result.error !== "Cancelled") {
+    showToast("Error", `No se pudo importar: ${result.error}`);
+  }
+}
+window.importConfig = importConfig;
+
+// ── Utilities ──
 
 export function escHtml(s) {
   return String(s)
@@ -214,5 +275,22 @@ export function initMenu() {
       isActive = false;
       wrappers.forEach(w => w.classList.remove('open'));
     });
+  });
+}
+
+// ── Keyboard shortcuts ──
+
+export function initKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+Z = Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    }
+    // Ctrl+Shift+Z or Ctrl+Y = Redo
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      redo();
+    }
   });
 }

@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MacroPad</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;" />
+  <title>PokePad</title>
   <link
     href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
     rel="stylesheet" />
@@ -18,27 +20,28 @@
         <span class="tb-dot" id="tb-dot"></span>
         PokePad
       </div>
-      
+
       <div class="tb-menu">
         <div class="menu-wrapper">
           <div class="menu-btn">Archivo</div>
           <div class="dropdown">
-            <div class="dd-item" onclick="openConfigView()">Configuraciones...</div>
+            <div class="dd-item" id="menu-config">Configuraciones...</div>
             <div class="dd-divider"></div>
-            <div class="dd-item" onclick="window.arduino.close()">Salir</div>
+            <div class="dd-item" id="menu-exit">Salir</div>
           </div>
         </div>
         <div class="menu-wrapper">
           <div class="menu-btn">Editar</div>
           <div class="dropdown">
-            <div class="dd-item">Deshacer</div>
+            <div class="dd-item" id="menu-undo">Deshacer</div>
+            <div class="dd-item" id="menu-redo">Rehacer</div>
           </div>
         </div>
       </div>
       <div class="tb-controls">
-        <button class="wbtn" onclick="window.arduino.minimize()">−</button>
-        <button class="wbtn" onclick="window.arduino.maximize()">□</button>
-        <button class="wbtn close" onclick="window.arduino.close()">✕</button>
+        <button class="wbtn" id="wbtn-min">−</button>
+        <button class="wbtn" id="wbtn-max">□</button>
+        <button class="wbtn close" id="wbtn-close">✕</button>
       </div>
     </div>
 
@@ -48,10 +51,10 @@
 
       <div class="panel">
         <div class="tabs">
-          <div class="tab active" onclick="switchTab('monitor', this)">
+          <div class="tab active" id="tab-btn-monitor" data-tab="monitor">
             Monitor
           </div>
-          <div class="tab" onclick="switchTab('workflows', this)">
+          <div class="tab" id="tab-btn-workflows" data-tab="workflows">
             Workflows
           </div>
         </div>
@@ -63,12 +66,12 @@
         <div class="tab-pane" id="tab-workflows"></div>
       </div>
     </div>
-    <div class="content" id="config-view" style="display: none;"></div>
+    <div class="content d-none" id="config-view"></div>
   </div>
   <div id="toasts"></div>
 
   <!-- Modales -->
-  <div class="cmd-modal-overlay" id="cmd-modal-overlay" style="display: none;"></div>
+  <div class="cmd-modal-overlay d-none" id="cmd-modal-overlay"></div>
 
   <script type="module" src="js/main.js"></script>
 </body>

@@ -1,5 +1,77 @@
-import { state, SIG_COLORS, saveSignals, uid, STEP_TYPES, MEDIA_OPTIONS } from './state.js';
+import { state, SIG_COLORS, saveSignals, pushUndo, uid, STEP_TYPES, MEDIA_OPTIONS } from './state.js';
 import { escHtml, escAttr, showToast } from './ui.js';
+
+// ── Event delegation para el flow-container (evita inline onclick bloqueados por CSP) ──
+export function initFlowDelegation() {
+  const panel = document.querySelector('.panel');
+  if (!panel) return;
+
+  panel.addEventListener('click', (e) => {
+    const target = e.target;
+
+    // Botón eliminar step
+    const delBtn = target.closest('.btn-del-step');
+    if (delBtn) { deleteStep(Number(delBtn.dataset.idx)); return; }
+
+    // Botón capturar tecla
+    const keyBtn = target.closest('.btn-key-capture');
+    if (keyBtn) { startKeyCapture(Number(keyBtn.dataset.idx)); return; }
+
+    // Botón examinar archivo
+    const browseBtn = target.closest('.btn-browse-file');
+    if (browseBtn) { browseFile(Number(browseBtn.dataset.idx)); return; }
+  });
+
+  panel.addEventListener('change', (e) => {
+    const target = e.target;
+
+    // Selector de tipo de step
+    if (target.classList.contains('step-type-select')) {
+      changeStepType(Number(target.dataset.idx), target.value);
+      return;
+    }
+
+    // Selector de lenguaje de script
+    if (target.classList.contains('script-lang-select')) {
+      const idx = Number(target.dataset.idx);
+      updateParam(idx, 'lang', target.value);
+      updateScriptEditor(idx);
+      return;
+    }
+
+    // Selector de acción media
+    if (target.classList.contains('media-action-select')) {
+      updateParam(Number(target.dataset.idx), 'action', target.value);
+      return;
+    }
+  });
+
+  panel.addEventListener('input', (e) => {
+    const target = e.target;
+
+    // Inputs de parámetros
+    if (target.dataset.param && target.dataset.idx !== undefined) {
+      updateParam(Number(target.dataset.idx), target.dataset.param, target.value);
+    }
+
+    // Textarea de script
+    if (target.classList.contains('script-textarea')) {
+      handleScriptInput(Number(target.dataset.idx));
+    }
+  });
+
+  panel.addEventListener('scroll', (e) => {
+    if (e.target.classList.contains('script-textarea')) {
+      syncScriptScroll(Number(e.target.dataset.idx));
+    }
+  }, true);
+
+  panel.addEventListener('keydown', (e) => {
+    if (e.target.classList.contains('script-textarea')) {
+      handleScriptKeydown(e, Number(e.target.dataset.idx));
+    }
+  });
+}
 
 export function renderSignalList() {
   const list = document.getElementById("signal-list");
@@ -9,21 +81,21 @@ export function renderSignalList() {
     const div = document.createElement("div");
     div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
     div.dataset.sig = sig;
-    
-    const badge = entry.assignedToButton 
-      ? `<span title="Asignado al botón físico" style="font-size: 9px; background: var(--green); color: #000; padding: 2px 5px; border-radius: 4px; margin-left: 6px; font-weight: 700;">🔌 BOTÓN</span>` 
+    const badge = entry.assignedToButton
+      ? `<span class="sig-assigned-badge" title="Asignado al botón físico">🔌 BOTÓN</span>`
       : '';
-
     div.innerHTML = `
       <div class="sig-card-top">
-        <span style="width:8px;height:8px;border-radius:50%;background:${entry.color};flex-shrink:0;display:inline-block"></span>
+        <span class="sig-color-dot"></span>
         <span class="sig-name">${escHtml(sig)}${badge}</span>
         <span class="sig-pulse"></span>
       </div>
       ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
       <div class="sig-steps-count">${entry.steps?.length || 0} paso${(entry.steps?.length || 0) === 1 ? "" : "s"}</div>`;
-    div.onclick = () => selectSignal(sig);
+    div.addEventListener('click', () => selectSignal(sig));
     list.appendChild(div);
+    const dot = div.querySelector('.sig-color-dot');
+    if (dot) dot.style.background = entry.color;
   });
 }
 
@@ -31,27 +103,23 @@ export function addSignal() {
   const input = document.getElementById("new-sig-cfg");
   const sig = input.value.trim().toUpperCase().replace(/\s+/g, "_");
   if (!sig) return;
-  if (state.signals[sig]) {
-    showToast("Ya existe", `"${sig}" ya está`);
-    return;
-  }
+  if (state.signals[sig]) { showToast("Ya existe", `"${sig}" ya está`); return; }
+  pushUndo();
   const color = SIG_COLORS[Object.keys(state.signals).length % SIG_COLORS.length];
   state.signals[sig] = { label: "", color, steps: [], assignedToButton: false };
   input.value = "";
-  saveSignals();
-  renderSignalList();
-  selectSignal(sig);
+  saveSignals(); renderSignalList(); selectSignal(sig);
 }
 window.addSignal = addSignal;
 
 export function deleteCurrentSignal() {
   if (!state.selectedSig) return;
+  pushUndo();
   delete state.signals[state.selectedSig];
   state.selectedSig = null;
-  saveSignals();
-  renderSignalList();
-  document.getElementById("se-empty").style.display = "";
-  document.getElementById("se-content").style.display = "none";
+  saveSignals(); renderSignalList();
+  document.getElementById("se-empty").classList.remove("d-none");
+  document.getElementById("se-content").classList.add("d-none");
 }
 window.deleteCurrentSignal = deleteCurrentSignal;
 
@@ -60,44 +128,34 @@ export function updateSignalLabel(val) {
   state.signals[state.selectedSig].label = val;
   saveSignals();
   const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(state.selectedSig)}"]`);
-  if (card) {
-    const lbl = card.querySelector(".sig-label");
-    if (lbl) lbl.textContent = val;
-  }
+  if (card) { const lbl = card.querySelector(".sig-label"); if (lbl) lbl.textContent = val; }
 }
 window.updateSignalLabel = updateSignalLabel;
 
 export function selectSignal(sig) {
   state.selectedSig = sig;
   document.querySelectorAll(".sig-card").forEach((c) => c.classList.toggle("active", c.dataset.sig === sig));
-  document.getElementById("se-empty").style.display = "none";
-  document.getElementById("se-content").style.display = "";
+  document.getElementById("se-empty").classList.add("d-none");
+  document.getElementById("se-content").classList.remove("d-none");
   document.getElementById("se-signal-tag").textContent = sig;
   document.getElementById("se-label-input").value = state.signals[sig]?.label || "";
-  
-  updateAssignButtonUI();
-  renderFlow();
+  updateAssignButtonUI(); renderFlow();
 }
 window.selectSignal = selectSignal;
 
 export function toggleAssignButton() {
   if (!state.selectedSig) return;
+  pushUndo();
   const isAssigned = state.signals[state.selectedSig].assignedToButton;
-  
   if (!isAssigned) {
-    for (const key in state.signals) {
-      state.signals[key].assignedToButton = false;
-    }
+    for (const key in state.signals) state.signals[key].assignedToButton = false;
     state.signals[state.selectedSig].assignedToButton = true;
     showToast("Asignado", `"${state.selectedSig}" ejecutará cuando presiones el botón.`);
   } else {
     state.signals[state.selectedSig].assignedToButton = false;
     showToast("Desasignado", `"${state.selectedSig}" ya no está asignado al botón.`);
   }
-  
-  saveSignals();
-  updateAssignButtonUI();
-  renderSignalList();
+  saveSignals(); updateAssignButtonUI(); renderSignalList();
 }
 window.toggleAssignButton = toggleAssignButton;
 
@@ -106,11 +164,9 @@ export function updateAssignButtonUI() {
   const btn = document.getElementById("btn-assign");
   if (!btn) return;
   if (state.signals[state.selectedSig].assignedToButton) {
-    btn.classList.add("assigned");
-    btn.innerHTML = "✅ Botón Asignado";
+    btn.classList.add("assigned"); btn.textContent = "✅ Botón Asignado";
   } else {
-    btn.classList.remove("assigned");
-    btn.innerHTML = "🔌 Asignar a Botón";
+    btn.classList.remove("assigned"); btn.textContent = "🔌 Asignar a Botón";
   }
 }
 
@@ -118,14 +174,15 @@ export function renderFlow() {
   const fc = document.getElementById("flow-container");
   fc.innerHTML = "";
   const steps = state.signals[state.selectedSig]?.steps || [];
-
   if (!steps.length) {
-    fc.innerHTML = `<div class="flow-empty"><span style="font-size:28px;opacity:.2">⋯</span><span>Sin pasos — agregá uno abajo</span></div>`;
+    const empty = document.createElement("div");
+    empty.className = "flow-empty";
+    empty.innerHTML = `<span class="flow-empty-icon">⋯</span><span>Sin pasos — agregá uno abajo</span>`;
+    fc.appendChild(empty);
     return;
   }
-
   steps.forEach((step, i) => {
-    fc.appendChild(makeStepCard(step, i, steps.length));
+    fc.appendChild(makeStepCard(step, i));
     if (i < steps.length - 1) {
       const conn = document.createElement("div");
       conn.className = "step-connector";
@@ -133,173 +190,186 @@ export function renderFlow() {
       fc.appendChild(conn);
     }
   });
-
-  // Initialize script editors (syntax highlight + gutter)
-  steps.forEach((step, i) => {
-    if (step.type === 'run_script') {
-      handleScriptInput(i);
-    }
-  });
+  steps.forEach((step, i) => { if (step.type === 'run_script') handleScriptInput(i); });
 }
 
-export function makeStepCard(step, idx, total) {
+export function makeStepCard(step, idx) {
   const meta = STEP_TYPES[step.type] || STEP_TYPES.notify;
   const card = document.createElement("div");
-  card.className = "step-card";
-  card.draggable = true;
-  card.dataset.idx = idx;
+  card.className = "step-card"; card.draggable = true; card.dataset.idx = idx;
 
+  // Header
   const header = document.createElement("div");
   header.className = "step-header";
-  header.innerHTML = `
-    <span class="drag-handle" title="Arrastrar para reordenar">⠿</span>
-    <span class="step-type-badge ${meta.cls}">
-      <span class="step-icon">${meta.icon}</span>
-      <select class="step-type-select" onchange="changeStepType(${idx}, this.value)">
-        ${Object.entries(STEP_TYPES).map(([k, v]) => `<option value="${k}" ${step.type === k ? "selected" : ""}>${v.label}</option>`).join("")}
-      </select>
-    </span>
-    <span class="step-num">#${idx + 1}</span>
-    <button class="btn-del-step" onclick="deleteStep(${idx})" title="Eliminar paso">✕</button>`;
+
+  const dragHandle = document.createElement("span");
+  dragHandle.className = "drag-handle"; dragHandle.title = "Arrastrar para reordenar"; dragHandle.textContent = "⠿";
+  header.appendChild(dragHandle);
+
+  const badge = document.createElement("span");
+  badge.className = `step-type-badge ${meta.cls}`;
+  const icon = document.createElement("span");
+  icon.className = "step-icon"; icon.textContent = meta.icon;
+  badge.appendChild(icon);
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "step-type-select"; typeSelect.dataset.idx = idx;
+  Object.entries(STEP_TYPES).forEach(([k, v]) => {
+    const opt = document.createElement("option");
+    opt.value = k; opt.textContent = v.label;
+    if (k === step.type) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+  badge.appendChild(typeSelect); header.appendChild(badge);
+
+  const stepNum = document.createElement("span");
+  stepNum.className = "step-num"; stepNum.textContent = `#${idx + 1}`;
+  header.appendChild(stepNum);
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "btn-del-step"; delBtn.title = "Eliminar paso"; delBtn.textContent = "✕";
+  delBtn.dataset.idx = idx;
+  header.appendChild(delBtn);
+
   card.appendChild(header);
 
+  // Params
   const params = document.createElement("div");
   params.className = "step-params";
-  params.innerHTML = renderStepParams(step, idx);
+  buildStepParams(params, step, idx);
   card.appendChild(params);
 
-  card.addEventListener("dragstart", (e) => {
-    state.dragSrcIdx = idx;
-    card.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-  });
-  card.addEventListener("dragend", () => {
-    card.classList.remove("dragging");
-    document.querySelectorAll(".step-card").forEach((c) => c.classList.remove("drag-over"));
-  });
-  card.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    card.classList.add("drag-over");
-  });
+  // Drag events
+  card.addEventListener("dragstart", (e) => { state.dragSrcIdx = idx; card.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+  card.addEventListener("dragend", () => { card.classList.remove("dragging"); document.querySelectorAll(".step-card").forEach((c) => c.classList.remove("drag-over")); });
+  card.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; card.classList.add("drag-over"); });
   card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
   card.addEventListener("drop", (e) => {
     e.preventDefault();
     if (state.dragSrcIdx === null || state.dragSrcIdx === idx) return;
+    pushUndo();
     const steps = state.signals[state.selectedSig].steps;
     const [moved] = steps.splice(state.dragSrcIdx, 1);
     steps.splice(idx, 0, moved);
-    state.dragSrcIdx = null;
-    saveSignals();
-    renderFlow();
+    state.dragSrcIdx = null; saveSignals(); renderFlow();
   });
 
   return card;
 }
 
-export function renderStepParams(step, idx) {
+/** Build step param elements using createElement — no inline event handlers. */
+function buildStepParams(container, step, idx) {
   const p = step.params || {};
-  const i = idx;
+
+  function makeRow(labelText) {
+    const row = document.createElement("div"); row.className = "param-row";
+    const lbl = document.createElement("div"); lbl.className = "param-label"; lbl.textContent = labelText;
+    row.appendChild(lbl); return row;
+  }
+  function makeInput(type, value, placeholder, param) {
+    const inp = document.createElement("input");
+    inp.type = type; inp.className = "param-input"; inp.value = value; inp.placeholder = placeholder || "";
+    inp.dataset.idx = idx; inp.dataset.param = param;
+    return inp;
+  }
+  function makeHint(text) {
+    const hint = document.createElement("div"); hint.className = "param-hint"; hint.textContent = text; return hint;
+  }
 
   switch (step.type) {
-    case "keypress":
-      return `
-      <div class="param-row">
-        <div class="param-label">Combinación de teclas</div>
-        <div style="display: flex; gap: 8px;">
-          <input class="param-input key-input" id="key-${i}" value="${escAttr(p.combo || "")}" placeholder="ej: cmd+space, ctrl+c"
-            oninput="updateParam(${i}, 'combo', this.value)" style="flex: 1;" />
-          <button class="btn btn-ghost" onclick="startKeyCapture(${i})" title="Capturar teclas" style="padding: 0 10px; border: 1px solid rgba(255,255,255,0.2);">⌨️</button>
-        </div>
-        <div class="param-hint">Escribí la combinación manualmente o usá el botón para capturarla.</div>
-      </div>`;
-    case "wait":
-      return `
-      <div class="param-row">
-        <div class="param-label">Duración (ms)</div>
-        <input class="param-input" type="number" min="10" max="60000" value="${escAttr(String(p.ms || 500))}"
-          oninput="updateParam(${i},'ms',this.value)" style="width:140px" />
-      </div>`;
-    case "clipboard":
-      return `
-      <div class="param-row">
-        <div class="param-label">Texto a copiar</div>
-        <input class="param-input" type="text" value="${escAttr(p.text || "")}" placeholder="Texto que irá al portapapeles"
-          oninput="updateParam(${i},'text',this.value)" />
-      </div>`;
-    case "media":
-      return `
-      <div class="param-row">
-        <div class="param-label">Acción</div>
-        <select class="param-select" onchange="updateParam(${i},'action',this.value)">
-          ${MEDIA_OPTIONS.map((o) => `<option value="${o.value}" ${p.action === o.value ? "selected" : ""}>${o.label}</option>`).join("")}
-        </select>
-      </div>`;
-    case "open_url":
-      return `
-      <div class="param-row">
-        <div class="param-label">URL</div>
-        <input class="param-input" type="text" value="${escAttr(p.url || "")}" placeholder="https://ejemplo.com"
-          oninput="updateParam(${i},'url',this.value)" />
-      </div>`;
-    case "run_cmd":
-      return `
-      <div class="param-row">
-        <div class="param-label">Comando</div>
-        <input class="param-input" type="text" value="${escAttr(p.cmd || "")}" placeholder="open /Applications/Spotify.app"
-          oninput="updateParam(${i},'cmd',this.value)" />
-      </div>`;
-    case "open_file":
-      return `
-      <div class="param-row">
-        <div class="param-label">Ruta</div>
-        <div style="display: flex; gap: 8px;">
-          <input class="param-input" type="text" id="path-${i}" value="${escAttr(p.path || "")}" placeholder="/Users/vos/archivo.pdf"
-            oninput="updateParam(${i},'path',this.value)" style="flex: 1;" />
-          <button class="btn btn-ghost" onclick="browseFile(${i})" title="Seleccionar archivo" style="padding: 0 10px; border: 1px solid rgba(255,255,255,0.2); max-width: 32px;">📂</button>
-        </div>
-      </div>`;
-    case "notify":
-      return `
-      <div class="param-row">
-        <div class="param-label">Título</div>
-        <input class="param-input" type="text" value="${escAttr(p.title || "")}" placeholder="Título de la notificación"
-          oninput="updateParam(${i},'title',this.value)" />
-      </div>
-      <div class="param-row">
-        <div class="param-label">Mensaje</div>
-        <input class="param-input" type="text" value="${escAttr(p.body || "")}" placeholder="Cuerpo del mensaje"
-          oninput="updateParam(${i},'body',this.value)" />
-      </div>`;
-    case "run_script":
-      return `
-      <div class="param-row">
-        <div class="param-label">Lenguaje</div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <select class="param-select" id="script-lang-${i}" onchange="updateParam(${i},'lang',this.value); updateScriptEditor(${i})" style="width: auto; min-width: 140px;">
-            <option value="python" ${(p.lang || 'python') === 'python' ? 'selected' : ''}>Python</option>
-            <option value="javascript" ${p.lang === 'javascript' ? 'selected' : ''}>JavaScript (Beta)</option>
-          </select>
-          ${(p.lang === 'javascript') ? '<span class="script-beta-badge">BETA</span>' : ''}
-        </div>
-      </div>
-      <div class="param-row">
-        <div class="param-label">Código</div>
-        <div class="script-editor-wrap" id="script-editor-${i}">
-          <div class="script-gutter" id="script-gutter-${i}">1</div>
-          <div class="script-code-area">
-            <pre class="script-highlight" id="script-highlight-${i}" aria-hidden="true"></pre>
-            <textarea class="script-textarea" id="script-code-${i}"
-              spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
-              placeholder="Escribí tu código aquí..."
-              oninput="handleScriptInput(${i})"
-              onscroll="syncScriptScroll(${i})"
-              onkeydown="handleScriptKeydown(event, ${i})">${(p.code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</textarea>
-          </div>
-        </div>
-      </div>`;
-    default:
-      return "";
+    case "keypress": {
+      const row = makeRow("Combinación de teclas");
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.combo || "", "ej: cmd+space, ctrl+c", "combo");
+      inp.className = "param-input key-input flex-1";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-ghost btn-key-capture"; btn.title = "Capturar teclas";
+      btn.textContent = "⌨️"; btn.dataset.idx = idx;
+      wrap.appendChild(inp); wrap.appendChild(btn); row.appendChild(wrap);
+      row.appendChild(makeHint("Escribí la combinación manualmente o usá el botón para capturarla."));
+      container.appendChild(row); break;
+    }
+    case "wait": {
+      const row = makeRow("Duración (ms)");
+      const inp = makeInput("number", p.ms || 500, "", "ms");
+      inp.min = "10"; inp.max = "60000";
+      row.appendChild(inp); container.appendChild(row); break;
+    }
+    case "clipboard": {
+      const row = makeRow("Texto a copiar");
+      row.appendChild(makeInput("text", p.text || "", "Texto que irá al portapapeles", "text"));
+      container.appendChild(row); break;
+    }
+    case "media": {
+      const row = makeRow("Acción");
+      const sel = document.createElement("select");
+      sel.className = "param-select media-action-select"; sel.dataset.idx = idx;
+      MEDIA_OPTIONS.forEach((o) => {
+        const opt = document.createElement("option"); opt.value = o.value; opt.textContent = o.label;
+        if (p.action === o.value) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      row.appendChild(sel); container.appendChild(row); break;
+    }
+    case "open_url": {
+      const row = makeRow("URL");
+      row.appendChild(makeInput("text", p.url || "", "https://ejemplo.com", "url"));
+      container.appendChild(row); break;
+    }
+    case "run_cmd": {
+      const row = makeRow("Comando");
+      row.appendChild(makeInput("text", p.cmd || "", "open /Applications/Spotify.app", "cmd"));
+      container.appendChild(row); break;
+    }
+    case "open_file": {
+      const row = makeRow("Ruta");
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.path || "", "/Users/vos/archivo.pdf", "path");
+      inp.id = `path-${idx}`; inp.className = "param-input flex-1";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-ghost btn-browse-file"; btn.title = "Seleccionar archivo";
+      btn.textContent = "📂"; btn.dataset.idx = idx;
+      wrap.appendChild(inp); wrap.appendChild(btn); row.appendChild(wrap);
+      container.appendChild(row); break;
+    }
+    case "notify": {
+      const r1 = makeRow("Título"); r1.appendChild(makeInput("text", p.title || "", "Título de la notificación", "title")); container.appendChild(r1);
+      const r2 = makeRow("Mensaje"); r2.appendChild(makeInput("text", p.body || "", "Cuerpo del mensaje", "body")); container.appendChild(r2);
+      break;
+    }
+    case "run_script": {
+      // Language selector
+      const r1 = makeRow("Lenguaje");
+      const selWrap = document.createElement("div"); selWrap.className = "param-select-row";
+      const langSel = document.createElement("select");
+      langSel.className = "param-select script-lang-select"; langSel.id = `script-lang-${idx}`; langSel.dataset.idx = idx;
+      [["python", "Python"], ["javascript", "JavaScript (Beta)"]].forEach(([v, l]) => {
+        const opt = document.createElement("option"); opt.value = v; opt.textContent = l;
+        if ((p.lang || "python") === v) opt.selected = true;
+        langSel.appendChild(opt);
+      });
+      selWrap.appendChild(langSel);
+      if (p.lang === "javascript") {
+        const badge = document.createElement("span"); badge.className = "script-beta-badge"; badge.textContent = "BETA";
+        selWrap.appendChild(badge);
+      }
+      r1.appendChild(selWrap); container.appendChild(r1);
+
+      // Code editor
+      const r2 = makeRow("Código");
+      const wrap = document.createElement("div"); wrap.className = "script-editor-wrap"; wrap.id = `script-editor-${idx}`;
+      const gutter = document.createElement("div"); gutter.className = "script-gutter"; gutter.id = `script-gutter-${idx}`; gutter.textContent = "1";
+      const codeArea = document.createElement("div"); codeArea.className = "script-code-area";
+      const pre = document.createElement("pre"); pre.className = "script-highlight"; pre.id = `script-highlight-${idx}`; pre.setAttribute("aria-hidden", "true");
+      const ta = document.createElement("textarea");
+      ta.className = "script-textarea"; ta.id = `script-code-${idx}`; ta.dataset.idx = idx;
+      ta.spellcheck = false; ta.autocomplete = "off"; ta.placeholder = "Escribí tu código aquí...";
+      ta.value = p.code || "";
+      codeArea.appendChild(pre); codeArea.appendChild(ta);
+      wrap.appendChild(gutter); wrap.appendChild(codeArea);
+      r2.appendChild(wrap); container.appendChild(r2);
+      break;
+    }
   }
 }
 
@@ -314,62 +384,35 @@ window.updateParam = updateParam;
 
 export function changeStepType(idx, newType) {
   if (!state.selectedSig) return;
-  state.signals[state.selectedSig].steps[idx] = {
-    id: state.signals[state.selectedSig].steps[idx].id,
-    type: newType,
-    params: {},
-  };
-  saveSignals();
-  renderFlow();
+  pushUndo();
+  state.signals[state.selectedSig].steps[idx] = { id: state.signals[state.selectedSig].steps[idx].id, type: newType, params: {} };
+  saveSignals(); renderFlow();
 }
 window.changeStepType = changeStepType;
 
 export function deleteStep(idx) {
   if (!state.selectedSig) return;
+  pushUndo();
   state.signals[state.selectedSig].steps.splice(idx, 1);
-  saveSignals();
-  renderSignalList();
-  renderFlow();
+  saveSignals(); renderSignalList(); renderFlow();
 }
 window.deleteStep = deleteStep;
 
 export function addStep(type) {
   if (!state.selectedSig) return;
-  function defaultParams(t) {
-    const d = {
-      keypress: { combo: "" },
-      wait: { ms: 500 },
-      clipboard: { text: "" },
-      media: { action: "play_pause" },
-      open_url: { url: "" },
-      run_cmd: { cmd: "" },
-      open_file: { path: "" },
-      notify: { title: "Arduino", body: "" },
-      run_script: { lang: "python", code: "" },
-    };
-    return d[t] || {};
-  }
-  const step = { id: uid(), type, params: defaultParams(type) };
+  pushUndo();
+  const defaults = { keypress:{combo:""}, wait:{ms:500}, clipboard:{text:""}, media:{action:"play_pause"}, open_url:{url:""}, run_cmd:{cmd:""}, open_file:{path:""}, notify:{title:"Arduino",body:""}, run_script:{lang:"python",code:""} };
+  const step = { id: uid(), type, params: defaults[type] || {} };
   state.signals[state.selectedSig].steps.push(step);
-  saveSignals();
-  renderSignalList();
-  renderFlow();
-  setTimeout(() => {
-    const fc = document.getElementById("flow-container");
-    fc.scrollTop = fc.scrollHeight;
-  }, 50);
+  saveSignals(); renderSignalList(); renderFlow();
+  setTimeout(() => { const fc = document.getElementById("flow-container"); fc.scrollTop = fc.scrollHeight; }, 50);
 }
 window.addStep = addStep;
 
 export function testCurrentSignal() {
   if (!state.selectedSig) return;
-
   const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(state.selectedSig)}"]`);
-  if (card && card.classList.contains("running")) {
-    showToast("En ejecución", "La secuencia ya se está ejecutando");
-    return;
-  }
-
+  if (card && card.classList.contains("running")) { showToast("En ejecución", "La secuencia ya se está ejecutando"); return; }
   window.arduino.testSequence(state.selectedSig);
   showToast(`▶ Probando "${state.selectedSig}"`, `${state.signals[state.selectedSig]?.steps?.length || 0} pasos`);
 }
@@ -378,35 +421,21 @@ window.testCurrentSignal = testCurrentSignal;
 export function startKeyCapture(idx) {
   if (state.capturingIdx !== null) {
     const prev = document.getElementById(`key-${state.capturingIdx}`);
-    if (prev) {
-      prev.classList.remove("capturing");
-      prev.readOnly = false;
-      prev.value = state.signals[state.selectedSig]?.steps[state.capturingIdx]?.params?.combo || "";
-    }
+    if (prev) { prev.classList.remove("capturing"); prev.readOnly = false; prev.value = state.signals[state.selectedSig]?.steps[state.capturingIdx]?.params?.combo || ""; }
     window.arduino.stopKeyCapture();
   }
-
   state.capturingIdx = idx;
-  const input = document.getElementById(`key-${idx}`);
+  // Find the key input by data-param and data-idx
+  const input = document.querySelector(`.param-input[data-idx="${idx}"][data-param="combo"]`);
   if (!input) return;
-  input.classList.add("capturing");
-  input.readOnly = true;
-  input.value = "Presioná la combinación...";
-
+  input.classList.add("capturing"); input.readOnly = true; input.value = "Presioná la combinación...";
   window.arduino.startKeyCapture();
-
   const escHandler = (e) => {
     if (e.key !== "Escape") return;
-    if (state.capturingIdx !== idx) {
-      document.removeEventListener("keydown", escHandler);
-      return;
-    }
-    state.capturingIdx = null;
-    input.classList.remove("capturing");
-    input.readOnly = false;
+    if (state.capturingIdx !== idx) { document.removeEventListener("keydown", escHandler); return; }
+    state.capturingIdx = null; input.classList.remove("capturing"); input.readOnly = false;
     input.value = state.signals[state.selectedSig]?.steps[idx]?.params?.combo || "";
-    window.arduino.stopKeyCapture();
-    document.removeEventListener("keydown", escHandler);
+    window.arduino.stopKeyCapture(); document.removeEventListener("keydown", escHandler);
   };
   document.addEventListener("keydown", escHandler);
 }
@@ -425,100 +454,54 @@ window.browseFile = browseFile;
 export function buildStepMenu() {
   const menu = document.getElementById("step-menu");
   if (!menu) return;
-  const groups = [
-    { items: ["keypress", "wait", "clipboard"] },
-    { items: ["media"] },
-    { items: ["open_url", "run_cmd", "open_file"] },
-    { items: ["run_script"] },
-    { items: ["notify"] },
-  ];
+  const groups = [{ items: ["keypress","wait","clipboard"] }, { items: ["media"] }, { items: ["open_url","run_cmd","open_file"] }, { items: ["run_script"] }, { items: ["notify"] }];
   groups.forEach((group, gi) => {
-    if (gi > 0) {
-      const div = document.createElement("div");
-      div.className = "menu-divider";
-      menu.appendChild(div);
-    }
+    if (gi > 0) { const div = document.createElement("div"); div.className = "menu-divider"; menu.appendChild(div); }
     group.items.forEach((type) => {
-      const meta = STEP_TYPES[type];
-      const item = document.createElement("div");
-      item.className = "menu-item";
-      item.innerHTML = `
-        <div class="menu-icon ${meta.cls}">${meta.icon}</div>
-        <div class="menu-text">
-          <span class="menu-label">${meta.label}</span>
-        </div>`;
-      item.onclick = () => {
-        addStep(type);
-        document.getElementById("step-menu").classList.remove("open");
-      };
+      const meta = STEP_TYPES[type]; const item = document.createElement("div"); item.className = "menu-item";
+      const iconEl = document.createElement("div"); iconEl.className = `menu-icon ${meta.cls}`; iconEl.textContent = meta.icon;
+      const textEl = document.createElement("div"); textEl.className = "menu-text";
+      const labelEl = document.createElement("span"); labelEl.className = "menu-label"; labelEl.textContent = meta.label;
+      textEl.appendChild(labelEl); item.appendChild(iconEl); item.appendChild(textEl);
+      item.addEventListener("click", () => { addStep(type); menu.classList.remove("open"); });
       menu.appendChild(item);
     });
   });
 }
 
 export function toggleStepMenu() {
-  if (!state.selectedSig) {
-    showToast("Sin señal", "Seleccioná una señal primero");
-    return;
-  }
+  if (!state.selectedSig) { showToast("Sin señal", "Seleccioná una señal primero"); return; }
   const menu = document.getElementById("step-menu");
   const btn = document.getElementById("add-step-btn");
-  if (menu.classList.contains("open")) {
-    menu.classList.remove("open");
-    return;
-  }
-
+  if (menu.classList.contains("open")) { menu.classList.remove("open"); return; }
   const rect = btn.getBoundingClientRect();
-  menu.style.display = "block"; 
-  const menuH = menu.offsetHeight;
-  menu.style.display = "";
-
-  const top = rect.top - menuH - 8;
-  const left = rect.left + rect.width / 2;
-  menu.style.top = `${Math.max(8, top)}px`;
-  menu.style.left = `${left}px`;
+  menu.style.display = "block"; const menuH = menu.offsetHeight; menu.style.display = "";
+  menu.style.top = `${Math.max(8, rect.top - menuH - 8)}px`;
+  menu.style.left = `${rect.left + rect.width / 2}px`;
   menu.style.transform = "translateX(-50%)";
   menu.classList.add("open");
 }
 window.toggleStepMenu = toggleStepMenu;
 
 // ── Script Editor helpers ──
-
 function highlightCode(code, lang) {
-  let html = escHtml(code);
-  const tokens = [];
-
-  // Extract strings/comments into placeholders so keyword regex
-  // won't match words like 'class' inside generated HTML attributes.
-  function hold(match, cls) {
-    const id = '\x00T' + tokens.length + '\x00';
-    tokens.push('<span class="' + cls + '">' + match + '</span>');
-    return id;
-  }
-
+  const escHtmlLocal = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  let html = escHtmlLocal(code); const tokens = [];
+  function hold(match, cls) { const id = '\x00T' + tokens.length + '\x00'; tokens.push('<span class="' + cls + '">' + match + '</span>'); return id; }
   if (lang === 'python') {
-    html = html.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|&quot;(?:[^&]|&(?!quot;))*?&quot;|'[^'\n]*?')/g,
-      function(m) { return hold(m, 'sh-str'); });
-    html = html.replace(/(#.*)/g,
-      function(m) { return hold(m, 'sh-cmt'); });
+    html = html.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|&quot;(?:[^&]|&(?!quot;))*?&quot;|'[^'\n]*?')/g, (m) => hold(m, 'sh-str'));
+    html = html.replace(/(#.*)/g, (m) => hold(m, 'sh-cmt'));
     html = html.replace(/\b(def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|pass|break|continue|and|or|not|in|is|None|True|False|lambda|yield|raise|global|nonlocal|assert|del|print)\b/g, '<span class="sh-kw">$1</span>');
     html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="sh-num">$1</span>');
     html = html.replace(/\b(len|range|str|int|float|list|dict|tuple|set|type|isinstance|enumerate|zip|map|filter|sorted|open|input|super|__init__|self)\b/g, '<span class="sh-fn">$1</span>');
-  } else if (lang === 'javascript') {
-    html = html.replace(/(`[\s\S]*?`|&quot;(?:[^&]|&(?!quot;))*?&quot;|'[^'\n]*?')/g,
-      function(m) { return hold(m, 'sh-str'); });
-    html = html.replace(/(\/\/.*)/g,
-      function(m) { return hold(m, 'sh-cmt'); });
+  } else {
+    html = html.replace(/(`[\s\S]*?`|&quot;(?:[^&]|&(?!quot;))*?&quot;|'[^'\n]*?')/g, (m) => hold(m, 'sh-str'));
+    html = html.replace(/(\/\/.*)/g, (m) => hold(m, 'sh-cmt'));
     html = html.replace(/\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|class|extends|import|export|from|default|async|await|typeof|instanceof|null|undefined|true|false|this|of|in)\b/g, '<span class="sh-kw">$1</span>');
     html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="sh-num">$1</span>');
     html = html.replace(/\b(console|Math|JSON|Array|Object|String|Number|Boolean|Promise|setTimeout|setInterval|require|module|exports|process)\b/g, '<span class="sh-fn">$1</span>');
   }
-
-  // Restore placeholders
-  for (var i = 0; i < tokens.length; i++) {
-    html = html.replace('\x00T' + i + '\x00', tokens[i]);
-  }
-
+  for (let i = 0; i < tokens.length; i++) html = html.replace('\x00T' + i + '\x00', tokens[i]);
   if (!html.endsWith('\n')) html += '\n';
   return html;
 }
@@ -546,31 +529,20 @@ export function syncScriptScroll(idx) {
   const textarea = document.getElementById(`script-code-${idx}`);
   const highlight = document.getElementById(`script-highlight-${idx}`);
   const gutter = document.getElementById(`script-gutter-${idx}`);
-  if (textarea && highlight) {
-    highlight.scrollTop = textarea.scrollTop;
-    highlight.scrollLeft = textarea.scrollLeft;
-  }
-  if (textarea && gutter) {
-    gutter.scrollTop = textarea.scrollTop;
-  }
+  if (textarea && highlight) { highlight.scrollTop = textarea.scrollTop; highlight.scrollLeft = textarea.scrollLeft; }
+  if (textarea && gutter) gutter.scrollTop = textarea.scrollTop;
 }
 window.syncScriptScroll = syncScriptScroll;
 
 export function handleScriptKeydown(e, idx) {
   if (e.key === 'Tab') {
-    e.preventDefault();
-    const ta = e.target;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
+    e.preventDefault(); const ta = e.target;
+    const start = ta.selectionStart; const end = ta.selectionEnd;
     ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
-    ta.selectionStart = ta.selectionEnd = start + 4;
-    handleScriptInput(idx);
+    ta.selectionStart = ta.selectionEnd = start + 4; handleScriptInput(idx);
   }
 }
 window.handleScriptKeydown = handleScriptKeydown;
 
-export function updateScriptEditor(idx) {
-  // Re-render the flow to update the badge and re-highlight
-  renderFlow();
-}
+export function updateScriptEditor(idx) { renderFlow(); }
 window.updateScriptEditor = updateScriptEditor;

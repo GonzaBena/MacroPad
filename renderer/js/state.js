@@ -13,6 +13,42 @@ export const state = {
   }
 };
 
+// ── Undo / Redo ──
+const undoStack = [];
+const redoStack = [];
+const MAX_UNDO = 30;
+
+/**
+ * Push a snapshot of signals to the undo stack.
+ * Call this BEFORE making a change.
+ */
+export function pushUndo() {
+  undoStack.push(JSON.parse(JSON.stringify(state.signals)));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack.length = 0; // Clear redo on new action
+}
+
+export function undo() {
+  if (!undoStack.length) return false;
+  redoStack.push(JSON.parse(JSON.stringify(state.signals)));
+  state.signals = undoStack.pop();
+  saveSignals();
+  return true;
+}
+
+export function redo() {
+  if (!redoStack.length) return false;
+  undoStack.push(JSON.parse(JSON.stringify(state.signals)));
+  state.signals = redoStack.pop();
+  saveSignals();
+  return true;
+}
+
+export function canUndo() { return undoStack.length > 0; }
+export function canRedo() { return redoStack.length > 0; }
+
+// ── Constants ──
+
 export const STEP_TYPES = {
   keypress: { label: "Simular tecla", icon: "⌨", cls: "t-keypress" },
   wait: { label: "Esperar", icon: "◷", cls: "t-wait" },
@@ -50,6 +86,12 @@ export function pushSignals() {
 }
 
 export function saveSignals() {
+  // Save to file via main process
+  window.arduino.saveData({
+    signals: state.signals,
+    config: state.config,
+  });
+  // Also keep localStorage as quick fallback
   localStorage.setItem("ac-signals", JSON.stringify(state.signals));
   pushSignals();
 }
@@ -74,6 +116,11 @@ export function loadConfig() {
 
 export function saveConfig() {
   localStorage.setItem("ac-config", JSON.stringify(state.config));
+  // Also save to file
+  window.arduino.saveData({
+    signals: state.signals,
+    config: state.config,
+  });
   applyConfig();
 }
 
@@ -102,7 +149,28 @@ export function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-export function loadSignalsData() {
+/**
+ * Load signals: try file-based persistence first, fall back to localStorage.
+ */
+export async function loadSignalsData() {
+  try {
+    // Try loading from file first
+    const fileData = await window.arduino.loadData();
+    if (fileData && fileData.signals && Object.keys(fileData.signals).length > 0) {
+      state.signals = fileData.signals;
+      if (fileData.config) {
+        state.config = { ...state.config, ...fileData.config };
+        applyConfig();
+      }
+      console.log("[state] Loaded data from file persistence");
+      pushSignals();
+      return;
+    }
+  } catch (e) {
+    console.warn("[state] File persistence not available, falling back to localStorage", e);
+  }
+
+  // Fallback to localStorage (migration path)
   try {
     const s = localStorage.getItem("ac-signals");
     if (s) {
@@ -129,6 +197,13 @@ export function loadSignalsData() {
         } else {
           state.signals[sig] = val;
         }
+      });
+
+      // Migrate localStorage data to file persistence
+      console.log("[state] Migrating localStorage data to file persistence");
+      window.arduino.saveData({
+        signals: state.signals,
+        config: state.config,
       });
     }
   } catch (e) { console.error(e) }

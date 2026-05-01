@@ -1,8 +1,8 @@
 import { state, loadSignalsData, loadConfig } from './state.js';
-import { loadView, initResizers, initMenu, showToast } from './ui.js';
-import { handleConnectionStatus, refreshPorts } from './connection.js';
-import { log } from './monitor.js';
-import { buildStepMenu, renderSignalList, updateParam } from './workflows.js';
+import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal } from './ui.js';
+import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
+import { log, filterLog, clearLog, sendSerial } from './monitor.js';
+import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignButton, testCurrentSignal, toggleStepMenu } from './workflows.js';
 
 window.addEventListener("DOMContentLoaded", async () => {
   // 1. Cargar las vistas
@@ -12,49 +12,95 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadView("cmd-modal-overlay", "views/cmd-modal.html");
   await loadView("config-view", "views/config.html");
 
-  // 2. Setup de elementos estáticos iniciales
+  // 2. Cablear event listeners de index.html (sin onclick inline — requerido por CSP)
+  document.getElementById("wbtn-min")?.addEventListener("click", () => window.arduino.minimize());
+  document.getElementById("wbtn-max")?.addEventListener("click", () => window.arduino.maximize());
+  document.getElementById("wbtn-close")?.addEventListener("click", () => window.arduino.close());
+  document.getElementById("menu-config")?.addEventListener("click", openConfigView);
+  document.getElementById("menu-exit")?.addEventListener("click", () => window.arduino.close());
+  document.getElementById("menu-undo")?.addEventListener("click", undo);
+  document.getElementById("menu-redo")?.addEventListener("click", redo);
+
+  // Tabs — delegado con data-tab
+  document.querySelectorAll(".tab[data-tab]").forEach((tabEl) => {
+    tabEl.addEventListener("click", () => {
+      const name = tabEl.dataset.tab;
+      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
+      tabEl.classList.add("active");
+      document.getElementById(`tab-${name}`)?.classList.add("active");
+    });
+  });
+
+  // 3. Setup inicial
   initResizers();
   initMenu();
+  initKeyboardShortcuts();
   buildStepMenu();
+  initFlowDelegation(); // Event delegation para step cards
 
-  // 3. Cargar datos
-  loadConfig();
-  loadSignalsData();
-  renderSignalList();
-  refreshPorts();
+  // 4. Cablear elementos de las vistas cargadas
+  // Sidebar
+  document.getElementById("btn-conn")?.addEventListener("click", toggleConnect);
+  document.getElementById("btn-refresh-ports")?.addEventListener("click", refreshPorts);
+  document.getElementById("btn-refresh-ports2")?.addEventListener("click", refreshPorts);
+  document.getElementById("btn-cancel-reconnect")?.addEventListener("click", cancelReconnect);
 
-  // 4. Agregar listeners para cosas cargadas
+  // Monitor
+  document.getElementById("log-filter")?.addEventListener("input", filterLog);
+  document.getElementById("btn-clear-log")?.addEventListener("click", clearLog);
   document.getElementById("send-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") window.sendSerial();
+    if (e.key === "Enter") sendSerial();
   });
+  document.getElementById("btn-send-serial")?.addEventListener("click", sendSerial);
+
+  // Workflows panel
   document.getElementById("new-sig-cfg")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") window.addSignal();
+    if (e.key === "Enter") addSignal();
   });
+  document.getElementById("btn-add-signal")?.addEventListener("click", addSignal);
+  document.getElementById("add-step-btn")?.addEventListener("click", toggleStepMenu);
+  document.getElementById("se-label-input")?.addEventListener("input", (e) => updateSignalLabel(e.target.value));
+  document.getElementById("btn-assign")?.addEventListener("click", toggleAssignButton);
+  document.getElementById("btn-test")?.addEventListener("click", testCurrentSignal);
+  document.getElementById("btn-del-sig")?.addEventListener("click", deleteCurrentSignal);
+
+  // Config view
+  document.getElementById("btn-back-config")?.addEventListener("click", closeConfigView);
+  document.getElementById("btn-save-config")?.addEventListener("click", saveConfigView);
+  document.getElementById("btn-export")?.addEventListener("click", exportConfig);
+  document.getElementById("btn-import")?.addEventListener("click", importConfig);
+
+  // Modal close
+  document.getElementById("btn-close-modal")?.addEventListener("click", closeCmdModal);
+
+  // Close step-menu on outside click
   document.addEventListener("click", (e) => {
     const menu = document.getElementById("step-menu");
     if (menu && menu.classList.contains("open") && !e.target.closest(".add-step-wrap"))
       menu.classList.remove("open");
   });
 
-  // 5. IPC listeners
-  window.arduino.onStatus(({ connected: c, port, baud }) => {
-    handleConnectionStatus(c, port, baud);
+  // 5. Cargar datos
+  loadConfig();
+  await loadSignalsData();
+  renderSignalList();
+  refreshPorts();
+
+  // 6. IPC listeners
+  window.arduino.onStatus(({ connected: c, port, baud, reconnecting, attempt, maxAttempts }) => {
+    handleConnectionStatus(c, port, baud, reconnecting, attempt, maxAttempts);
   });
 
   window.arduino.onData(({ signal }) => {
     state.stats.sig++;
     document.getElementById("st-sig").textContent = state.stats.sig;
     log(signal, "sig");
-
     const entry = state.signals[signal];
     if (entry?.steps?.length) {
       state.stats.act += entry.steps.length;
       document.getElementById("st-act").textContent = state.stats.act;
       log(`Ejecutando ${entry.steps.length} paso(s) para "${signal}"`, "act");
-    }
-
-    if (state.selectedSig && signal) {
-      window.testCurrentSignal();
     }
   });
 
@@ -83,7 +129,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       const outEl = document.getElementById("cmd-modal-output");
       outEl.textContent = result;
       outEl.className = ok ? "" : "error";
-      document.getElementById("cmd-modal-overlay").style.display = "flex";
+      document.getElementById("cmd-modal-overlay").classList.remove("d-none");
     }
   });
 
@@ -91,7 +137,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (state.capturingIdx === null) return;
     const idx = state.capturingIdx;
     state.capturingIdx = null;
-    const input = document.getElementById(`key-${idx}`);
+    const input = document.querySelector(`.param-input[data-idx="${idx}"][data-param="combo"]`);
     if (input) {
       input.value = combo;
       input.classList.remove("capturing");

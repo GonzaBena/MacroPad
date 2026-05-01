@@ -1,10 +1,10 @@
 <div class="configure-split" id="config-content">
   <div class="signal-list-panel" id="siglist-panel">
     <div class="slp-header">
-      <div class="s-label" style="margin-bottom: 8px">Señales</div>
+      <div class="s-label mb-8">Señales</div>
       <div class="slp-add">
         <input type="text" id="new-sig-cfg" placeholder="NUEVA_SEÑAL" maxlength="40" />
-        <button onclick="addSignal()">+</button>
+        <button id="btn-add-signal">+</button>
       </div>
     </div>
     <div class="signal-list" id="signal-list"></div>
@@ -17,26 +17,25 @@
       <span class="ico">↰</span>
       <span>Seleccioná una señal</span>
     </div>
-    <div class="se-content" id="se-content" style="display: none">
+    <div class="se-content d-none" id="se-content">
       <div class="se-header">
         <span class="se-signal-tag" id="se-signal-tag"></span>
-        <input class="se-label-input" type="text" id="se-label-input" placeholder="Nombre descriptivo..."
-          oninput="updateSignalLabel(this.value)" />
-        <button class="btn-assign" id="btn-assign" onclick="toggleAssignButton()"
+        <input class="se-label-input" type="text" id="se-label-input" placeholder="Nombre descriptivo..." />
+        <button class="btn-assign" id="btn-assign"
           title="Asignar al botón físico del Arduino">
           🔌
         </button>
-        <button class="btn-test" onclick="testCurrentSignal()">
+        <button class="btn-test" id="btn-test">
           ▶ Probar
         </button>
-        <button class="btn-del-sig" onclick="deleteCurrentSignal()">
+        <button class="btn-del-sig" id="btn-del-sig">
           ✕
         </button>
       </div>
       <div class="flow-container" id="flow-container"></div>
       <div class="add-step-bar">
         <div class="add-step-wrap">
-          <button class="add-step-btn" id="add-step-btn" onclick="toggleStepMenu()">
+          <button class="add-step-btn" id="add-step-btn">
             + Agregar paso
           </button>
           <div class="step-menu" id="step-menu"></div>
