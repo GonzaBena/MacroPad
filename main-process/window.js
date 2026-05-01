@@ -24,7 +24,6 @@ function createWindow() {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
-    if (configWindow) configWindow.close();
   });
 
   return mainWindow;
@@ -41,8 +40,6 @@ function createConfigWindow() {
     height: 700,
     resizable: true,
     frame: false,
-    parent: mainWindow,
-    modal: false, // Set to true if you want it to block the main window
     icon: path.join(__dirname, '..', 'assets', 'logo.png'),
     backgroundColor: "#0c0e14",
     webPreferences: {
@@ -74,7 +71,6 @@ function createAboutWindow() {
     height: 400,
     resizable: false,
     frame: false,
-    parent: mainWindow,
     icon: path.join(__dirname, '..', 'assets', 'logo.png'),
     backgroundColor: "#0c0e14",
     webPreferences: {

@@ -18,9 +18,24 @@ if (!app.isPackaged) {
   }
 }
 
-// Inicialización de la App
-app.whenReady().then(() => {
-  createWindow();
+// Bloqueo de instancia única
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    // Si alguien intenta ejecutar una segunda instancia, enfocamos la ventana principal.
+    const win = getWindow();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+
+  // Inicialización de la App
+  app.whenReady().then(() => {
+    createWindow();
 
   // Configuración de módulos e IPCs
   setupSerial();
@@ -69,10 +84,11 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
 
-app.on("activate", () => {
-  if (getWindow() === null) createWindow();
-});
+  app.on("activate", () => {
+    if (getWindow() === null) createWindow();
+  });
+}
