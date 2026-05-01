@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;" />
+    <title>Configuraciones - PokePad</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="config-window">
+    <div class="app">
+        <div class="titlebar">
+            <div class="tb-brand">
+                Configuraciones
+            </div>
+            <div class="tb-controls">
+                <button class="wbtn close" id="wbtn-close">✕</button>
+            </div>
+        </div>
+
+        <div class="content" id="config-content" style="display: flex;">
+            <!-- El contenido se cargará dinámicamente o se inyectará aquí -->
+            <div id="config-view-container" style="width: 100%;"></div>
+        </div>
+    </div>
+    <div id="toasts"></div>
+
+    <script type="module" src="js/config-window.js"></script>
+</body>
+
+</html>

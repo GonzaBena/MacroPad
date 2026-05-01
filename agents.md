@@ -37,12 +37,15 @@ Usa una arquitectura modular pura basada en la web:
    - Mantener el frontend limpio de dependencias pesadas. 
    - No usar jQuery, React, ni frameworks de CSS.
 
-3. **Estilos (CSS)**:
+3. **No Punto y Coma**
+   - Evitar usar punto y coma como EOL.
+
+4. **Estilos (CSS)**:
    - Todo debe ir en `style.css` (o en archivos separados si el proyecto crece, importados vía `@import`).
    - Usa las variables CSS nativas (`:root { --bg: ... }`) que ya están definidas en lugar de 
    quemar colores hexadecimales sueltos para mantener el diseño oscuro y consistente.
 
-4. **Agregando Nuevas Pestañas/Ventanas**:
+5. **Agregando Nuevas Pestañas/Ventanas**:
    - Crea un archivo `<nombre>.html` en `views/`.
    - Crea un contenedor (`<div id="tab-<nombre>">`) en `index.html`.
    - Carga la vista dinámicamente en `js/main.js` usando `await loadView("tab-<nombre>", "views/<nombre>.html");`.

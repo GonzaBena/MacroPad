@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld("arduino", {
   minimize: () => ipcRenderer.send("win-minimize"),
   maximize: () => ipcRenderer.send("win-maximize"),
   close: () => ipcRenderer.send("win-close"),
+  openConfigWindow: () => ipcRenderer.send("open-config-window"),
+  openAboutWindow: () => ipcRenderer.send("open-about-window"),
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
 
   // Persistence (file-based)
   loadData: () => ipcRenderer.invoke("load-data"),

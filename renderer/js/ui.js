@@ -43,13 +43,13 @@ export function showPrompt(title, defaultValue, callback) {
   const modal = document.getElementById("prompt-modal");
   const input = document.getElementById("prompt-input");
   const titleEl = document.getElementById("prompt-title");
-  
+
   if (!modal || !input || !titleEl) return;
-  
+
   titleEl.textContent = title;
   input.value = defaultValue || "";
   promptCallback = callback;
-  
+
   modal.classList.remove("d-none");
   input.focus();
   input.select();
@@ -80,9 +80,9 @@ document.getElementById("prompt-input")?.addEventListener("keydown", (e) => {
 
 export function initConfigColorPicker() {
   const hexInput = document.getElementById("cfg-accent");
-  const btn      = document.getElementById("cfg-accent-btn");
-  const preview  = document.getElementById("cfg-accent-preview");
-  const picker   = document.getElementById("cfg-accent-picker");
+  const btn = document.getElementById("cfg-accent-btn");
+  const preview = document.getElementById("cfg-accent-preview");
+  const picker = document.getElementById("cfg-accent-picker");
   if (!hexInput || !btn || !preview || !picker) return;
 
   function isValidHex(val) {
@@ -112,27 +112,14 @@ export function initConfigColorPicker() {
   });
 
   btn.addEventListener("click", () => picker.click());
-  picker.addEventListener("input",  () => applyColor(picker.value));
+  picker.addEventListener("input", () => applyColor(picker.value));
   picker.addEventListener("change", () => applyColor(picker.value));
 
   applyColor(hexInput.value);
 }
 
 export function openConfigView() {
-  document.getElementById("main-content").classList.add("d-none");
-  document.getElementById("config-view").classList.remove("d-none");
-
-  // Load current config into inputs
-  const themeEl = document.getElementById("cfg-theme");
-  const closeEl = document.getElementById("cfg-close");
-  const accentEl = document.getElementById("cfg-accent");
-  const pickerEl = document.getElementById("cfg-accent-picker");
-  if (themeEl) themeEl.value = state.config.theme;
-  if (closeEl) closeEl.value = state.config.closeBehavior;
-  if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
-  if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
-
-  initConfigColorPicker();
+  window.arduino.openConfigWindow();
 }
 window.openConfigView = openConfigView;
 
@@ -140,11 +127,11 @@ export function saveConfigView() {
   const themeEl = document.getElementById("cfg-theme");
   const closeEl = document.getElementById("cfg-close");
   const accentEl = document.getElementById("cfg-accent");
-  
+
   if (themeEl) state.config.theme = themeEl.value;
   if (closeEl) state.config.closeBehavior = closeEl.value;
   if (accentEl) state.config.accentColor = accentEl.value;
-  
+
   saveConfig();
   showToast("Configuración", "Los cambios han sido guardados y aplicados.");
   closeConfigView();
@@ -211,6 +198,12 @@ export async function importConfig() {
 }
 window.importConfig = importConfig;
 
+// --- about --
+export function about() {
+  window.arduino.openAboutWindow();
+}
+window.about = about;
+
 // ── Utilities ──
 
 export function escHtml(s) {
@@ -271,10 +264,10 @@ function setupResizer(resizerId, containerId, cssVar, minW, maxW) {
 export function initMenu() {
   const menuBar = document.querySelector('.tb-menu');
   if (!menuBar) return;
-  
+
   let isActive = false;
   const wrappers = menuBar.querySelectorAll('.menu-wrapper');
-  
+
   // Cerrar al hacer clic afuera
   document.addEventListener('click', (e) => {
     if (!menuBar.contains(e.target)) {
@@ -285,7 +278,7 @@ export function initMenu() {
 
   wrappers.forEach(wrapper => {
     const btn = wrapper.querySelector('.menu-btn');
-    
+
     btn.addEventListener('click', () => {
       if (!isActive) {
         isActive = true;
@@ -308,7 +301,7 @@ export function initMenu() {
       }
     });
   });
-  
+
   // Cerrar al hacer clic en una opción
   const items = menuBar.querySelectorAll('.dd-item');
   items.forEach(item => {

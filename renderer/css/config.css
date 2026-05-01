@@ -1,20 +1,13 @@
-#config-view {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    z-index: 10000;
-    background: var(--bg);
-}
-
-#config-view .config-page {
+.config-page {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
 }
 
-#config-view .config-header {
+.config-header {
     display: flex;
+    width: 100%;
     align-items: center;
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
@@ -22,7 +15,7 @@
     flex-shrink: 0;
 }
 
-#config-view .btn-back {
+.btn-back {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -39,13 +32,13 @@
     transition: all 0.2s;
 }
 
-#config-view .btn-back:hover {
+.btn-back:hover {
     border-color: var(--amber);
     color: var(--amber);
     background: var(--amber-bg);
 }
 
-#config-view .config-title {
+.config-title {
     margin: 0;
     font-family: var(--font);
     color: var(--text);
@@ -53,26 +46,26 @@
     font-weight: 700;
 }
 
-#config-view .config-body {
+.config-body {
     padding: 32px 24px;
     overflow-y: auto;
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 24px;
+    gap: 10px;
 }
 
-#config-view .config-body::-webkit-scrollbar {
+.config-body::-webkit-scrollbar {
     width: 6px;
 }
 
-#config-view .config-body::-webkit-scrollbar-thumb {
+.config-body::-webkit-scrollbar-thumb {
     background: var(--border2);
     border-radius: 3px;
 }
 
-#config-view .config-section {
+.config-section {
     width: 100%;
     max-width: 800px;
     border: 1px solid var(--border);
@@ -85,7 +78,7 @@
     flex-shrink: 0;
 }
 
-#config-view .config-section-title {
+.config-section-title {
     font-family: var(--ui);
     font-size: 14px;
     font-weight: 700;
@@ -95,20 +88,20 @@
     padding-bottom: 12px;
 }
 
-#config-view .config-row {
+.config-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
 }
 
-#config-view .config-label {
+.config-label {
     font-size: 12px;
     color: var(--muted);
     font-family: var(--ui);
 }
 
-#config-view .config-input {
+.config-input {
     background: var(--bg);
     border: 1px solid var(--border2);
     color: var(--text);
@@ -121,18 +114,18 @@
     transition: border-color 0.15s;
 }
 
-#config-view .config-input:focus {
+.config-input:focus {
     border-color: var(--amber);
 }
 
-#config-view .config-color-field {
+.config-color-field {
     display: flex;
     align-items: center;
     gap: 6px;
     width: 250px;
 }
 
-#config-view .config-input-hex {
+.config-input-hex {
     flex: 1;
     width: auto;
     font-family: monospace;
@@ -140,7 +133,7 @@
     text-transform: uppercase;
 }
 
-#config-view .config-color-btn {
+.config-color-btn {
     width: 32px;
     height: 32px;
     flex-shrink: 0;
@@ -155,11 +148,11 @@
     transition: border-color 0.15s;
 }
 
-#config-view .config-color-btn:hover {
+.config-color-btn:hover {
     border-color: var(--amber);
 }
 
-#config-view .config-color-preview {
+.config-color-preview {
     display: block;
     width: 100%;
     height: 100%;
@@ -167,7 +160,7 @@
     background: #f5a623;
 }
 
-#config-view .config-hint {
+.config-hint {
     font-size: 11px;
     color: var(--muted);
     opacity: 0.7;

@@ -10,7 +10,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadView("tab-monitor", "views/monitor.html");
   await loadView("tab-workflows", "views/workflows.html");
   await loadView("cmd-modal-overlay", "views/cmd-modal.html");
-  await loadView("config-view", "views/config.html");
 
   // 2. Cablear event listeners de index.html (sin onclick inline — requerido por CSP)
   document.getElementById("wbtn-min")?.addEventListener("click", () => window.arduino.minimize());
@@ -20,6 +19,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("menu-exit")?.addEventListener("click", () => window.arduino.close());
   document.getElementById("menu-undo")?.addEventListener("click", undo);
   document.getElementById("menu-redo")?.addEventListener("click", redo);
+  document.getElementById("menu-about")?.addEventListener("click", about);
 
   // Tabs — delegado con data-tab
   document.querySelectorAll(".tab[data-tab]").forEach((tabEl) => {

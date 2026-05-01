@@ -113,3 +113,40 @@ La aplicación utiliza un sistema modular para su interfaz. Todo el HTML de los 
    await loadView("mi-modal-container", "views/mi-modal.html");
    ```
 4. **Mostrar y ocultar**: Agregá funciones en tu lógica (ej. en `ui.js`) que hagan `document.getElementById('id_del_overlay_del_modal').style.display = 'flex'` para mostrarlo, o `'none'` para cerrarlo.
+
+### 3. Agregar Menús y Submenús
+
+La barra de título contiene un menú personalizado. Podés agregar nuevos menús o submenús siguiendo esta estructura en `index.html`:
+
+#### Agregar un Menú Principal
+Agregá un bloque `.menu-wrapper` dentro de `<div class="tb-menu">`:
+```html
+<div class="menu-wrapper">
+  <div class="menu-btn">Nuevo Menú</div>
+  <div class="dropdown">
+    <div class="dd-item" id="menu-accion-1">Acción 1</div>
+    <div class="dd-divider"></div>
+    <div class="dd-item" id="menu-accion-2">Acción 2</div>
+  </div>
+</div>
+```
+
+#### Agregar un Submenú
+Para que un item tenga un submenú, agregá la clase `.has-submenu` al `.dd-item` e inyectá un `.dd-submenu` dentro:
+```html
+<div class="dd-item has-submenu">
+  Más Opciones
+  <div class="dd-submenu">
+    <div class="dd-item" id="sub-1">Sub Opción A</div>
+    <div class="dd-item" id="sub-2">Sub Opción B</div>
+  </div>
+</div>
+```
+
+#### Manejar clics
+En `js/main.js` o un módulo dedicado, agregá el listener usando el ID que definiste:
+```javascript
+document.getElementById('menu-accion-1').addEventListener('click', () => {
+  console.log("Acción ejecutada");
+});
+```

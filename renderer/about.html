@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;" />
+    <title>Acerca de PokePad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .about-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+            gap: 16px;
+        }
+
+        .app-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            background: var(--surface2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+        }
+
+        .app-logo img {
+            width: 60px;
+            height: 60px;
+        }
+
+        .app-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--amber);
+            margin: 0;
+        }
+
+        .app-info {
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .version {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--text);
+        }
+
+        .creator {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .footer {
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .btn-close {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-close:hover {
+            background: var(--border);
+            border-color: var(--muted);
+        }
+
+        .titlebar {
+            height: 30px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 0 10px;
+            -webkit-app-region: drag;
+        }
+
+        .wbtn {
+            -webkit-app-region: no-drag;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- <div class="titlebar">
+        <button class="wbtn close" id="btn-close-top">✕</button>
+    </div> -->
+    <div class="about-container">
+        <div class="app-logo">
+            <img src="../assets/logo.png" alt="Logo">
+        </div>
+        <h1 class="app-name">PokePad</h1>
+        <div class="app-info">
+            Versión <span class="version" id="app-version">...</span><br>
+            Creado por <span class="creator">PokePad Team</span>
+        </div>
+        <div class="app-info">
+            Controlá tu PC con hardware externo de forma sencilla y potente.
+        </div>
+    </div>
+    <div class="footer">
+        <button class="btn-close" id="btn-close-bottom">Cerrar</button>
+    </div>
+
+    <script type="module" src="js/about-window.js"></script>
+</body>
+
+</html>

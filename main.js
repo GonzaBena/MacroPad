@@ -1,5 +1,5 @@
-const { app, ipcMain, dialog } = require("electron");
-const { createWindow, getWindow } = require("./main-process/window");
+const { app, ipcMain, dialog, BrowserWindow } = require("electron");
+const { createWindow, getWindow, createConfigWindow, createAboutWindow } = require("./main-process/window");
 const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
 const { setupKeyboard } = require("./main-process/keyboard");
@@ -20,7 +20,7 @@ if (!app.isPackaged) {
 
 // Inicialización de la App
 app.whenReady().then(() => {
-  const win = createWindow();
+  createWindow();
 
   // Configuración de módulos e IPCs
   setupSerial();
@@ -39,12 +39,34 @@ app.whenReady().then(() => {
     return filePaths[0];
   });
 
-  ipcMain.on("win-minimize", () => getWindow()?.minimize());
-  ipcMain.on("win-maximize", () => {
-    const win = getWindow();
-    if (win) win.isMaximized() ? win.unmaximize() : win.maximize();
+  ipcMain.on("open-config-window", () => {
+    createConfigWindow();
   });
-  ipcMain.on("win-close", () => getWindow()?.close());
+
+  ipcMain.on("open-about-window", () => {
+    createAboutWindow();
+  });
+
+  ipcMain.handle("get-app-version", () => {
+    return app.getVersion();
+  });
+
+  ipcMain.on("win-minimize", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.minimize();
+  });
+
+  ipcMain.on("win-maximize", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      win.isMaximized() ? win.unmaximize() : win.maximize();
+    }
+  });
+
+  ipcMain.on("win-close", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.close();
+  });
 });
 
 app.on("window-all-closed", () => {
