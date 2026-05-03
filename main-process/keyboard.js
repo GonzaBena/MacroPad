@@ -121,4 +121,5 @@ function simulateKey(combo) {
 module.exports = {
   setupKeyboard,
   simulateKey,
+  escapePowerShell,
 };
