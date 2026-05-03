@@ -199,7 +199,15 @@ function runScript(lang, code) {
   );
 }
 
+function setSignalMap(map) {
+  signalMap = map;
+}
+
 module.exports = {
   setupExecution,
   executeSequence,
+  executeStep,
+  runCmd,
+  runScript,
+  setSignalMap,
 };

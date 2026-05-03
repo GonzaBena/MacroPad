@@ -10,8 +10,8 @@ let lastBaudRate = 9600;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAYS = [3000, 6000, 12000, 20000, 30000]; // exponential backoff
 
-function getReconnectDelay() {
-  const idx = Math.min(reconnectAttempts, RECONNECT_DELAYS.length - 1);
+function getReconnectDelay(attempts = reconnectAttempts) {
+  const idx = Math.min(attempts, RECONNECT_DELAYS.length - 1);
   return RECONNECT_DELAYS[idx];
 }
 
@@ -243,4 +243,5 @@ function getActivePort() {
 module.exports = {
   setupSerial,
   getActivePort,
+  getReconnectDelay,
 };

@@ -213,4 +213,5 @@ module.exports = {
   setupPersistence,
   loadData,
   saveData,
+  validateData,
 };
