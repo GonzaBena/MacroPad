@@ -10,14 +10,12 @@ export async function refreshPorts() {
   ports.forEach((p) => {
     const o = document.createElement("option");
     o.value = p.path;
-    //const desc = p.signature || p.friendlyName || p.manufacturer || p.pnpId || "";
-    const desc = "MACROBALL_V1";
-    //o.textContent = p.path + (desc ? ` (${desc})` : "");
-    o.textContent = desc ? desc : "puerto";
-    if (p.path === prev) o.selected = true;
+    const desc = p.signature || "";
+    o.textContent = p.path + (desc ? ` (${desc})` : "");
+    if (p.path === prev || (p.signature === "Conectado" && !prev)) o.selected = true;
     sel.appendChild(o);
   });
-  if (!ports.length) log("No se encontraron puertos seriales", "sys");
+  if (!ports.length) log("No se encontraron dispositivos PokePad", "sys");
 }
 window.refreshPorts = refreshPorts;
 
