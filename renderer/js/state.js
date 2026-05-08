@@ -192,7 +192,11 @@ export async function loadSignalsData() {
                     },
                   ]
                 : [],
-            assignedToButton: val.assignedToButton || false,
+            assignedToButton: (function() {
+              if (val.assignedToButton === true) return "RAPIDA";
+              if (["RAPIDA", "MEDIA", "LENTA"].includes(val.assignedToButton)) return val.assignedToButton;
+              return false;
+            })(),
           };
         } else {
           state.signals[sig] = val;

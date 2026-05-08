@@ -12,6 +12,7 @@ function safeOn(channel, cb) {
 contextBridge.exposeInMainWorld("arduino", {
   // Serial
   listPorts: () => ipcRenderer.invoke("list-ports"),
+  getConnectionStatus: () => ipcRenderer.invoke("get-connection-status"),
   connect: (port, baud) => ipcRenderer.send("connect-serial", { port, baud }),
   disconnect: () => ipcRenderer.send("disconnect-serial"),
   send: (data) => ipcRenderer.send("send-serial", data),

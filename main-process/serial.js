@@ -236,6 +236,14 @@ function setupSerial() {
       });
   });
 
+  ipcMain.handle("get-connection-status", () => {
+    return {
+      connected: !!(activePort && activePort.isOpen),
+      port: lastPortPath,
+      baud: lastBaudRate
+    };
+  });
+
   // Start the background scanner
   startAutoConnect();
 }

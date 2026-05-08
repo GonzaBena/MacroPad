@@ -93,9 +93,14 @@ describe('validateData', () => {
     expect(result.signals.SIG1.steps[1].type).toBe('wait');
   });
 
-  it('coerces assignedToButton strictly to boolean', () => {
-    // Only true literal is accepted, truthy values like 1 or "yes" become false
-    expect(validateData({ signals: { s: { assignedToButton: true } } }).signals.s.assignedToButton).toBe(true);
+  it('migrates boolean true to RAPIDA and preserves speed strings', () => {
+    // true -> RAPIDA
+    expect(validateData({ signals: { s: { assignedToButton: true } } }).signals.s.assignedToButton).toBe('RAPIDA');
+    // Speed strings are preserved
+    expect(validateData({ signals: { s: { assignedToButton: 'RAPIDA' } } }).signals.s.assignedToButton).toBe('RAPIDA');
+    expect(validateData({ signals: { s: { assignedToButton: 'MEDIA' } } }).signals.s.assignedToButton).toBe('MEDIA');
+    expect(validateData({ signals: { s: { assignedToButton: 'LENTA' } } }).signals.s.assignedToButton).toBe('LENTA');
+    // Invalid values become false
     expect(validateData({ signals: { s: { assignedToButton: 1 } } }).signals.s.assignedToButton).toBe(false);
     expect(validateData({ signals: { s: { assignedToButton: 'yes' } } }).signals.s.assignedToButton).toBe(false);
     expect(validateData({ signals: { s: { assignedToButton: false } } }).signals.s.assignedToButton).toBe(false);

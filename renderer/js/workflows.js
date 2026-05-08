@@ -137,9 +137,11 @@ export function renderSignalList() {
     const div = document.createElement("div");
     div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
     div.dataset.sig = sig;
-    const badge = entry.assignedToButton
-      ? `<span class="sig-assigned-badge" title="Asignado al botón físico">🔌 BOTÓN</span>`
-      : '';
+    let badge = '';
+    if (entry.assignedToButton) {
+      const label = entry.assignedToButton === "RAPIDA" ? "RÁP" : (entry.assignedToButton === "MEDIA" ? "MED" : "LEN");
+      badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.toLowerCase()}">🔌 ${label}</span>`;
+    }
     div.innerHTML = `
       <div class="sig-card-top">
         <span class="sig-color-dot"></span>
@@ -380,31 +382,64 @@ export function selectSignal(sig) {
 }
 window.selectSignal = selectSignal;
 
-export function toggleAssignButton() {
+export function toggleAssignMenu(e) {
+  if (e) e.stopPropagation();
+  const dropdown = document.getElementById("assign-dropdown");
+  if (!dropdown) return;
+  dropdown.classList.toggle("show");
+  
+  // Close other menus
+  document.getElementById("step-menu")?.classList.remove("open");
+}
+window.toggleAssignMenu = toggleAssignMenu;
+
+export function assignSpeed(speed) {
   if (!state.selectedSig) return;
   pushUndo();
-  const isAssigned = state.signals[state.selectedSig].assignedToButton;
-  if (!isAssigned) {
-    for (const key in state.signals) state.signals[key].assignedToButton = false;
-    state.signals[state.selectedSig].assignedToButton = true;
-    showToast("Asignado", `"${state.selectedSig}" ejecutará cuando presiones el botón.`);
-  } else {
+  
+  const currentAssigned = state.signals[state.selectedSig].assignedToButton;
+  
+  if (currentAssigned === speed) {
+    // Si ya tiene esta velocidad, desasignar
     state.signals[state.selectedSig].assignedToButton = false;
-    showToast("Desasignado", `"${state.selectedSig}" ya no está asignado al botón.`);
+    showToast("Desasignado", `"${state.selectedSig}" ya no está asignado.`);
+  } else {
+    // Quitar esa velocidad de cualquier otro workflow que la tenga
+    for (const key in state.signals) {
+      if (state.signals[key].assignedToButton === speed) {
+        state.signals[key].assignedToButton = false;
+      }
+    }
+    state.signals[state.selectedSig].assignedToButton = speed;
+    showToast("Asignado", `"${state.selectedSig}" asignado a toque ${speed.toLowerCase()}.`);
   }
-  saveSignals(); updateAssignButtonUI(); renderSignalList();
+  
+  saveSignals();
+  updateAssignButtonUI();
+  renderSignalList();
+  document.getElementById("assign-dropdown")?.classList.remove("show");
 }
-window.toggleAssignButton = toggleAssignButton;
+window.assignSpeed = assignSpeed;
 
 export function updateAssignButtonUI() {
   if (!state.selectedSig) return;
   const btn = document.getElementById("btn-assign");
   if (!btn) return;
-  if (state.signals[state.selectedSig].assignedToButton) {
-    btn.classList.add("assigned"); btn.textContent = "✅ Botón Asignado";
+  
+  const assigned = state.signals[state.selectedSig].assignedToButton;
+  
+  if (assigned) {
+    btn.classList.add("assigned");
+    btn.textContent = `✅ ${assigned === 'RAPIDA' ? 'Rápida' : (assigned === 'MEDIA' ? 'Media' : 'Lenta')}`;
   } else {
-    btn.classList.remove("assigned"); btn.textContent = "🔌 Asignar a Botón";
+    btn.classList.remove("assigned");
+    btn.textContent = "🔌 Asignar";
   }
+
+  // Marcar el item activo en el dropdown
+  document.querySelectorAll("#assign-dropdown .dropdown-item").forEach(item => {
+    item.classList.toggle("active", item.dataset.speed === assigned);
+  });
 }
 
 export function renderFlow() {

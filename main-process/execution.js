@@ -37,11 +37,11 @@ async function executeSequence(incomingSignal) {
   let signal = incomingSignal;
   let entry = signalMap[signal];
 
-  // Si el Arduino envía PRESIONADO y no tenemos una señal con ese nombre exacto,
-  // buscamos la señal que el usuario asignó al botón físico.
-  if (!entry && incomingSignal === "RAPIDA") {
+  // Si el Arduino envía una señal de velocidad (RAPIDA, MEDIA, LENTA) y no tenemos
+  // una señal con ese nombre exacto, buscamos la señal que el usuario asignó.
+  if (!entry && ["RAPIDA", "MEDIA", "LENTA"].includes(incomingSignal)) {
     for (const key in signalMap) {
-      if (signalMap[key].assignedToButton) {
+      if (signalMap[key].assignedToButton === incomingSignal) {
         entry = signalMap[key];
         signal = key; // Reasignamos para que la UI muestre el nombre real
         break;

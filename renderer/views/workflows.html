@@ -24,10 +24,17 @@
       <div class="se-header">
         <span class="se-signal-tag" id="se-signal-tag"></span>
         <input class="se-label-input" type="text" id="se-label-input" placeholder="Nombre descriptivo..." />
-        <button class="btn-assign" id="btn-assign"
-          title="Asignar al botón físico del Arduino">
-          🔌
-        </button>
+        <div class="assign-dropdown-wrap">
+          <button class="btn-assign" id="btn-assign"
+            title="Asignar al botón físico del Arduino">
+            🔌 Asignar
+          </button>
+          <div id="assign-dropdown" class="dropdown-content">
+            <div class="dropdown-item" data-speed="RAPIDA">Rápida</div>
+            <div class="dropdown-item" data-speed="MEDIA">Media</div>
+            <div class="dropdown-item" data-speed="LENTA">Lenta</div>
+          </div>
+        </div>
         <button class="btn-test" id="btn-test">
           ▶ Probar
         </button>
