@@ -1,6 +1,6 @@
-import { state } from './state.js';
-import { log } from './monitor.js';
-import { showToast } from './ui.js';
+import { state } from "./state.js";
+import { log } from "./monitor.js";
+import { showToast } from "./ui.js";
 
 export async function refreshPorts() {
   const sel = document.getElementById("port-sel");
@@ -10,8 +10,10 @@ export async function refreshPorts() {
   ports.forEach((p) => {
     const o = document.createElement("option");
     o.value = p.path;
-    const desc = p.signature ? p.signature : (p.manufacturer || "");
-    o.textContent = p.path + (desc ? ` (${desc})` : "");
+    //const desc = p.signature || p.friendlyName || p.manufacturer || p.pnpId || "";
+    const desc = "MACROBALL_V1";
+    //o.textContent = p.path + (desc ? ` (${desc})` : "");
+    o.textContent = desc ? desc : "puerto";
     if (p.path === prev) o.selected = true;
     sel.appendChild(o);
   });
@@ -44,7 +46,14 @@ export function cancelReconnect() {
 }
 window.cancelReconnect = cancelReconnect;
 
-export function handleConnectionStatus(c, port, baud, reconnecting, attempt, maxAttempts) {
+export function handleConnectionStatus(
+  c,
+  port,
+  baud,
+  reconnecting,
+  attempt,
+  maxAttempts,
+) {
   state.connected = c;
   document.getElementById("tb-dot").classList.toggle("on", c);
   document.getElementById("s-dot").classList.toggle("on", c);
@@ -61,7 +70,8 @@ export function handleConnectionStatus(c, port, baud, reconnecting, attempt, max
     if (reconnecting && !c) {
       indicator.classList.remove("d-none");
       const text = document.getElementById("reconnect-text");
-      if (text) text.textContent = `Reconectando... (${attempt}/${maxAttempts})`;
+      if (text)
+        text.textContent = `Reconectando... (${attempt}/${maxAttempts})`;
     } else {
       indicator.classList.add("d-none");
     }

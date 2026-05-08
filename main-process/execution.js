@@ -12,7 +12,9 @@ const runningSequences = new Set();
 
 // Private temp directory for scripts
 const SCRIPT_DIR = path.join(os.tmpdir(), "pokepad_scripts");
-try { fs.mkdirSync(SCRIPT_DIR, { recursive: true }); } catch (_) {}
+try {
+  fs.mkdirSync(SCRIPT_DIR, { recursive: true });
+} catch (_) {}
 
 // Maximum command length to prevent abuse
 const MAX_CMD_LENGTH = 4096;
@@ -37,7 +39,7 @@ async function executeSequence(incomingSignal) {
 
   // Si el Arduino envía PRESIONADO y no tenemos una señal con ese nombre exacto,
   // buscamos la señal que el usuario asignó al botón físico.
-  if (!entry && incomingSignal === "PRESIONADO") {
+  if (!entry && incomingSignal === "RAPIDA") {
     for (const key in signalMap) {
       if (signalMap[key].assignedToButton) {
         entry = signalMap[key];
@@ -62,7 +64,8 @@ async function executeSequence(incomingSignal) {
       try {
         await executeStep(step);
       } catch (e) {
-        if (win) win.webContents.send("serial-error", `[${step.type}] ${e.message}`);
+        if (win)
+          win.webContents.send("serial-error", `[${step.type}] ${e.message}`);
       }
     }
   } finally {
@@ -89,7 +92,8 @@ async function executeStep(step) {
       break;
     case "open_url": {
       let targetUrl = step.params?.url || "";
-      if (targetUrl && !/^https?:\/\//i.test(targetUrl)) targetUrl = "https://" + targetUrl;
+      if (targetUrl && !/^https?:\/\//i.test(targetUrl))
+        targetUrl = "https://" + targetUrl;
       // Validar estrictamente que solo se permitan URLs HTTP/HTTPS
       try {
         const parsed = new URL(targetUrl);
@@ -134,7 +138,9 @@ function runCmd(cmd) {
   if (cmd.length > MAX_CMD_LENGTH) {
     if (win) {
       win.webContents.send("action-result", {
-        cmd, ok: false, output: `Comando demasiado largo (máx ${MAX_CMD_LENGTH} chars)`,
+        cmd,
+        ok: false,
+        output: `Comando demasiado largo (máx ${MAX_CMD_LENGTH} chars)`,
       });
     }
     return Promise.resolve();
@@ -144,11 +150,13 @@ function runCmd(cmd) {
     exec(cmd, { timeout: 30000 }, (err, stdout) => {
       if (win) {
         win.webContents.send("action-result", {
-          cmd, ok: !err, output: err ? err.message : stdout,
+          cmd,
+          ok: !err,
+          output: err ? err.message : stdout,
         });
       }
       resolve();
-    })
+    }),
   );
 }
 
@@ -161,7 +169,9 @@ function runScript(lang, code) {
   if (!ext) {
     if (win) {
       win.webContents.send("action-result", {
-        cmd: `[Script ${lang}]`, ok: false, output: `Lenguaje no soportado: ${lang}`,
+        cmd: `[Script ${lang}]`,
+        ok: false,
+        output: `Lenguaje no soportado: ${lang}`,
       });
     }
     return Promise.resolve();
@@ -175,27 +185,40 @@ function runScript(lang, code) {
   } catch (writeErr) {
     if (win) {
       win.webContents.send("action-result", {
-        cmd: `[Script ${lang}]`, ok: false, output: `Error escribiendo script: ${writeErr.message}`,
+        cmd: `[Script ${lang}]`,
+        ok: false,
+        output: `Error escribiendo script: ${writeErr.message}`,
       });
     }
     return Promise.resolve();
   }
 
   return new Promise((resolve) =>
-    execFile(interpreter, [tmpFile], { timeout: 30000 }, (err, stdout, stderr) => {
-      // Clean up temp file
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
+    execFile(
+      interpreter,
+      [tmpFile],
+      { timeout: 30000 },
+      (err, stdout, stderr) => {
+        // Clean up temp file
+        try {
+          fs.unlinkSync(tmpFile);
+        } catch (_) {}
 
-      const output = (stdout || "") + (stderr || "");
-      if (win) {
-        win.webContents.send("action-result", {
-          cmd: `[Script ${lang}]`,
-          ok: !err,
-          output: err ? (err.killed ? "Script timed out (30s)" : output || err.message) : output,
-        });
-      }
-      resolve();
-    })
+        const output = (stdout || "") + (stderr || "");
+        if (win) {
+          win.webContents.send("action-result", {
+            cmd: `[Script ${lang}]`,
+            ok: !err,
+            output: err
+              ? err.killed
+                ? "Script timed out (30s)"
+                : output || err.message
+              : output,
+          });
+        }
+        resolve();
+      },
+    ),
   );
 }
 

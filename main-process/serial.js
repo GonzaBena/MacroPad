@@ -27,8 +27,14 @@ function scheduleReconnect() {
   if (!lastPortPath || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     const win = getWindow();
     if (win && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      win.webContents.send("serial-error", "Reconexión: máximo de intentos alcanzado");
-      win.webContents.send("serial-status", { connected: false, reconnecting: false });
+      win.webContents.send(
+        "serial-error",
+        "Reconexión: máximo de intentos alcanzado",
+      );
+      win.webContents.send("serial-status", {
+        connected: false,
+        reconnecting: false,
+      });
     }
     return;
   }
@@ -46,7 +52,9 @@ function scheduleReconnect() {
     });
   }
 
-  console.log(`[serial] Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+  console.log(
+    `[serial] Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`,
+  );
 
   reconnectTimer = setTimeout(() => {
     connectSerial(lastPortPath, lastBaudRate, true);
@@ -59,62 +67,19 @@ function setupSerial() {
       const { SerialPort } = require("serialport");
       const { ReadlineParser } = require("@serialport/parser-readline");
       const allPorts = await SerialPort.list();
+      console.log(
+        "[serial] Puertos detectados:",
+        allPorts.map((p) => p.path),
+      );
 
-      const validPorts = [];
-      const testPromises = allPorts.map(async (portInfo) => {
-        // Si el puerto ya está conectado, lo incluimos directamente
-        if (activePort && activePort.isOpen && activePort.path === portInfo.path) {
-          portInfo.signature = "Conectado";
-          validPorts.push(portInfo);
-          return;
+      // Agregar el estado de conexión si ya estamos conectados
+      allPorts.forEach((p) => {
+        if (activePort && activePort.isOpen && activePort.path === p.path) {
+          p.signature = "Conectado";
         }
-
-        return new Promise((resolve) => {
-          let resolved = false;
-          let testPort;
-
-          const finish = () => {
-            if (!resolved) {
-              resolved = true;
-              if (testPort && testPort.isOpen) testPort.close();
-              resolve();
-            }
-          };
-
-          const timeout = setTimeout(finish, 2500); // 2.5s máximo por puerto
-
-          try {
-            testPort = new SerialPort({ path: portInfo.path, baudRate: 9600 });
-            const parser = testPort.pipe(new ReadlineParser({ delimiter: "\n" }));
-
-            testPort.on("open", () => {
-              // Esperamos 1.5s para que el Arduino termine de reiniciar
-              setTimeout(() => {
-                if (!resolved && testPort.isOpen) {
-                  testPort.write("IDENTIFY\n");
-                }
-              }, 1500);
-            });
-
-            parser.on("data", (line) => {
-              const signal = line.trim();
-              if (signal && !resolved) {
-                portInfo.signature = signal; // Guardamos la firma
-                validPorts.push(portInfo);
-                finish();
-              }
-            });
-
-            testPort.on("error", finish);
-          } catch (err) {
-            finish();
-          }
-        });
       });
 
-      await Promise.all(testPromises);
-      return validPorts;
-
+      return allPorts;
     } catch (error) {
       console.error("Failed to list serial ports:", error);
       return [];
@@ -132,7 +97,11 @@ function setupSerial() {
     if (activePort?.isOpen) {
       activePort.close(() => {
         const win = getWindow();
-        if (win) win.webContents.send("serial-status", { connected: false, reconnecting: false });
+        if (win)
+          win.webContents.send("serial-status", {
+            connected: false,
+            reconnecting: false,
+          });
       });
     }
   });
@@ -145,14 +114,20 @@ function setupSerial() {
     clearReconnect();
     lastPortPath = null;
     const win = getWindow();
-    if (win) win.webContents.send("serial-status", { connected: false, reconnecting: false });
+    if (win)
+      win.webContents.send("serial-status", {
+        connected: false,
+        reconnecting: false,
+      });
   });
 }
 
 function connectSerial(portPath, baudRate = 9600, isReconnect = false) {
   const win = getWindow();
   if (activePort?.isOpen) {
-    try { activePort.close(); } catch (_) {}
+    try {
+      activePort.close();
+    } catch (_) {}
   }
 
   let SerialPort, ReadlineParser;
@@ -163,7 +138,7 @@ function connectSerial(portPath, baudRate = 9600, isReconnect = false) {
     if (win) {
       win.webContents.send(
         "serial-error",
-        "serialport no disponible — corré: npx electron-rebuild"
+        "serialport no disponible — corré: npx electron-rebuild",
       );
     }
     return;
@@ -198,6 +173,7 @@ function connectSerial(portPath, baudRate = 9600, isReconnect = false) {
 
     parser.on("data", (line) => {
       const signal = line.trim();
+      console.log("[serial] Received:", signal);
       if (!signal) return;
       if (win) {
         win.webContents.send("serial-data", { signal, ts: Date.now() });
