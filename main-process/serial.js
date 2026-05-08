@@ -45,8 +45,12 @@ let lastPortPath = null;
 let lastBaudRate = 9600;
 let autoConnectTimer = null;
 
-// Cache to store verification results: { path: { isOurDevice: boolean, lastChecked: number } }
+// Cache to store verification results: { isOurDevice: boolean, lastChecked: number }
 const verifiedPorts = new Map();
+const currentlyVerifying = new Set();
+
+// Ignorar re-intentos de puertos fallidos por 30 segundos
+const NEGATIVE_CACHE_TTL = 30000; 
 
 function clearReconnect() {
   if (reconnectTimer) {
@@ -57,9 +61,19 @@ function clearReconnect() {
 }
 
 async function verifyPort(portPath, baudRate = 9600) {
-  if (verifiedPorts.has(portPath) && verifiedPorts.get(portPath).isOurDevice) {
-    return true;
+  const now = Date.now();
+  const cached = verifiedPorts.get(portPath);
+
+  // Si ya es nuestro, OK
+  if (cached?.isOurDevice) return true;
+
+  // Si falló hace poco, ignorar para no resetear el Arduino constantemente
+  if (cached && !cached.isOurDevice && (now - cached.lastChecked < NEGATIVE_CACHE_TTL)) {
+    return false;
   }
+
+  if (currentlyVerifying.has(portPath)) return false;
+  currentlyVerifying.add(portPath);
 
   const { SerialPort } = require("serialport");
   const { ReadlineParser } = require("@serialport/parser-readline");
@@ -69,49 +83,41 @@ async function verifyPort(portPath, baudRate = 9600) {
     let timeout = null;
 
     const cleanup = () => {
+      currentlyVerifying.delete(portPath);
       if (timeout) clearTimeout(timeout);
       if (port && port.isOpen) port.close();
     };
 
     try {
-      // Use 'cu' instead of 'tty' on macOS if possible for better reliability
-      const targetPath = portPath.replace("/dev/tty.", "/dev/cu.");
-      
-      console.log(`[serial] Verificando firma en ${targetPath}...`);
+      console.log(`[serial] Verificando: ${portPath}...`);
       port = new SerialPort({ 
-        path: targetPath, 
+        path: portPath, 
         baudRate: parseInt(baudRate),
         lock: false 
       });
       const parser = port.pipe(new ReadlineParser({ delimiter: "\n" }));
 
       timeout = setTimeout(() => {
-        console.log(`[serial] Timeout de firma en ${targetPath}`);
+        console.log(`[serial] Timeout en ${portPath} (Nano reseteando?)`);
         verifiedPorts.set(portPath, { isOurDevice: false, lastChecked: Date.now() });
         cleanup();
         resolve(false);
-      }, 4500);
+      }, 7000); // 7 segundos de margen total
 
       port.on("open", () => {
-        // Wait for bootloader -> clear buffer -> wait -> send identify
+        // El bootloader del Nano tarda ~2 segundos. Esperamos 2.5s para estar seguros.
         setTimeout(() => {
           if (port.isOpen) {
-            port.write("\n\n"); // Clear garbage
-            setTimeout(() => {
-              if (port.isOpen) {
-                console.log(`[serial] Enviando ${HANDSHAKE} a ${targetPath}`);
-                port.write(HANDSHAKE + "\n");
-              }
-            }, 500);
+            console.log(`[serial] Handshake -> ${portPath}`);
+            port.write(HANDSHAKE + "\n");
           }
-        }, 1500);
+        }, 2500);
       });
 
       parser.on("data", (line) => {
         const response = line.trim();
-        console.log(`[serial] Respuesta de ${targetPath}: "${response}"`);
         if (response === FIRMA) {
-          console.log(`[serial] ¡Dispositivo verificado!`);
+          console.log(`[serial] ¡${FIRMA} detectado en ${portPath}!`);
           verifiedPorts.set(portPath, { isOurDevice: true, lastChecked: Date.now() });
           cleanup();
           resolve(true);
@@ -119,44 +125,52 @@ async function verifyPort(portPath, baudRate = 9600) {
       });
 
       port.on("error", (err) => {
-        console.log(`[serial] Error en ${targetPath}: ${err.message}`);
+        console.log(`[serial] Error en ${portPath}: ${err.message}`);
+        verifiedPorts.set(portPath, { isOurDevice: false, lastChecked: Date.now() });
         cleanup();
         resolve(false);
       });
     } catch (e) {
-      console.log(`[serial] Excepción en ${portPath}: ${e.message}`);
+      verifiedPorts.set(portPath, { isOurDevice: false, lastChecked: Date.now() });
       resolve(false);
     }
   });
 }
 
 function startAutoConnect() {
-  if (autoConnectTimer) return;
-  
-  autoConnectTimer = setInterval(async () => {
-    if (activePort && activePort.isOpen) return;
+  const scan = async () => {
+    if (activePort && (activePort.isOpen || activePort.opening)) {
+      autoConnectTimer = setTimeout(scan, AUTO_CONNECT_INTERVAL);
+      return;
+    }
 
     try {
       const { SerialPort } = require("serialport");
-      const allPorts = await SerialPort.list();
+      let allPorts = await SerialPort.list();
       
+      // En Mac, filtrar para usar solo cu.* y evitar doble reset (tty vs cu)
+      if (process.platform === "darwin") {
+        const cuPorts = allPorts.filter(p => p.path.startsWith("/dev/cu."));
+        if (cuPorts.length > 0) allPorts = cuPorts;
+      }
+
       const candidates = allPorts.filter(p => isPotentialDevice(p));
-      if (candidates.length === 0) return;
-
-      const results = await Promise.all(candidates.map(async p => ({
-        port: p,
-        isOurs: await verifyPort(p.path)
-      })));
-
-      const found = results.find(r => r.isOurs);
-      if (found && (!activePort || !activePort.isOpen)) {
-        console.log(`[serial] Auto-conectando a: ${found.port.path}`);
-        connectSerial(found.port.path, lastBaudRate);
+      
+      for (const p of candidates) {
+        const isOurs = await verifyPort(p.path);
+        if (isOurs && (!activePort || !activePort.isOpen)) {
+          connectSerial(p.path, lastBaudRate);
+          break; 
+        }
       }
     } catch (err) {
-      console.error("[serial] Auto-connect scan failed:", err);
+      console.error("[serial] Scan error:", err);
     }
-  }, AUTO_CONNECT_INTERVAL);
+    
+    autoConnectTimer = setTimeout(scan, AUTO_CONNECT_INTERVAL);
+  };
+
+  autoConnectTimer = setTimeout(scan, 1000);
 }
 
 function setupSerial() {
@@ -296,4 +310,6 @@ function getActivePort() {
 module.exports = {
   setupSerial,
   getActivePort,
+  isPotentialDevice,
+  verifyPort,
 };

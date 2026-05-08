@@ -235,22 +235,22 @@ describe('executeSequence', () => {
     expect(clipboard.writeText).toHaveBeenCalledWith('executed');
   });
 
-  it('resolves to the assignedToButton signal when PRESIONADO is received', async () => {
+  it('ejecuta la señal asignada al botón cuando llega RAPIDA', async () => {
     setSignalMap({
       MyButton: {
         assignedToButton: true,
         steps: [{ type: 'clipboard', params: { text: 'button pressed' } }],
       },
     });
-    await executeSequence('PRESIONADO');
+    await executeSequence('RAPIDA');
     expect(clipboard.writeText).toHaveBeenCalledWith('button pressed');
   });
 
-  it('returns early for PRESIONADO when no signal has assignedToButton', async () => {
+  it('no hace nada con RAPIDA cuando ninguna señal tiene assignedToButton', async () => {
     setSignalMap({
       SIG: { assignedToButton: false, steps: [{ type: 'clipboard', params: { text: 'nope' } }] },
     });
-    await executeSequence('PRESIONADO');
+    await executeSequence('RAPIDA');
     expect(clipboard.writeText).not.toHaveBeenCalled();
   });
 

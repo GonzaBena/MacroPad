@@ -10,9 +10,17 @@ export async function refreshPorts() {
   ports.forEach((p) => {
     const o = document.createElement("option");
     o.value = p.path;
-    const desc = p.signature || "";
-    o.textContent = p.path + (desc ? ` (${desc})` : "");
-    if (p.path === prev || (p.signature === "Conectado" && !prev)) o.selected = true;
+    // Prioritize signature as the display name
+    const name =
+      p.signature && p.signature !== "Conectado"
+        ? p.signature
+        : "Dispositivo PokePad";
+    const status =
+      p.signature === "Conectado" ? " (Conectado)" : "(Desconectado)";
+    o.textContent = `${name}${status}`;
+
+    if (p.path === prev || (p.signature === "Conectado" && !prev))
+      o.selected = true;
     sel.appendChild(o);
   });
   if (!ports.length) log("No se encontraron dispositivos PokePad", "sys");
@@ -23,13 +31,20 @@ export function toggleConnect() {
   if (state.connected) {
     window.arduino.disconnect();
   } else {
-    const port = document.getElementById("port-sel").value;
+    const sel = document.getElementById("port-sel");
+    const port = sel.value;
     const baud = document.getElementById("baud-sel").value;
+
     if (!port) {
       showToast("Sin puerto", "Seleccioná un puerto primero");
       return;
     }
-    log(`Conectando a ${port} @ ${baud}...`, "sys");
+
+    // Extraer el nombre de la firma del texto de la opción seleccionada
+    const optionText = sel.options[sel.selectedIndex].text;
+    const name = optionText.split("(")[0].trim();
+
+    log(`Conectando a ${name} (${port}) @ ${baud}...`, "sys");
     window.arduino.connect(port, baud);
   }
 }
@@ -56,7 +71,18 @@ export function handleConnectionStatus(
   document.getElementById("tb-dot").classList.toggle("on", c);
   document.getElementById("s-dot").classList.toggle("on", c);
   const st = document.getElementById("s-text");
-  st.textContent = c ? `${port} @ ${baud}` : "Desconectado";
+
+  // Encontrar el nombre del dispositivo en el selector para mostrarlo en el estado
+  const sel = document.getElementById("port-sel");
+  let deviceName = "PokePad";
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === port) {
+      deviceName = sel.options[i].text.split("(")[0].trim();
+      break;
+    }
+  }
+
+  st.textContent = c ? `${deviceName} @ ${baud}` : "Desconectado";
   st.classList.toggle("on", c);
   const btn = document.getElementById("btn-conn");
   btn.textContent = c ? "Desconectar" : "Conectar";
@@ -76,12 +102,14 @@ export function handleConnectionStatus(
   }
 
   if (c) {
-    log(`Conectado a ${port}`, "sys");
+    log(`Conectado a ${deviceName}`, "sys");
+    refreshPorts();
     if (reconnecting === false) {
       // Was reconnecting, now connected
-      showToast("Reconectado", `Conexión restaurada en ${port}`);
+      showToast("Reconectado", `Conexión restaurada en ${deviceName}`);
     }
   } else if (!reconnecting) {
     log("Desconectado", "sys");
+    refreshPorts();
   }
 }
