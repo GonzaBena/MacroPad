@@ -1,8 +1,12 @@
 {
   "name": "pokepad",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "PokePad - Control your PC with Arduino",
   "author": "Atlas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GonzaBena/MacroPad.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron . --enable-logging",
@@ -29,6 +33,7 @@
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
     "@serialport/parser-readline": "^12.0.0",
+    "electron-updater": "^6.8.3",
     "serialport": "^12.0.0"
   },
   "devDependencies": {

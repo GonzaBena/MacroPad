@@ -13,6 +13,7 @@ const { setupExecution } = require("./main-process/execution");
 const { setupPersistence } = require("./main-process/persistence");
 const { setupTray } = require("./main-process/tray");
 const { getThemeList, getThemeData, openThemesFolder } = require("./main-process/themes");
+const { setupUpdater } = require("./main-process/updater");
 const path = require("path");
 
 // Forzar el nombre correcto en notificaciones de Windows
@@ -54,6 +55,7 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     const mainWindow = createWindow();
     setupTray(mainWindow);
+    setupUpdater(mainWindow);
 
     // Configuración de módulos e IPCs
     setupSerial();

@@ -20,6 +20,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("menu-undo")?.addEventListener("click", undo);
   document.getElementById("menu-redo")?.addEventListener("click", redo);
   document.getElementById("menu-about")?.addEventListener("click", about);
+  document.getElementById("menu-check-updates")?.addEventListener("click", () => window.arduino.checkForUpdates());
 
   // Tabs — delegado con data-tab
   document.querySelectorAll(".tab[data-tab]").forEach((tabEl) => {
@@ -165,6 +166,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   log("Sistema listo", "sys");
+
+  // Listen for update notifications
+  window.arduino.onUpdateMessage(({ text, type }) => {
+    showToast(type === "error" ? "Actualizador" : "PokePad Update", text);
+  });
 
   // Listen for theme changes from other windows
   window.arduino.onApplyTheme(async () => {

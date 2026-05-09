@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld("arduino", {
   openAboutWindow: () => ipcRenderer.send("open-about-window"),
   openThemePreview: () => ipcRenderer.send("open-theme-preview"),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  checkForUpdates: () => ipcRenderer.send("check-for-updates"),
+  onUpdateMessage: (cb) => safeOn("update-message", cb),
 
   // Persistence (file-based)
   loadData: () => ipcRenderer.invoke("load-data"),
