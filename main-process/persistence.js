@@ -1,5 +1,4 @@
 const { app, ipcMain, dialog } = require("electron");
-const { getWindow } = require("./window");
 const fs = require("fs");
 const path = require("path");
 
@@ -115,6 +114,7 @@ function saveData(data) {
  * Export data to user-chosen file.
  */
 async function exportData() {
+  const { getWindow } = require("./window");
   const win = getWindow();
   if (!win) return { ok: false, error: "No window" };
 
@@ -139,6 +139,7 @@ async function exportData() {
  * Import data from user-chosen file.
  */
 async function importData() {
+  const { getWindow } = require("./window");
   const win = getWindow();
   if (!win) return { ok: false, error: "No window" };
 
@@ -172,6 +173,7 @@ function setupPersistence() {
   ipcMain.handle("import-data", () => importData());
 
   ipcMain.handle("export-single-workflow", async (_, { name, data }) => {
+    const { getWindow } = require("./window");
     const win = getWindow();
     if (!win) return { ok: false, error: "No window" };
 
@@ -192,6 +194,7 @@ function setupPersistence() {
   });
 
   ipcMain.handle("import-single-workflow", async () => {
+    const { getWindow } = require("./window");
     const win = getWindow();
     if (!win) return { ok: false, error: "No window" };
 

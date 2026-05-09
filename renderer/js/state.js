@@ -96,32 +96,48 @@ export function saveSignals() {
   pushSignals();
 }
 
-export function applyConfig() {
+export async function applyConfig() {
   // Apply accent color using hex
   const root = document.documentElement;
   root.style.setProperty('--amber', state.config.accentColor);
   root.style.setProperty('--amber-dim', `color-mix(in srgb, ${state.config.accentColor} 70%, black)`);
   root.style.setProperty('--amber-bg', `color-mix(in srgb, ${state.config.accentColor} 10%, transparent)`);
+  
+  // Apply theme
+  const themeId = state.config.theme || "dark-default";
+  const themeData = await window.arduino.getThemeData(themeId);
+  if (themeData && themeData.colors) {
+    for (const [key, value] of Object.entries(themeData.colors)) {
+      root.style.setProperty(key, value);
+    }
+  }
 }
 
-export function loadConfig() {
+export async function loadConfig() {
   try {
-    const c = localStorage.getItem("ac-config");
-    if (c) {
-      state.config = { ...state.config, ...JSON.parse(c) };
+    // Priority: File-based persistence
+    const fileData = await window.arduino.loadData();
+    if (fileData && fileData.config) {
+      state.config = { ...state.config, ...fileData.config };
+    } else {
+      // Fallback: localStorage
+      const c = localStorage.getItem("ac-config");
+      if (c) {
+        state.config = { ...state.config, ...JSON.parse(c) };
+      }
     }
   } catch (e) { console.error(e) }
-  applyConfig();
+  await applyConfig();
 }
 
-export function saveConfig() {
+export async function saveConfig() {
   localStorage.setItem("ac-config", JSON.stringify(state.config));
   // Also save to file
-  window.arduino.saveData({
+  await window.arduino.saveData({
     signals: state.signals,
     config: state.config,
   });
-  applyConfig();
+  await applyConfig();
 }
 
 function migrateType(t) {

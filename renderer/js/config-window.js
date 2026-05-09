@@ -1,20 +1,33 @@
-import { loadView, initConfigColorPicker, showToast, saveConfigView, exportConfig, importConfig } from './ui.js';
-import { loadConfig, state } from './state.js';
+import { loadView, initConfigColorPicker, showToast, saveConfigView, exportConfig, importConfig, applyTheme } from './ui.js';
+import { loadConfig, saveConfig, state } from './state.js';
 
 window.addEventListener("DOMContentLoaded", async () => {
     // Cargar la vista de configuración
     await loadView("config-view-container", "views/config.html");
 
-    // Cargar datos
-    loadConfig();
+    // Cargar datos (ahora async)
+    await loadConfig();
 
     // Setup inicial de la vista de config
     const themeEl = document.getElementById("cfg-theme");
     const closeEl = document.getElementById("cfg-close");
     const accentEl = document.getElementById("cfg-accent");
     const pickerEl = document.getElementById("cfg-accent-picker");
-    
-    if (themeEl) themeEl.value = state.config.theme;
+
+    // Populate themes
+    const themes = await window.arduino.getThemes();
+    if (themeEl) {
+        themeEl.innerHTML = "";
+        themes.forEach(t => {
+            const opt = document.createElement("option");
+            opt.value = t.id;
+            opt.textContent = t.name + (t.isUserTheme ? " (Usuario)" : "");
+            themeEl.appendChild(opt);
+        });
+        // IMPORTANTE: Asignar el valor después de poblar las opciones
+        themeEl.value = state.config.theme || "dark-default";
+    }
+
     if (closeEl) closeEl.value = state.config.closeBehavior;
     if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
     if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
@@ -22,6 +35,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     initConfigColorPicker();
 
     // Event Listeners
+    themeEl?.addEventListener("change", async () => {
+        state.config.theme = themeEl.value;
+        saveConfig(); // Guardar para persistir el cambio
+        window.arduino.notifyThemeChanged();
+    });
+
+    document.getElementById("btn-open-themes")?.addEventListener("click", () => window.arduino.openThemesFolder());
+    document.getElementById("btn-theme-preview")?.addEventListener("click", () => window.arduino.openThemePreview());
     document.getElementById("wbtn-close")?.addEventListener("click", () => window.arduino.close());
     document.getElementById("btn-back-config")?.remove(); // No necesitamos botón volver en ventana separada
     
@@ -31,4 +52,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     
     document.getElementById("btn-export")?.addEventListener("click", exportConfig);
     document.getElementById("btn-import")?.addEventListener("click", importConfig);
+
+    // Listen for theme changes from other windows (like the preview window)
+    window.arduino.onApplyTheme(async () => {
+        const oldTheme = state.config.theme;
+        await loadConfig();
+        if (themeEl && state.config.theme !== oldTheme) {
+            themeEl.value = state.config.theme;
+        }
+    });
 });

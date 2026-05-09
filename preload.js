@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld("arduino", {
   close: () => ipcRenderer.send("win-close"),
   openConfigWindow: () => ipcRenderer.send("open-config-window"),
   openAboutWindow: () => ipcRenderer.send("open-about-window"),
+  openThemePreview: () => ipcRenderer.send("open-theme-preview"),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
 
   // Persistence (file-based)
@@ -49,4 +50,11 @@ contextBridge.exposeInMainWorld("arduino", {
   importData: () => ipcRenderer.invoke("import-data"),
   exportSingleWorkflow: (name, data) => ipcRenderer.invoke("export-single-workflow", { name, data }),
   importSingleWorkflow: () => ipcRenderer.invoke("import-single-workflow"),
+
+  // Themes
+  getThemes: () => ipcRenderer.invoke("get-themes"),
+  getThemeData: (id) => ipcRenderer.invoke("get-theme-data", id),
+  openThemesFolder: () => ipcRenderer.send("open-themes-folder"),
+  notifyThemeChanged: () => ipcRenderer.send("theme-changed"),
+  onApplyTheme: (cb) => safeOn("apply-theme", cb),
 });

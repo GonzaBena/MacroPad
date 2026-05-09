@@ -100,6 +100,39 @@ function createAboutWindow() {
   return aboutWindow;
 }
 
+let themePreviewWindow = null;
+
+function createThemePreviewWindow(parentWindow) {
+  if (themePreviewWindow) {
+    themePreviewWindow.focus();
+    return themePreviewWindow;
+  }
+
+  themePreviewWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    parent: parentWindow,
+    modal: true,
+    frame: false,
+    resizable: false,
+    icon: path.join(__dirname, '..', 'assets', 'logo.png'),
+    backgroundColor: "#0c0e14",
+    webPreferences: {
+      preload: path.join(__dirname, "..", "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  themePreviewWindow.loadFile(path.join(__dirname, "..", "renderer", "theme-preview.html"));
+
+  themePreviewWindow.on("closed", () => {
+    themePreviewWindow = null;
+  });
+
+  return themePreviewWindow;
+}
+
 function getWindow() {
   return mainWindow;
 }
@@ -108,5 +141,6 @@ module.exports = {
   createWindow,
   createConfigWindow,
   createAboutWindow,
+  createThemePreviewWindow,
   getWindow,
 };

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Vista Previa de Temas</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/titlebar.css">
+    <link rel="stylesheet" href="css/theme-preview.css">
+</head>
+<body class="theme-preview-window">
+    <div class="titlebar draggable">
+        <div class="tb-title">Vista Previa de Temas</div>
+        <div class="tb-controls non-draggable">
+            <button class="wbtn close" id="btn-close">✕</button>
+        </div>
+    </div>
+
+    <div class="preview-layout">
+        <div class="theme-sidebar">
+            <div class="sidebar-header">Temas Disponibles</div>
+            <div id="theme-list" class="theme-list">
+                <!-- Temas se cargan aquí -->
+            </div>
+        </div>
+
+        <div class="preview-main">
+            <div id="preview-container" class="preview-container">
+                <div class="preview-header">
+                    <h3>Previsualización: <span id="preview-theme-name">-</span></h3>
+                </div>
+                
+                <div class="preview-mockup">
+                    <div class="mock-card">
+                        <div class="mock-card-title">Ejemplo de Señal</div>
+                        <div class="mock-card-body">
+                            <p>Este es un ejemplo de cómo se verán los colores de fondo, bordes y texto.</p>
+                            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                                <button class="mock-btn primary">Botón Principal</button>
+                                <button class="mock-btn secondary">Secundario</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mock-sidebar">
+                        <div class="mock-item active">Item Activo</div>
+                        <div class="mock-item">Item Normal</div>
+                        <div class="mock-item muted">Item Silenciado</div>
+                    </div>
+                </div>
+
+                <div class="preview-footer">
+                    <button class="btn-apply" id="btn-apply-theme">Aplicar Tema</button>
+                    <button class="btn-cancel" id="btn-cancel-preview">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/theme-preview.js"></script>
+</body>
+</html>

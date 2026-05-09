@@ -1,4 +1,4 @@
-import { state, saveConfig, undo as stateUndo, redo as stateRedo, canUndo, canRedo } from './state.js';
+import { state, saveConfig, applyConfig, undo as stateUndo, redo as stateRedo, canUndo, canRedo } from './state.js';
 import { renderSignalList, renderFlow } from './workflows.js';
 
 export async function loadView(elementId, viewPath) {
@@ -14,6 +14,10 @@ export function switchTab(name, el) {
   document.getElementById(`tab-${name}`).classList.add("active");
 }
 window.switchTab = switchTab; // expose for inline onclick
+
+export async function applyTheme() {
+  await applyConfig();
+}
 
 export function showToast(title, body) {
   const c = document.getElementById("toasts");
@@ -134,6 +138,7 @@ export function saveConfigView() {
 
   saveConfig();
   showToast("Configuración", "Los cambios han sido guardados y aplicados.");
+  applyTheme();
   closeConfigView();
 }
 window.saveConfigView = saveConfigView;

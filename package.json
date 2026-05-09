@@ -1,6 +1,6 @@
 {
-  "name": "poketech",
-  "version": "0.0.1",
+  "name": "pokepad",
+  "version": "0.0.2",
   "description": "PokePad - Control your PC with Arduino",
   "author": "Atlas",
   "main": "main.js",

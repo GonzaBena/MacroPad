@@ -12,9 +12,20 @@
       
       <div class="config-row">
         <div class="config-label">Tema visual</div>
-        <select class="config-input" id="cfg-theme">
-          <option>Oscuro (Por defecto)</option>
-        </select>
+        <div style="display: flex; gap: 8px; flex: 1;">
+          <select class="config-input" id="cfg-theme" style="flex: 1;">
+            <option value="dark-default">Oscuro (Por defecto)</option>
+          </select>
+          <button class="config-color-btn" id="btn-open-themes" title="Abrir carpeta de temas">
+            <span>📂</span>
+          </button>
+          <button class="btn-save-config" id="btn-theme-preview" style="padding: 0 12px; height: 32px; white-space: nowrap;">
+            Vista Previa
+          </button>
+        </div>
+      </div>
+      <div class="config-row" style="margin-top: -8px;">
+        <div class="config-label config-hint">Podes añadir archivos .json en la carpeta de temas para crear tus propios estilos.</div>
       </div>
       
       <div class="config-row">

@@ -1,18 +1,28 @@
 const { app, ipcMain, dialog, BrowserWindow } = require("electron");
-const { createWindow, getWindow, createConfigWindow, createAboutWindow } = require("./main-process/window");
+const {
+  createWindow,
+  getWindow,
+  createConfigWindow,
+  createAboutWindow,
+  createThemePreviewWindow,
+} = require("./main-process/window");
 const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
 const { setupKeyboard } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
 const { setupPersistence } = require("./main-process/persistence");
 const { setupTray } = require("./main-process/tray");
+const { getThemeList, getThemeData, openThemesFolder } = require("./main-process/themes");
 const path = require("path");
+
+// Forzar el nombre correcto en notificaciones de Windows
+app.setAppUserModelId("PokePad"); // ← el string que quieras que aparezca
 
 // Habilitar hot reload en desarrollo
 if (!app.isPackaged) {
   try {
     require("electron-reload")(__dirname, {
-      electron: path.join(__dirname, "node_modules", ".bin", "electron")
+      electron: path.join(__dirname, "node_modules", ".bin", "electron"),
     });
   } catch (err) {
     console.error("electron-reload failed to initialize", err);
@@ -45,52 +55,68 @@ if (!gotTheLock) {
     const mainWindow = createWindow();
     setupTray(mainWindow);
 
-  // Configuración de módulos e IPCs
-  setupSerial();
-  setupMedia();
-  setupKeyboard();
-  setupExecution();
-  setupPersistence();
+    // Configuración de módulos e IPCs
+    setupSerial();
+    setupMedia();
+    setupKeyboard();
+    setupExecution();
+    setupPersistence();
 
-  // Handlers IPC generales (Diálogos y Ventana)
-  ipcMain.handle("select-file", async () => {
-    const win = getWindow();
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      properties: ["openFile", "openDirectory"],
+    // Handlers IPC generales (Diálogos y Ventana)
+    ipcMain.handle("select-file", async () => {
+      const win = getWindow();
+      const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+        properties: ["openFile", "openDirectory"],
+      });
+      if (canceled) return null;
+      return filePaths[0];
     });
-    if (canceled) return null;
-    return filePaths[0];
-  });
 
-  ipcMain.on("open-config-window", () => {
-    createConfigWindow();
-  });
+    ipcMain.on("open-config-window", () => {
+      createConfigWindow();
+    });
 
-  ipcMain.on("open-about-window", () => {
-    createAboutWindow();
-  });
+    ipcMain.on("open-about-window", () => {
+      createAboutWindow();
+    });
 
-  ipcMain.handle("get-app-version", () => {
-    return app.getVersion();
-  });
+    ipcMain.on("open-theme-preview", (event) => {
+      const parent = BrowserWindow.fromWebContents(event.sender);
+      createThemePreviewWindow(parent);
+    });
 
-  ipcMain.on("win-minimize", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) win.minimize();
-  });
+    ipcMain.handle("get-app-version", () => {
+      return app.getVersion();
+    });
 
-  ipcMain.on("win-maximize", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) {
-      win.isMaximized() ? win.unmaximize() : win.maximize();
-    }
-  });
+    // Theme Handlers
+    ipcMain.handle("get-themes", () => getThemeList());
+    ipcMain.handle("get-theme-data", (event, themeId) => getThemeData(themeId));
+    ipcMain.on("open-themes-folder", () => openThemesFolder());
 
-  ipcMain.on("win-close", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) win.close();
+    ipcMain.on("theme-changed", () => {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        win.webContents.send("apply-theme");
+      });
+    });
+
+    ipcMain.on("win-minimize", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win) win.minimize();
+    });
+
+    ipcMain.on("win-maximize", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win) {
+        win.isMaximized() ? win.unmaximize() : win.maximize();
+      }
+    });
+
+    ipcMain.on("win-close", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win) win.close();
+    });
   });
-});
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();

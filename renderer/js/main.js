@@ -1,5 +1,5 @@
 import { state, loadSignalsData, loadConfig } from './state.js';
-import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal } from './ui.js';
+import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
 import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignMenu, assignSpeed, testCurrentSignal, toggleStepMenu, importWorkflow, initAssignDropdown } from './workflows.js';
@@ -92,7 +92,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   // 5. Cargar datos
-  loadConfig();
+  await loadConfig();
   await loadSignalsData();
   renderSignalList();
   initAssignDropdown();
@@ -165,4 +165,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   log("Sistema listo", "sys");
+
+  // Listen for theme changes from other windows
+  window.arduino.onApplyTheme(async () => {
+    await loadConfig();
+  });
 });
