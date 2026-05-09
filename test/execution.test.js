@@ -44,7 +44,11 @@ describe('runCmd', () => {
     getWindow.mockReturnValue(mockWin);
     exec.mockImplementation((cmd, opts, cb) => cb(new Error('command not found'), '', ''));
 
-    await runCmd('nonexistent-command');
+    try {
+      await runCmd('nonexistent-command');
+    } catch (e) {
+      expect(e.message).toBe('command not found');
+    }
 
     expect(mockWin.webContents.send).toHaveBeenCalledWith('action-result', expect.objectContaining({
       ok: false,
@@ -121,7 +125,11 @@ describe('runScript', () => {
     const killedErr = Object.assign(new Error('killed'), { killed: true });
     execFile.mockImplementation((bin, args, opts, cb) => cb(killedErr, '', ''));
 
-    await runScript('python', 'import time; time.sleep(999)');
+    try {
+      await runScript('python', 'import time; time.sleep(999)');
+    } catch (e) {
+      expect(e.killed).toBe(true);
+    }
 
     expect(mockWin.webContents.send).toHaveBeenCalledWith('action-result', expect.objectContaining({
       ok: false,
@@ -304,5 +312,143 @@ describe('executeSequence', () => {
     await executeSequence('SIG');
     await executeSequence('SIG');
     expect(clipboard.writeText).toHaveBeenCalledTimes(2);
+  });
+
+  it('correctly mutates variables inside a loop', async () => {
+    const mockWin = { webContents: { send: jest.fn() } };
+    getWindow.mockReturnValue(mockWin);
+
+    setSignalMap({
+      MUTATE_LOOP: {
+        steps: [
+          { type: 'set_variable', params: { name: 'hola', type: 'int', value: '1' } },
+          { 
+            type: 'loop', 
+            params: { 
+              iterations: '5', 
+              steps: [
+                { type: 'modify_variable', params: { name: 'hola', op: 'add', value: '1' } }
+              ] 
+            } 
+          },
+          { type: 'clipboard', params: { text: '$hola' } }
+        ]
+      }
+    });
+
+    await executeSequence('MUTATE_LOOP');
+    expect(clipboard.writeText).toHaveBeenCalledWith('6');
+  });
+
+  it('interpolates numeric variables in commands', async () => {
+    const mockWin = { webContents: { send: jest.fn() } };
+    getWindow.mockReturnValue(mockWin);
+    exec.mockImplementation((cmd, opts, cb) => cb(null, cmd, ''));
+
+    setSignalMap({
+      ECHO_VAR: {
+        steps: [
+          { type: 'set_variable', params: { name: 'val', type: 'int', value: '10' } },
+          { type: 'run_cmd', params: { cmd: 'echo $val' } }
+        ]
+      }
+    });
+
+    await executeSequence('ECHO_VAR');
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('action-result', expect.objectContaining({
+      output: 'echo 10'
+    }));
+  });
+
+  it('handles loop iterations from a variable', async () => {
+    setSignalMap({
+      VAR_LOOP: {
+        steps: [
+          { type: 'set_variable', params: { name: 'count', type: 'int', value: '3' } },
+          { type: 'set_variable', params: { name: 'target', type: 'int', value: '0' } },
+          { 
+            type: 'loop', 
+            params: { 
+              iterations: '$count', 
+              steps: [
+                { type: 'modify_variable', params: { name: 'target', op: 'add', value: '1' } }
+              ] 
+            } 
+          },
+          { type: 'clipboard', params: { text: '$target' } }
+        ]
+      }
+    });
+
+    await executeSequence('VAR_LOOP');
+    expect(clipboard.writeText).toHaveBeenCalledWith('3');
+  });
+
+  it('handles variable comparison in conditions', async () => {
+    setSignalMap({
+      COND_VAR: {
+        steps: [
+          { type: 'set_variable', params: { name: 'a', type: 'int', value: '5' } },
+          { type: 'set_variable', params: { name: 'b', type: 'int', value: '10' } },
+          { 
+            type: 'condition', 
+            params: { 
+              type: 'var_cmp', var1: '$a', op: '<', var2: '$b',
+              steps: [
+                { type: 'clipboard', params: { text: 'less' } }
+              ] 
+            } 
+          }
+        ]
+      }
+    });
+
+    await executeSequence('COND_VAR');
+    expect(clipboard.writeText).toHaveBeenCalledWith('less');
+  });
+
+  it('mimics user scenario precisely: hola=1, loop 5 times +1, result=6', async () => {
+    setSignalMap({
+      USER: {
+        steps: [
+          { type: 'set_variable', params: { name: 'hola', type: 'int', value: '1' } },
+          { 
+            type: 'loop', 
+            params: { 
+              mode: 'count',
+              iterations: '5', 
+              steps: [
+                { type: 'modify_variable', params: { name: 'hola', op: 'add', value: '1' } }
+              ] 
+            } 
+          },
+          { type: 'clipboard', params: { text: 'Valor: $hola' } }
+        ]
+      }
+    });
+    await executeSequence('USER');
+    expect(clipboard.writeText).toHaveBeenCalledWith('Valor: 6');
+  });
+
+  it('handles foreach loops correctly', async () => {
+    setSignalMap({
+      FOREACH: {
+        steps: [
+          { type: 'set_variable', params: { name: 'items', type: 'list', value: '["a", "b"]' } },
+          { 
+            type: 'loop', 
+            params: { 
+              mode: 'foreach', list_name: 'items', var_name: 'item',
+              steps: [
+                { type: 'clipboard', params: { text: '$item' } }
+              ] 
+            } 
+          }
+        ]
+      }
+    });
+    await executeSequence('FOREACH');
+    expect(clipboard.writeText).toHaveBeenCalledWith('a');
+    expect(clipboard.writeText).toHaveBeenCalledWith('b');
   });
 });

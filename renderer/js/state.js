@@ -9,7 +9,9 @@ export const state = {
   config: {
     theme: "dark",
     closeBehavior: "close",
-    accentColor: "#f5a623"
+    accentColor: "#f5a623",
+    initialTab: "monitor",
+    startupMode: "none"
   }
 };
 
@@ -57,6 +59,12 @@ export const STEP_TYPES = {
   open_url: { label: "Abrir URL", icon: "↗", cls: "t-open_url" },
   run_cmd: { label: "Ejecutar cmd", icon: "$", cls: "t-run_cmd" },
   open_file: { label: "Abrir archivo", icon: "⌂", cls: "t-open_file" },
+  open_app: { label: "Abrir aplicación", icon: "🚀", cls: "t-open_app" },
+  set_variable: { label: "Definir variable", icon: "📦", cls: "t-var" },
+  modify_variable: { label: "Modificar variable", icon: "⚙", cls: "t-var" },
+  list_operation: { label: "Operación de lista", icon: "▤", cls: "t-var" },
+  loop: { label: "Bucle (Repetir)", icon: "🔄", cls: "t-loop", isContainer: true },
+  condition: { label: "Condicional (Si...)", icon: "❓", cls: "t-condition", isContainer: true },
   notify: { label: "Notificación", icon: "◉", cls: "t-notify" },
   run_script: { label: "Ejecutar script", icon: "{ }", cls: "t-run_script" },
 };

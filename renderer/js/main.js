@@ -95,6 +95,17 @@ window.addEventListener("DOMContentLoaded", async () => {
   // 5. Cargar datos
   await loadConfig();
   await loadSignalsData();
+
+  // 6. Aplicar pestaña inicial
+  const initialTab = state.config.initialTab || "monitor";
+  const tabBtn = document.querySelector(`.tab[data-tab="${initialTab}"]`);
+  if (tabBtn) {
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
+    tabBtn.classList.add("active");
+    document.getElementById(`tab-${initialTab}`)?.classList.add("active");
+  }
+
   renderSignalList();
   initAssignDropdown();
   

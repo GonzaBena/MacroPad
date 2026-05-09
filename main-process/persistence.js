@@ -24,6 +24,7 @@ function validateData(raw) {
       theme: "dark",
       closeBehavior: "close",
       accentColor: "#f5a623",
+      initialTab: "monitor",
     },
   };
 
@@ -33,6 +34,8 @@ function validateData(raw) {
   if (raw.config && typeof raw.config === "object") {
     if (typeof raw.config.theme === "string") data.config.theme = raw.config.theme;
     if (typeof raw.config.closeBehavior === "string") data.config.closeBehavior = raw.config.closeBehavior;
+    if (typeof raw.config.initialTab === "string") data.config.initialTab = raw.config.initialTab;
+    if (typeof raw.config.startupMode === "string") data.config.startupMode = raw.config.startupMode;
     if (typeof raw.config.accentColor === "string" && /^#[0-9A-Fa-f]{6}$/.test(raw.config.accentColor)) {
       data.config.accentColor = raw.config.accentColor;
     }
@@ -105,6 +108,19 @@ function saveData(data) {
 
     const validated = validateData(data);
     fs.writeFileSync(dataPath, JSON.stringify(validated, null, 2), "utf-8");
+
+    // Apply launch at login setting
+    if (app.isPackaged) {
+      const startupMode = validated.config.startupMode || "none";
+      app.setLoginItemSettings({
+        openAtLogin: startupMode !== "none",
+        path: app.getPath("exe"),
+        args: [
+          "--was-opened-at-login",
+          `--startup-mode=${startupMode}`
+        ]
+      });
+    }
   } catch (err) {
     console.error("[persistence] Failed to save data:", err.message);
   }

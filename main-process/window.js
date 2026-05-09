@@ -5,7 +5,7 @@ const { loadData } = require("./persistence");
 let mainWindow = null;
 let configWindow = null;
 
-function createWindow() {
+function createWindow(startupMode = "normal") {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 700,
@@ -19,9 +19,24 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+    show: startupMode !== "minimized" && startupMode !== "hidden"
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+
+  mainWindow.once("ready-to-show", () => {
+    if (startupMode === "maximized") {
+      mainWindow.maximize();
+      mainWindow.show();
+    } else if (startupMode === "minimized") {
+      mainWindow.minimize();
+      mainWindow.show();
+    } else if (startupMode === "hidden") {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+    }
+  });
 
   mainWindow.on("close", (event) => {
     if (app.isQuiting) return;

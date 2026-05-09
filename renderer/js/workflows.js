@@ -9,50 +9,54 @@ export function initFlowDelegation() {
   panel.addEventListener('click', (e) => {
     const target = e.target;
     const delBtn = target.closest('.btn-del-step');
-    if (delBtn) { deleteStep(Number(delBtn.dataset.idx)); return; }
+    if (delBtn) { deleteStep(JSON.parse(delBtn.dataset.path)); return; }
     const keyBtn = target.closest('.btn-key-capture');
-    if (keyBtn) { startKeyCapture(Number(keyBtn.dataset.idx)); return; }
+    if (keyBtn) { startKeyCapture(JSON.parse(keyBtn.dataset.path)); return; }
     const browseBtn = target.closest('.btn-browse-file');
-    if (browseBtn) { browseFile(Number(browseBtn.dataset.idx)); return; }
+    if (browseBtn) { browseFile(JSON.parse(browseBtn.dataset.path)); return; }
   });
 
   panel.addEventListener('change', (e) => {
     const target = e.target;
     if (target.classList.contains('step-type-select')) {
-      changeStepType(Number(target.dataset.idx), target.value);
+      changeStepType(JSON.parse(target.dataset.path), target.value);
+      return;
+    }
+    if (target.classList.contains('condition-type-select')) {
+      updateParam(JSON.parse(target.dataset.path), 'type', target.value);
       return;
     }
     if (target.classList.contains('script-lang-select')) {
-      const idx = Number(target.dataset.idx);
-      updateParam(idx, 'lang', target.value);
-      updateScriptEditor(idx);
+      const path = JSON.parse(target.dataset.path);
+      updateParam(path, 'lang', target.value);
+      updateScriptEditor(path);
       return;
     }
     if (target.classList.contains('media-action-select')) {
-      updateParam(Number(target.dataset.idx), 'action', target.value);
+      updateParam(JSON.parse(target.dataset.path), 'action', target.value);
       return;
     }
   });
 
   panel.addEventListener('input', (e) => {
     const target = e.target;
-    if (target.dataset.param && target.dataset.idx !== undefined) {
-      updateParam(Number(target.dataset.idx), target.dataset.param, target.value);
+    if (target.dataset.param && target.dataset.path) {
+      updateParam(JSON.parse(target.dataset.path), target.dataset.param, target.value);
     }
     if (target.classList.contains('script-textarea')) {
-      handleScriptInput(Number(target.dataset.idx));
+      handleScriptInput(JSON.parse(target.dataset.path));
     }
   });
 
   panel.addEventListener('scroll', (e) => {
     if (e.target.classList.contains('script-textarea')) {
-      syncScriptScroll(Number(e.target.dataset.idx));
+      syncScriptScroll(JSON.parse(e.target.dataset.path));
     }
   }, true);
 
   panel.addEventListener('keydown', (e) => {
     if (e.target.classList.contains('script-textarea')) {
-      handleScriptKeydown(e, Number(e.target.dataset.idx));
+      handleScriptKeydown(e, JSON.parse(e.target.dataset.path));
     }
   });
 }
@@ -149,7 +153,7 @@ export function renderSignalList() {
         <span class="sig-pulse"></span>
       </div>
       ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
-      <div class="sig-steps-count">${entry.steps?.length || 0} paso${(entry.steps?.length || 0) === 1 ? "" : "s"}</div>`;
+      <div class="sig-steps-count">${countSteps(entry.steps)} paso${countSteps(entry.steps) === 1 ? "" : "s"}</div>`;
     
     div.addEventListener('click', () => selectSignal(sig));
     div.addEventListener('contextmenu', (e) => showSignalContextMenu(e, sig));
@@ -158,6 +162,15 @@ export function renderSignalList() {
     const dot = div.querySelector('.sig-color-dot');
     if (dot) dot.style.background = entry.color;
   });
+}
+
+function countSteps(steps) {
+  if (!steps) return 0;
+  let count = steps.length;
+  steps.forEach(s => {
+    if (s.params?.steps) count += countSteps(s.params.steps);
+  });
+  return count;
 }
 
 export function addSignal() {
@@ -439,19 +452,26 @@ export function updateAssignButtonUI() {
   });
 }
 
-export function renderFlow() {
-  const fc = document.getElementById("flow-container");
-  fc.innerHTML = "";
-  const steps = state.signals[state.selectedSig]?.steps || [];
-  if (!steps.length) {
-    const empty = document.createElement("div");
-    empty.className = "flow-empty";
-    empty.innerHTML = `<span class="flow-empty-icon">⋯</span><span>Sin pasos — agregá uno abajo</span>`;
-    fc.appendChild(empty);
-    return;
+export function renderFlow(container, steps, path = []) {
+  const isRoot = !container;
+  const fc = container || document.getElementById("flow-container");
+  if (!fc) return;
+
+  if (isRoot) {
+    fc.innerHTML = "";
+    steps = state.signals[state.selectedSig]?.steps || [];
+    if (!steps.length) {
+      const empty = document.createElement("div");
+      empty.className = "flow-empty";
+      empty.innerHTML = `<span class="flow-empty-icon">⋯</span><span>Sin pasos — agregá uno abajo</span>`;
+      fc.appendChild(empty);
+      return;
+    }
   }
+
   steps.forEach((step, i) => {
-    fc.appendChild(makeStepCard(step, i));
+    const currentPath = [...path, i];
+    fc.appendChild(makeStepCard(step, i, currentPath));
     if (i < steps.length - 1) {
       const conn = document.createElement("div");
       conn.className = "step-connector";
@@ -459,13 +479,28 @@ export function renderFlow() {
       fc.appendChild(conn);
     }
   });
-  steps.forEach((step, i) => { if (step.type === 'run_script') handleScriptInput(i); });
+
+  if (isRoot) {
+    // Post-render script initialization
+    const findScripts = (arr, p) => {
+      arr.forEach((s, idx) => {
+        const cp = [...p, idx];
+        if (s.type === 'run_script') handleScriptInput(cp);
+        if (s.params?.steps) findScripts(s.params.steps, cp);
+      });
+    };
+    findScripts(steps, []);
+  }
 }
 
-export function makeStepCard(step, idx) {
+export function makeStepCard(step, idx, path) {
   const meta = STEP_TYPES[step.type] || STEP_TYPES.notify;
+  const pathStr = JSON.stringify(path);
   const card = document.createElement("div");
-  card.className = "step-card"; card.draggable = true; card.dataset.idx = idx;
+  card.className = "step-card"; 
+  if (meta.isContainer) card.classList.add("step-card-container");
+  card.draggable = true; 
+  card.dataset.path = pathStr;
 
   // Header
   const header = document.createElement("div");
@@ -482,7 +517,7 @@ export function makeStepCard(step, idx) {
   badge.appendChild(icon);
 
   const typeSelect = document.createElement("select");
-  typeSelect.className = "step-type-select"; typeSelect.dataset.idx = idx;
+  typeSelect.className = "step-type-select"; typeSelect.dataset.path = pathStr;
   Object.entries(STEP_TYPES).forEach(([k, v]) => {
     const opt = document.createElement("option");
     opt.value = k; opt.textContent = v.label;
@@ -497,7 +532,7 @@ export function makeStepCard(step, idx) {
 
   const delBtn = document.createElement("button");
   delBtn.className = "btn-del-step"; delBtn.title = "Eliminar paso"; delBtn.textContent = "✕";
-  delBtn.dataset.idx = idx;
+  delBtn.dataset.path = pathStr;
   header.appendChild(delBtn);
 
   card.appendChild(header);
@@ -505,29 +540,167 @@ export function makeStepCard(step, idx) {
   // Params
   const params = document.createElement("div");
   params.className = "step-params";
-  buildStepParams(params, step, idx);
+  buildStepParams(params, step, path);
   card.appendChild(params);
 
+  // Nested steps if container
+  if (meta.isContainer) {
+    const children = document.createElement("div");
+    children.className = "step-children";
+    children.dataset.path = pathStr;
+    const childSteps = step.params?.steps || [];
+    renderFlow(children, childSteps, path);
+    card.appendChild(children);
+
+    // Drop zone for children
+    children.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      children.classList.add("drag-over");
+    });
+    children.addEventListener("dragleave", () => children.classList.remove("drag-over"));
+    children.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      children.classList.remove("drag-over");
+      
+      if (!state.dragSrcPath) return;
+      const srcPath = JSON.parse(state.dragSrcPath);
+      const destPath = [...path, childSteps.length]; // Drop at the end of the container
+      
+      if (isPathEqual(srcPath, destPath) || isPathParent(srcPath, destPath)) return;
+
+      moveStep(srcPath, destPath);
+    });
+  }
+
   // Drag events
-  card.addEventListener("dragstart", (e) => { state.dragSrcIdx = idx; card.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
-  card.addEventListener("dragend", () => { card.classList.remove("dragging"); document.querySelectorAll(".step-card").forEach((c) => c.classList.remove("drag-over")); });
-  card.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; card.classList.add("drag-over"); });
+  card.addEventListener("dragstart", (e) => { 
+    e.stopPropagation();
+    state.dragSrcPath = pathStr; 
+    card.classList.add("dragging"); 
+    e.dataTransfer.effectAllowed = "move"; 
+  });
+  card.addEventListener("dragend", () => { 
+    card.classList.remove("dragging"); 
+    document.querySelectorAll(".step-card, .step-children").forEach((c) => c.classList.remove("drag-over")); 
+  });
+  card.addEventListener("dragover", (e) => { 
+    e.preventDefault(); 
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move"; 
+    card.classList.add("drag-over"); 
+  });
   card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
   card.addEventListener("drop", (e) => {
     e.preventDefault();
-    if (state.dragSrcIdx === null || state.dragSrcIdx === idx) return;
-    pushUndo();
-    const steps = state.signals[state.selectedSig].steps;
-    const [moved] = steps.splice(state.dragSrcIdx, 1);
-    steps.splice(idx, 0, moved);
-    state.dragSrcIdx = null; saveSignals(); renderFlow();
+    e.stopPropagation();
+    if (!state.dragSrcPath || state.dragSrcPath === pathStr) return;
+    
+    const srcPath = JSON.parse(state.dragSrcPath);
+    const destPath = path;
+
+    if (isPathParent(srcPath, destPath)) return;
+
+    moveStep(srcPath, destPath);
   });
 
   return card;
 }
 
-function buildStepParams(container, step, idx) {
+function isPathEqual(p1, p2) {
+  return JSON.stringify(p1) === JSON.stringify(p2);
+}
+
+function isPathParent(parent, child) {
+  if (parent.length >= child.length) return false;
+  for (let i = 0; i < parent.length; i++) {
+    if (parent[i] !== child[i]) return false;
+  }
+  return true;
+}
+
+function moveStep(srcPath, destPath) {
+  if (!srcPath || !destPath) return;
+  if (isPathEqual(srcPath, destPath) || isPathParent(srcPath, destPath)) return;
+
+  pushUndo();
+  
+  // Clonar para operar de forma atómica y evitar que desaparezcan bloques
+  const rootSteps = JSON.parse(JSON.stringify(state.signals[state.selectedSig].steps));
+
+  // 1. Ajustar destPath si la eliminación del origen afecta los índices
+  const adjustedDest = [...destPath];
+  let i = 0;
+  while (i < srcPath.length && i < destPath.length && srcPath[i] === destPath[i]) {
+    i++;
+  }
+  // Si en el primer punto de diferencia, el origen está antes que el destino en el mismo array,
+  // el índice del destino debe decrementarse porque el array se va a contraer.
+  if (i < srcPath.length && i < destPath.length && srcPath[i] < destPath[i]) {
+    adjustedDest[i]--;
+  }
+
+  try {
+    const getAndRemove = (steps, p) => {
+      if (p.length === 1) return steps.splice(p[0], 1)[0];
+      const target = steps[p[0]];
+      if (!target || !target.params || !target.params.steps) throw new Error("Path de origen inválido");
+      return getAndRemove(target.params.steps, p.slice(1));
+    };
+
+    const insert = (steps, p, item) => {
+      if (p.length === 1) { steps.splice(p[0], 0, item); return; }
+      const target = steps[p[0]];
+      if (!target.params) target.params = {};
+      if (!target.params.steps) target.params.steps = [];
+      insert(target.params.steps, p.slice(1), item);
+    };
+
+    const step = getAndRemove(rootSteps, srcPath);
+    if (step) {
+      insert(rootSteps, adjustedDest, step);
+      state.signals[state.selectedSig].steps = rootSteps;
+    }
+  } catch (err) {
+    console.error("Error crítico al mover paso:", err);
+  }
+  
+  state.dragSrcPath = null; 
+  saveSignals(); 
+  renderFlow();
+}
+
+function discoverVariables(currentPath = null) {
+  const vars = new Set();
+  if (!state.selectedSig) return [];
+  
+  const scan = (steps, pathPrefix = []) => {
+    if (!steps || !Array.isArray(steps)) return;
+    steps.forEach((s, i) => {
+      if (!s) return;
+      const p = [...pathPrefix, i];
+      if (s.type === 'set_variable' && s.params?.name) vars.add(s.params.name.trim());
+      if (s.type === 'loop' && s.params?.mode === 'foreach') {
+        const vname = (s.params.var_name || 'item').trim();
+        // Solo mostrar si el bloque actual está DENTRO de este bucle
+        if (currentPath && isPathParent(p, currentPath)) {
+          vars.add(vname);
+        }
+      }
+      if (s.params?.steps) scan(s.params.steps, p);
+    });
+  };
+  
+  const rootSteps = state.signals[state.selectedSig]?.steps;
+  if (rootSteps) scan(rootSteps, []);
+  
+  return Array.from(vars).sort();
+}
+
+function buildStepParams(container, step, path) {
   const p = step.params || {};
+  const pathStr = JSON.stringify(path);
 
   function makeRow(labelText) {
     const row = document.createElement("div"); row.className = "param-row";
@@ -537,85 +710,210 @@ function buildStepParams(container, step, idx) {
   function makeInput(type, value, placeholder, param) {
     const inp = document.createElement("input");
     inp.type = type; inp.className = "param-input"; inp.value = value; inp.placeholder = placeholder || "";
-    inp.dataset.idx = idx; inp.dataset.param = param;
+    inp.dataset.path = pathStr; inp.dataset.param = param;
     return inp;
+  }
+  function makeSelect(options, current, param, cls = "") {
+    const sel = document.createElement("select");
+    sel.className = "param-select " + cls; sel.dataset.path = pathStr; sel.dataset.param = param;
+    options.forEach(o => {
+      const opt = document.createElement("option"); opt.value = o.v !== undefined ? o.v : o; opt.textContent = o.l !== undefined ? o.l : o;
+      if (current === (o.v !== undefined ? o.v : o)) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', (e) => updateParam(path, param, e.target.value));
+    return sel;
   }
   function makeHint(text) {
     const hint = document.createElement("div"); hint.className = "param-hint"; hint.textContent = text; return hint;
   }
+  function makeVarLink(param) {
+    const btn = document.createElement("button");
+    btn.className = "btn-var-link"; btn.title = "Vincular a variable"; btn.textContent = "v";
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      closeContextMenu();
+      const vars = discoverVariables(path);
+      if (!vars.length) { showToast("Sin variables", "Definí una variable primero"); return; }
+      
+      const menu = document.createElement("div"); menu.className = "context-menu";
+      vars.forEach(v => {
+        const item = document.createElement("div"); item.className = "context-menu-item";
+        item.textContent = `$${v}`;
+        item.onclick = () => { updateParam(path, param, `$${v}`); renderFlow(); closeContextMenu(); };
+        menu.appendChild(item);
+      });
+      document.body.appendChild(menu);
+      const rect = btn.getBoundingClientRect();
+      menu.style.left = `${rect.left}px`; menu.style.top = `${rect.bottom + 5}px`;
+      activeContextMenu = menu;
+    };
+    return btn;
+  }
+
+  const availableVars = discoverVariables(path);
 
   switch (step.type) {
     case "keypress": {
       const row = makeRow("Combinación de teclas");
       const wrap = document.createElement("div"); wrap.className = "param-input-row";
-      const inp = makeInput("text", p.combo || "", "ej: cmd+space, ctrl+c", "combo");
+      const inp = makeInput("text", p.combo || "", "ej: cmd+space, $mi_tecla", "combo");
       inp.className = "param-input key-input flex-1";
       const btn = document.createElement("button");
       btn.className = "btn btn-ghost btn-key-capture"; btn.title = "Capturar teclas";
-      btn.textContent = "⌨️"; btn.dataset.idx = idx;
-      wrap.appendChild(inp); wrap.appendChild(btn); row.appendChild(wrap);
+      btn.textContent = "⌨️"; btn.dataset.path = pathStr;
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("combo")); wrap.appendChild(btn); row.appendChild(wrap);
       row.appendChild(makeHint("Escribí la combinación manualmente o usá el botón para capturarla."));
       container.appendChild(row); break;
     }
     case "wait": {
       const row = makeRow("Duración (ms)");
-      const inp = makeInput("number", p.ms || 500, "", "ms");
-      inp.min = "10"; inp.max = "60000";
-      row.appendChild(inp); container.appendChild(row); break;
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.ms || 500, "", "ms");
+      inp.className = "param-input flex-1";
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("ms"));
+      row.appendChild(wrap); container.appendChild(row); break;
     }
     case "clipboard": {
       const row = makeRow("Texto a copiar");
-      row.appendChild(makeInput("text", p.text || "", "Texto que irá al portapapeles", "text"));
-      container.appendChild(row); break;
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.text || "", "Texto o $variable", "text");
+      inp.className = "param-input flex-1";
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("text"));
+      row.appendChild(wrap); container.appendChild(row); break;
     }
     case "media": {
       const row = makeRow("Acción");
-      const sel = document.createElement("select");
-      sel.className = "param-select media-action-select"; sel.dataset.idx = idx;
-      MEDIA_OPTIONS.forEach((o) => {
-        const opt = document.createElement("option"); opt.value = o.value; opt.textContent = o.label;
-        if (p.action === o.value) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      row.appendChild(sel); container.appendChild(row); break;
+      row.appendChild(makeSelect(MEDIA_OPTIONS.map(o => ({v:o.value, l:o.label})), p.action, "action", "media-action-select"));
+      container.appendChild(row); break;
     }
     case "open_url": {
       const row = makeRow("URL");
-      row.appendChild(makeInput("text", p.url || "", "https://ejemplo.com", "url"));
-      container.appendChild(row); break;
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.url || "", "https://ejemplo.com o $variable", "url");
+      inp.className = "param-input flex-1";
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("url"));
+      row.appendChild(wrap); container.appendChild(row); break;
     }
     case "run_cmd": {
       const row = makeRow("Comando");
-      row.appendChild(makeInput("text", p.cmd || "", "open /Applications/Spotify.app", "cmd"));
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.cmd || "", "Comando o $variable", "cmd");
+      inp.className = "param-input flex-1";
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("cmd"));
+      row.appendChild(wrap); container.appendChild(row); break;
+    }
+    case "open_file":
+    case "open_app": {
+      const isApp = step.type === "open_app";
+      const row = makeRow(isApp ? "Aplicación (Ruta)" : "Ruta");
+      const wrap = document.createElement("div"); wrap.className = "param-input-row";
+      const inp = makeInput("text", p.path || "", isApp ? "C:\\Ruta\\a\\App.exe" : "/Users/vos/archivo.pdf", "path");
+      inp.id = `path-${pathStr}`; inp.className = "param-input flex-1";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-ghost btn-browse-file"; btn.title = isApp ? "Seleccionar aplicación" : "Seleccionar archivo";
+      btn.textContent = "📂"; btn.dataset.path = pathStr;
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("path")); wrap.appendChild(btn); row.appendChild(wrap);
       container.appendChild(row); break;
     }
-    case "open_file": {
-      const row = makeRow("Ruta");
+    case "set_variable": {
+      const r1 = makeRow("Nombre"); r1.appendChild(makeInput("text", p.name || "", "mi_variable", "name")); container.appendChild(r1);
+      const r2 = makeRow("Tipo"); r2.appendChild(makeSelect([{v:"string",l:"Texto"},{v:"int",l:"Número"},{v:"list",l:"Lista (JSON)"}], p.type || "string", "type")); container.appendChild(r2);
+      const r3 = makeRow("Valor inicial"); r3.appendChild(makeInput("text", p.value || "", "valor...", "value")); container.appendChild(r3);
+      break;
+    }
+    case "modify_variable": {
+      const r1 = makeRow("Variable"); r1.appendChild(makeSelect(availableVars, p.name, "name")); container.appendChild(r1);
+      const r2 = makeRow("Operación"); r2.appendChild(makeSelect([{v:"set",l:"Asignar (=)"},{v:"add",l:"Sumar (+)"},{v:"sub",l:"Restar (-)"},{v:"concat",l:"Concatenar texto"}], p.op || "set", "op")); container.appendChild(r2);
+      const r3 = makeRow("Valor"); 
       const wrap = document.createElement("div"); wrap.className = "param-input-row";
-      const inp = makeInput("text", p.path || "", "/Users/vos/archivo.pdf", "path");
-      inp.id = `path-${idx}`; inp.className = "param-input flex-1";
-      const btn = document.createElement("button");
-      btn.className = "btn btn-ghost btn-browse-file"; btn.title = "Seleccionar archivo";
-      btn.textContent = "📂"; btn.dataset.idx = idx;
-      wrap.appendChild(inp); wrap.appendChild(btn); row.appendChild(wrap);
-      container.appendChild(row); break;
+      const inp = makeInput("text", p.value || "", "valor o $variable", "value");
+      inp.className = "param-input flex-1";
+      wrap.appendChild(inp); wrap.appendChild(makeVarLink("value"));
+      r3.appendChild(wrap); container.appendChild(r3);
+      break;
+    }
+    case "list_operation": {
+      const r1 = makeRow("Lista"); r1.appendChild(makeSelect(availableVars, p.name, "name")); container.appendChild(r1);
+      const r2 = makeRow("Operación"); r2.appendChild(makeSelect([{v:"append",l:"Agregar al final"},{v:"pop",l:"Eliminar último"},{v:"remove_at",l:"Eliminar en índice"},{v:"clear",l:"Vaciar lista"}], p.op || "append", "op")); container.appendChild(r2);
+      if (p.op === "append" || p.op === "remove_at") {
+        const r3 = makeRow(p.op === "append" ? "Elemento" : "Índice");
+        const wrap = document.createElement("div"); wrap.className = "param-input-row";
+        const inp = makeInput("text", p.value || "", "valor o $variable", "value");
+        inp.className = "param-input flex-1";
+        wrap.appendChild(inp); wrap.appendChild(makeVarLink("value"));
+        r3.appendChild(wrap); container.appendChild(r3);
+      }
+      break;
     }
     case "notify": {
-      const r1 = makeRow("Título"); r1.appendChild(makeInput("text", p.title || "", "Título de la notificación", "title")); container.appendChild(r1);
-      const r2 = makeRow("Mensaje"); r2.appendChild(makeInput("text", p.body || "", "Cuerpo del mensaje", "body")); container.appendChild(r2);
+      const r1 = makeRow("Título"); 
+      const w1 = document.createElement("div"); w1.className = "param-input-row";
+      const i1 = makeInput("text", p.title || "", "Título o $variable", "title"); i1.className = "param-input flex-1";
+      w1.appendChild(i1); w1.appendChild(makeVarLink("title")); r1.appendChild(w1); container.appendChild(r1);
+      
+      const r2 = makeRow("Mensaje"); 
+      const w2 = document.createElement("div"); w2.className = "param-input-row";
+      const i2 = makeInput("text", p.body || "", "Cuerpo o $variable", "body"); i2.className = "param-input flex-1";
+      w2.appendChild(i2); w2.appendChild(makeVarLink("body")); r2.appendChild(w2); container.appendChild(r2);
+      break;
+    }
+    case "loop": {
+      const r1 = makeRow("Modo"); 
+      r1.appendChild(makeSelect([{v:"count",l:"Cantidad fija / variable"},{v:"foreach",l:"Para cada elemento (Lista)"}], p.mode || "count", "mode", "loop-mode-select"));
+      container.appendChild(r1);
+
+      if (p.mode === "foreach") {
+        const r2 = makeRow("Lista"); r2.appendChild(makeSelect(availableVars, p.list_name, "list_name")); container.appendChild(r2);
+        const r3 = makeRow("Var. Temporal"); r3.appendChild(makeInput("text", p.var_name || "item", "nombre de variable", "var_name")); container.appendChild(r3);
+      } else {
+        const r2 = makeRow("Iteraciones");
+        const wrap = document.createElement("div"); wrap.className = "param-input-row";
+        const inp = makeInput("text", p.iterations || 5, "ej: 5 o $variable", "iterations");
+        inp.className = "param-input flex-1";
+        wrap.appendChild(inp); wrap.appendChild(makeVarLink("iterations"));
+        r2.appendChild(wrap); container.appendChild(r2);
+      }
+      break;
+    }
+    case "condition": {
+      const r1 = makeRow("Si...");
+      const opts = [
+        { v: "prev_step_success", l: "El paso anterior fue exitoso" },
+        { v: "clipboard_match", l: "El portapapeles contiene..." },
+        { v: "app_running", l: "La aplicación está abierta..." },
+        { v: "var_cmp", l: "Comparar variables" }
+      ];
+      r1.appendChild(makeSelect(opts, p.type || "prev_step_success", "type", "condition-type-select"));
+      container.appendChild(r1);
+
+      if (p.type === "clipboard_match" || p.type === "app_running") {
+        const r2 = makeRow("Valor esperado");
+        const wrap = document.createElement("div"); wrap.className = "param-input-row";
+        const inp = makeInput("text", p.value || "", p.type === "app_running" ? "spotify.exe" : "texto o $variable", "value");
+        inp.className = "param-input flex-1";
+        wrap.appendChild(inp); wrap.appendChild(makeVarLink("value"));
+        r2.appendChild(wrap); container.appendChild(r2);
+      } else if (p.type === "var_cmp") {
+        const r2 = makeRow("Variables");
+        const wrap = document.createElement("div"); wrap.className = "param-input-row gap-4";
+        const v1 = makeInput("text", p.var1 || "", "$var1", "var1"); v1.className = "param-input flex-1";
+        const v2 = makeInput("text", p.var2 || "", "$var2", "var2"); v2.className = "param-input flex-1";
+        wrap.appendChild(v1); wrap.appendChild(makeVarLink("var1"));
+        wrap.appendChild(document.createTextNode("vs"));
+        wrap.appendChild(v2); wrap.appendChild(makeVarLink("var2"));
+        r2.appendChild(wrap); container.appendChild(r2);
+
+        const r3 = makeRow("Operador");
+        r3.appendChild(makeSelect([{v:"==",l:"Igual (==)"},{v:"!=",l:"Distinto (!=)"},{v:">",l:"Mayor (>)"},{v:"<",l:"Menor (<)"},{v:"contains",l:"Contiene"}], p.op || "==", "op"));
+        container.appendChild(r3);
+      }
       break;
     }
     case "run_script": {
       const r1 = makeRow("Lenguaje");
       const selWrap = document.createElement("div"); selWrap.className = "param-select-row";
-      const langSel = document.createElement("select");
-      langSel.className = "param-select script-lang-select"; langSel.id = `script-lang-${idx}`; langSel.dataset.idx = idx;
-      [["python", "Python"], ["javascript", "JavaScript (Beta)"]].forEach(([v, l]) => {
-        const opt = document.createElement("option"); opt.value = v; opt.textContent = l;
-        if ((p.lang || "python") === v) opt.selected = true;
-        langSel.appendChild(opt);
-      });
-      selWrap.appendChild(langSel);
+      selWrap.appendChild(makeSelect([{v:"python",l:"Python"},{v:"javascript",l:"JavaScript (Beta)"}], p.lang || "python", "lang", "script-lang-select"));
       if (p.lang === "javascript") {
         const badge = document.createElement("span"); badge.className = "script-beta-badge"; badge.textContent = "BETA";
         selWrap.appendChild(badge);
@@ -623,12 +921,12 @@ function buildStepParams(container, step, idx) {
       r1.appendChild(selWrap); container.appendChild(r1);
 
       const r2 = makeRow("Código");
-      const wrap = document.createElement("div"); wrap.className = "script-editor-wrap"; wrap.id = `script-editor-${idx}`;
-      const gutter = document.createElement("div"); gutter.className = "script-gutter"; gutter.id = `script-gutter-${idx}`; gutter.textContent = "1";
+      const wrap = document.createElement("div"); wrap.className = "script-editor-wrap"; wrap.id = `script-editor-${pathStr}`;
+      const gutter = document.createElement("div"); gutter.className = "script-gutter"; gutter.id = `script-gutter-${pathStr}`; gutter.textContent = "1";
       const codeArea = document.createElement("div"); codeArea.className = "script-code-area";
-      const pre = document.createElement("pre"); pre.className = "script-highlight"; pre.id = `script-highlight-${idx}`; pre.setAttribute("aria-hidden", "true");
+      const pre = document.createElement("pre"); pre.className = "script-highlight"; pre.id = `script-highlight-${pathStr}`; pre.setAttribute("aria-hidden", "true");
       const ta = document.createElement("textarea");
-      ta.className = "script-textarea"; ta.id = `script-code-${idx}`; ta.dataset.idx = idx;
+      ta.className = "script-textarea"; ta.id = `script-code-${pathStr}`; ta.dataset.path = pathStr;
       ta.spellcheck = false; ta.autocomplete = "off"; ta.placeholder = "Escribí tu código aquí...";
       ta.value = p.code || "";
       codeArea.appendChild(pre); codeArea.appendChild(ta);
@@ -639,37 +937,92 @@ function buildStepParams(container, step, idx) {
   }
 }
 
-export function updateParam(idx, key, value) {
-  if (!state.selectedSig) return;
-  if (!state.signals[state.selectedSig].steps[idx].params)
-    state.signals[state.selectedSig].steps[idx].params = {};
-  state.signals[state.selectedSig].steps[idx].params[key] = value;
+function getStepByPath(path) {
+  if (!state.selectedSig || !path || !path.length) return null;
+  let steps = state.signals[state.selectedSig].steps;
+  let target = null;
+  for (let i = 0; i < path.length; i++) {
+    target = steps[path[i]];
+    if (i < path.length - 1) {
+      if (!target.params) target.params = {};
+      if (!target.params.steps) target.params.steps = [];
+      steps = target.params.steps;
+    }
+  }
+  return target;
+}
+
+export function updateParam(path, key, value) {
+  const step = getStepByPath(path);
+  if (!step) return;
+  if (!step.params) step.params = {};
+  step.params[key] = value;
   saveSignals();
+  
+  // Re-render only if structural change or specific logic depends on it
+  if (['type', 'mode', 'op'].includes(key)) renderFlow(); 
 }
 window.updateParam = updateParam;
 
-export function changeStepType(idx, newType) {
-  if (!state.selectedSig) return;
+export function changeStepType(path, newType) {
+  const step = getStepByPath(path);
+  if (!step) return;
   pushUndo();
-  state.signals[state.selectedSig].steps[idx] = { id: state.signals[state.selectedSig].steps[idx].id, type: newType, params: {} };
+  step.type = newType;
+  step.params = {};
   saveSignals(); renderFlow();
 }
 window.changeStepType = changeStepType;
 
-export function deleteStep(idx) {
-  if (!state.selectedSig) return;
+export function deleteStep(path) {
   pushUndo();
-  state.signals[state.selectedSig].steps.splice(idx, 1);
+  const rootSteps = state.signals[state.selectedSig].steps;
+  const remove = (steps, p) => {
+    if (p.length === 1) { steps.splice(p[0], 1); return; }
+    remove(steps[p[0]].params.steps, p.slice(1));
+  };
+  remove(rootSteps, path);
   saveSignals(); renderSignalList(); renderFlow();
 }
 window.deleteStep = deleteStep;
 
-export function addStep(type) {
+export function addStep(type, containerPath = null) {
   if (!state.selectedSig) return;
   pushUndo();
-  const defaults = { keypress:{combo:""}, wait:{ms:500}, clipboard:{text:""}, media:{action:"play_pause"}, open_url:{url:""}, run_cmd:{cmd:""}, open_file:{path:""}, notify:{title:"Arduino",body:""}, run_script:{lang:"python",code:""} };
-  const step = { id: uid(), type, params: defaults[type] || {} };
-  state.signals[state.selectedSig].steps.push(step);
+  // Si estamos agregando a un contenedor, el contexto es "dentro" de ese contenedor
+  const contextPath = containerPath ? [...containerPath, 999] : null;
+  const availableVars = discoverVariables(contextPath);
+  const firstVar = availableVars[0] || "";
+
+  const defaults = { 
+    keypress:{combo:""}, 
+    wait:{ms:500}, 
+    clipboard:{text:""}, 
+    media:{action:"play_pause"}, 
+    open_url:{url:""}, 
+    run_cmd:{cmd:""}, 
+    open_file:{path:""}, 
+    open_app:{path:""}, 
+    notify:{title:"Arduino",body:""}, 
+    run_script:{lang:"python",code:""},
+    loop: { mode: "count", iterations: 5, steps: [] },
+    condition: { type: "prev_step_success", value: "", steps: [] },
+    set_variable: { name: "variable_" + uid().substring(0,4), type: "int", value: "0" },
+    modify_variable: { name: firstVar, op: "add", value: "1" },
+    list_operation: { name: firstVar, op: "append", value: "" }
+  };
+  const step = { id: uid(), type, params: JSON.parse(JSON.stringify(defaults[type] || {})) };
+  
+  if (containerPath) {
+    const container = getStepByPath(containerPath);
+    if (container) {
+      if (!container.params.steps) container.params.steps = [];
+      container.params.steps.push(step);
+    }
+  } else {
+    state.signals[state.selectedSig].steps.push(step);
+  }
+  
   saveSignals(); renderSignalList(); renderFlow();
   setTimeout(() => { const fc = document.getElementById("flow-container"); fc.scrollTop = fc.scrollHeight; }, 50);
 }
@@ -684,34 +1037,40 @@ export function testCurrentSignal() {
 }
 window.testCurrentSignal = testCurrentSignal;
 
-export function startKeyCapture(idx) {
-  if (state.capturingIdx !== null) {
-    const prev = document.getElementById(`key-${state.capturingIdx}`);
-    if (prev) { prev.classList.remove("capturing"); prev.readOnly = false; prev.value = state.signals[state.selectedSig]?.steps[state.capturingIdx]?.params?.combo || ""; }
+export function startKeyCapture(path) {
+  const pathStr = JSON.stringify(path);
+  if (state.capturingPath !== null) {
+    const prev = document.querySelector(`.param-input[data-path="${state.capturingPath}"][data-param="combo"]`);
+    if (prev) { 
+      prev.classList.remove("capturing"); prev.readOnly = false; 
+      const prevStep = getStepByPath(JSON.parse(state.capturingPath));
+      prev.value = prevStep?.params?.combo || ""; 
+    }
     window.arduino.stopKeyCapture();
   }
-  state.capturingIdx = idx;
-  const input = document.querySelector(`.param-input[data-idx="${idx}"][data-param="combo"]`);
+  state.capturingPath = pathStr;
+  const input = document.querySelector(`.param-input[data-path="${pathStr}"][data-param="combo"]`);
   if (!input) return;
   input.classList.add("capturing"); input.readOnly = true; input.value = "Presioná la combinación...";
   window.arduino.startKeyCapture();
   const escHandler = (e) => {
     if (e.key !== "Escape") return;
-    if (state.capturingIdx !== idx) { document.removeEventListener("keydown", escHandler); return; }
-    state.capturingIdx = null; input.classList.remove("capturing"); input.readOnly = false;
-    input.value = state.signals[state.selectedSig]?.steps[idx]?.params?.combo || "";
+    if (state.capturingPath !== pathStr) { document.removeEventListener("keydown", escHandler); return; }
+    state.capturingPath = null; input.classList.remove("capturing"); input.readOnly = false;
+    const step = getStepByPath(path);
+    input.value = step?.params?.combo || "";
     window.arduino.stopKeyCapture(); document.removeEventListener("keydown", escHandler);
   };
   document.addEventListener("keydown", escHandler);
 }
 window.startKeyCapture = startKeyCapture;
 
-export async function browseFile(idx) {
-  const path = await window.arduino.selectFile();
-  if (path) {
-    const input = document.getElementById(`path-${idx}`);
-    if (input) input.value = path;
-    updateParam(idx, "path", path);
+export async function browseFile(path) {
+  const filePath = await window.arduino.selectFile();
+  if (filePath) {
+    const input = document.getElementById(`path-${JSON.stringify(path)}`);
+    if (input) input.value = filePath;
+    updateParam(path, "path", filePath);
   }
 }
 window.browseFile = browseFile;
@@ -719,7 +1078,16 @@ window.browseFile = browseFile;
 export function buildStepMenu() {
   const menu = document.getElementById("step-menu");
   if (!menu) return;
-  const groups = [{ items: ["keypress","wait","clipboard"] }, { items: ["media"] }, { items: ["open_url","run_cmd","open_file"] }, { items: ["run_script"] }, { items: ["notify"] }];
+  menu.innerHTML = "";
+  const groups = [
+    { items: ["keypress","wait","clipboard"] }, 
+    { items: ["media"] }, 
+    { items: ["open_url","run_cmd","open_file","open_app"] }, 
+    { items: ["set_variable", "modify_variable", "list_operation"] },
+    { items: ["loop", "condition"] },
+    { items: ["run_script"] }, 
+    { items: ["notify"] }
+  ];
   groups.forEach((group, gi) => {
     if (gi > 0) { const div = document.createElement("div"); div.className = "menu-divider"; menu.appendChild(div); }
     group.items.forEach((type) => {
@@ -771,43 +1139,46 @@ function highlightCode(code, lang) {
   return html;
 }
 
-function updateGutter(idx) {
-  const textarea = document.getElementById(`script-code-${idx}`);
-  const gutter = document.getElementById(`script-gutter-${idx}`);
+function updateGutter(path) {
+  const pathStr = JSON.stringify(path);
+  const textarea = document.getElementById(`script-code-${pathStr}`);
+  const gutter = document.getElementById(`script-gutter-${pathStr}`);
   if (!textarea || !gutter) return;
   const lines = textarea.value.split('\n').length;
   gutter.innerHTML = Array.from({ length: lines }, (_, i) => `<div>${i + 1}</div>`).join('');
 }
 
-export function handleScriptInput(idx) {
-  const textarea = document.getElementById(`script-code-${idx}`);
+export function handleScriptInput(path) {
+  const pathStr = JSON.stringify(path);
+  const textarea = document.getElementById(`script-code-${pathStr}`);
   if (!textarea) return;
-  const lang = document.getElementById(`script-lang-${idx}`)?.value || 'python';
-  updateParam(idx, 'code', textarea.value);
-  const highlight = document.getElementById(`script-highlight-${idx}`);
+  const lang = document.getElementById(`script-lang-${pathStr}`)?.value || 'python';
+  updateParam(path, 'code', textarea.value);
+  const highlight = document.getElementById(`script-highlight-${pathStr}`);
   if (highlight) highlight.innerHTML = highlightCode(textarea.value, lang);
-  updateGutter(idx);
+  updateGutter(path);
 }
 window.handleScriptInput = handleScriptInput;
 
-export function syncScriptScroll(idx) {
-  const textarea = document.getElementById(`script-code-${idx}`);
-  const highlight = document.getElementById(`script-highlight-${idx}`);
-  const gutter = document.getElementById(`script-gutter-${idx}`);
+export function syncScriptScroll(path) {
+  const pathStr = JSON.stringify(path);
+  const textarea = document.getElementById(`script-code-${pathStr}`);
+  const highlight = document.getElementById(`script-highlight-${pathStr}`);
+  const gutter = document.getElementById(`script-gutter-${pathStr}`);
   if (textarea && highlight) { highlight.scrollTop = textarea.scrollTop; highlight.scrollLeft = textarea.scrollLeft; }
   if (textarea && gutter) gutter.scrollTop = textarea.scrollTop;
 }
 window.syncScriptScroll = syncScriptScroll;
 
-export function handleScriptKeydown(e, idx) {
+export function handleScriptKeydown(e, path) {
   if (e.key === 'Tab') {
     e.preventDefault(); const ta = e.target;
     const start = ta.selectionStart; const end = ta.selectionEnd;
     ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
-    ta.selectionStart = ta.selectionEnd = start + 4; handleScriptInput(idx);
+    ta.selectionStart = ta.selectionEnd = start + 4; handleScriptInput(path);
   }
 }
 window.handleScriptKeydown = handleScriptKeydown;
 
-export function updateScriptEditor(idx) { renderFlow(); }
+export function updateScriptEditor(path) { renderFlow(); }
 window.updateScriptEditor = updateScriptEditor;

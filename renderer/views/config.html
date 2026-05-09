@@ -1,44 +1,70 @@
 <div class="config-page">
   <div class="config-header">
-    <button class="btn-back" id="btn-back-config">
-      <span>←</span> Volver
-    </button>
+    <button class="btn-back" id="btn-back-config"><span>←</span> Volver</button>
     <h2 class="config-title">Configuraciones Generales</h2>
   </div>
-  
+
   <div class="config-body">
     <div class="config-section">
       <div class="config-section-title">Preferencias de la aplicación</div>
-      
+
       <div class="config-row">
         <div class="config-label">Tema visual</div>
-        <div style="display: flex; gap: 8px; flex: 1;">
-          <select class="config-input" id="cfg-theme" style="flex: 1;">
+        <div style="display: flex; gap: 8px; flex: 1">
+          <select class="config-input" id="cfg-theme" style="flex: 1">
             <option value="dark-default">Oscuro (Por defecto)</option>
           </select>
-          <button class="config-color-btn" id="btn-open-themes" title="Abrir carpeta de temas">
+          <button
+            class="config-color-btn"
+            id="btn-open-themes"
+            title="Abrir carpeta de temas"
+          >
             <span>📂</span>
           </button>
-          <button class="btn-save-config" id="btn-theme-preview" style="padding: 0 12px; height: 32px; white-space: nowrap;">
+          <button
+            class="btn-save-config"
+            id="btn-theme-preview"
+            style="padding: 0 12px; height: 32px; white-space: nowrap"
+          >
             Vista Previa
           </button>
         </div>
       </div>
-      <div class="config-row" style="margin-top: -8px;">
-        <div class="config-label config-hint">Podes añadir archivos .json en la carpeta de temas para crear tus propios estilos.</div>
+      <div class="config-row" style="margin-top: -8px">
+        <div class="config-label config-hint">
+          Podes añadir archivos .json en la carpeta de temas para crear tus
+          propios estilos.
+        </div>
       </div>
-      
+
       <div class="config-row">
         <div class="config-label">Color de Acento</div>
         <div class="config-color-field">
-          <input type="text" class="config-input config-input-hex" id="cfg-accent" value="#f5a623" maxlength="7" spellcheck="false" placeholder="#f5a623">
-          <button class="config-color-btn" id="cfg-accent-btn" title="Abrir selector de color">
+          <input
+            type="text"
+            class="config-input config-input-hex"
+            id="cfg-accent"
+            value="#f5a623"
+            maxlength="7"
+            spellcheck="false"
+            placeholder="#f5a623"
+          />
+          <button
+            class="config-color-btn"
+            id="cfg-accent-btn"
+            title="Abrir selector de color"
+          >
             <span class="config-color-preview" id="cfg-accent-preview"></span>
           </button>
-          <input type="color" id="cfg-accent-picker" value="#f5a623" class="d-none">
+          <input
+            type="color"
+            id="cfg-accent-picker"
+            value="#f5a623"
+            class="d-none"
+          />
         </div>
       </div>
-      
+
       <div class="config-row">
         <div class="config-label">Comportamiento al cerrar</div>
         <select class="config-input" id="cfg-close">
@@ -46,25 +72,52 @@
           <option value="tray">Minimizar a la bandeja del sistema</option>
         </select>
       </div>
+
+      <div class="config-row">
+        <div class="config-label">Pestaña inicial</div>
+        <select class="config-input" id="cfg-initial-tab">
+          <option value="monitor">Monitor</option>
+          <option value="workflows">Workflows</option>
+        </select>
+      </div>
+
+      <div class="config-row">
+        <div class="config-label">Comportamiento al iniciar sesión</div>
+        <select class="config-input" id="cfg-startup-mode">
+          <option value="none">No iniciar</option>
+          <option value="normal">Focus</option>
+          <option value="minimized">Minimizado</option>
+        </select>
+      </div>
     </div>
 
     <div class="config-section config-data-section">
       <div class="config-section-title">Datos y configuración</div>
-      
+
       <div class="config-row">
         <div class="config-label">Exportar / Importar</div>
         <div class="config-data-actions">
-          <button class="btn-export" id="btn-export">📦 Exportar configuración</button>
-          <button class="btn-import" id="btn-import">📥 Importar configuración</button>
+          <button class="btn-export" id="btn-export">
+            📦 Exportar configuración
+          </button>
+          <button class="btn-import" id="btn-import">
+            📥 Importar configuración
+          </button>
         </div>
       </div>
       <div class="config-row">
-        <div class="config-label config-hint">Exportá tus workflows y configuraciones a un archivo JSON para hacer backup o transferir a otra PC.</div>
+        <div class="config-label config-hint">
+          Exportá tus workflows y configuraciones a un archivo JSON para hacer
+          backup o transferir a otra PC.
+        </div>
       </div>
     </div>
-    
+
     <div class="config-actions">
-      <button class="btn-save-config" id="btn-save-config">Guardar Configuraciones</button>
+      <button class="btn-save-config" id="btn-save-config">
+        Guardar Configuraciones
+      </button>
     </div>
   </div>
 </div>
+

@@ -130,10 +130,14 @@ window.openConfigView = openConfigView;
 export function saveConfigView() {
   const themeEl = document.getElementById("cfg-theme");
   const closeEl = document.getElementById("cfg-close");
+  const initialTabEl = document.getElementById("cfg-initial-tab");
+  const startupModeEl = document.getElementById("cfg-startup-mode");
   const accentEl = document.getElementById("cfg-accent");
 
   if (themeEl) state.config.theme = themeEl.value;
   if (closeEl) state.config.closeBehavior = closeEl.value;
+  if (initialTabEl) state.config.initialTab = initialTabEl.value;
+  if (startupModeEl) state.config.startupMode = startupModeEl.value;
   if (accentEl) state.config.accentColor = accentEl.value;
 
   saveConfig();

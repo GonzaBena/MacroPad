@@ -37,8 +37,6 @@ async function executeSequence(incomingSignal) {
   let signal = incomingSignal;
   let entry = signalMap[signal];
 
-  // Si el Arduino envía una señal de velocidad (RAPIDA, MEDIA, LENTA) y no tenemos
-  // una señal con ese nombre exacto, buscamos la señal que el usuario asignó.
   if (!entry && ["RAPIDA", "MEDIA", "LENTA"].includes(incomingSignal)) {
     for (const key in signalMap) {
       const speeds = Array.isArray(signalMap[key].assignedToButton)
@@ -62,42 +60,81 @@ async function executeSequence(incomingSignal) {
 
   if (win) win.webContents.send("sequence-start", signal);
 
+  // Context initialized with prevStepSuccess and an empty variables object
+  const context = { 
+    prevStepSuccess: true,
+    variables: {} 
+  };
+
   try {
-    for (const step of entry.steps) {
-      try {
-        await executeStep(step);
-      } catch (e) {
-        if (win)
-          win.webContents.send("serial-error", `[${step.type}] ${e.message}`);
-      }
-    }
+    await executeStepsRecursive(entry.steps, context);
   } finally {
-    // Siempre limpiar el estado, incluso si hay error inesperado
     if (win) win.webContents.send("sequence-end", signal);
     runningSequences.delete(signal);
   }
 }
 
-async function executeStep(step) {
+async function executeStepsRecursive(steps, context) {
   const win = getWindow();
+  for (const step of steps) {
+    try {
+      await executeStep(step, context);
+      context.prevStepSuccess = true;
+    } catch (e) {
+      context.prevStepSuccess = false;
+      if (win)
+        win.webContents.send("serial-error", `[${step.type}] ${e.message}`);
+    }
+  }
+}
+
+function resolveValue(val, context) {
+  if (typeof val !== "string") return val;
+
+  // Caso 1: Coincidencia exacta (sin espacios alrededor para preservar tipos crudos)
+  if (val.startsWith("$") && !val.includes(" ")) {
+    const varName = val.substring(1);
+    if (context.variables[varName] !== undefined) {
+      return context.variables[varName];
+    }
+  }
+
+  // Caso 2: Interpolación y secuencias de escape
+  let result = val.replace(/\$([a-zA-Z0-9_]+)/g, (match, name) => {
+    if (context.variables[name] !== undefined) {
+      const v = context.variables[name];
+      return Array.isArray(v) ? JSON.stringify(v) : String(v);
+    }
+    return match;
+  });
+
+  // Soporte para \s (espacio) y \n (nueva línea)
+  return result.replace(/\\s/g, " ").replace(/\\n/g, "\n");
+}
+
+async function executeStep(step, context) {
+  const win = getWindow();
+  const p = step.params || {};
+
   switch (step.type) {
     case "keypress":
-      await simulateKey(step.params?.combo || "");
+      await simulateKey(resolveValue(p.combo, context) || "");
       break;
     case "wait":
-      await sleep(parseInt(step.params?.ms) || 100);
+      await sleep(parseInt(resolveValue(p.ms, context)) || 100);
       break;
-    case "clipboard":
-      clipboard.writeText(step.params?.text || "");
+    case "clipboard": {
+      const txt = resolveValue(p.text, context);
+      clipboard.writeText(txt !== undefined ? String(txt) : "");
       break;
+    }
     case "media":
-      await mediaControl(step.params?.action || "");
+      await mediaControl(p.action || "");
       break;
     case "open_url": {
-      let targetUrl = step.params?.url || "";
+      let targetUrl = String(resolveValue(p.url, context) || "");
       if (targetUrl && !/^https?:\/\//i.test(targetUrl))
         targetUrl = "https://" + targetUrl;
-      // Validar estrictamente que solo se permitan URLs HTTP/HTTPS
       try {
         const parsed = new URL(targetUrl);
         if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -110,34 +147,189 @@ async function executeStep(step) {
       break;
     }
     case "run_cmd":
-      await runCmd(step.params?.cmd || "");
+      await runCmd(String(resolveValue(p.cmd, context) || ""));
       break;
-    case "open_file": {
-      const filePath = step.params?.path || "";
-      // Validar que el path no esté vacío y que exista
+    case "open_file":
+    case "open_app": {
+      const filePath = String(resolveValue(p.path, context) || "");
       if (!filePath) throw new Error("Ruta vacía");
       const error = await shell.openPath(filePath);
       if (error) throw new Error(error);
       break;
     }
     case "notify": {
-      const title = step.params?.title || "Arduino";
-      const body = step.params?.body || "";
+      const title = String(resolveValue(p.title, context) || "Arduino");
+      const body = String(resolveValue(p.body, context) || "");
       if (Notification.isSupported()) new Notification({ title, body }).show();
       if (win) win.webContents.send("show-notification", { title, body });
       break;
     }
+    case "set_variable": {
+      let name = String(p.name || "").trim();
+      if (name.startsWith("$")) name = name.substring(1);
+      if (!name) throw new Error("Nombre de variable vacío");
+      let val = p.value;
+      if (p.type === "int") val = parseInt(val) || 0;
+      else if (p.type === "list") {
+        try { val = typeof val === "string" ? JSON.parse(val) : val; if (!Array.isArray(val)) val = []; }
+        catch (e) { val = []; }
+      }
+      context.variables[name] = val;
+      console.log(`[execution] Variable set: ${name} =`, val);
+      break;
+    }
+    case "modify_variable": {
+      let name = String(p.name || "").trim();
+      if (name.startsWith("$")) name = name.substring(1);
+      if (!name || context.variables[name] === undefined) throw new Error(`Variable "${name}" no encontrada`);
+      const op = p.op;
+      let val = resolveValue(p.value, context);
+      
+      if (op === "add") {
+        const current = parseFloat(context.variables[name]) || 0;
+        context.variables[name] = current + (parseFloat(val) || 0);
+      } else if (op === "sub") {
+        const current = parseFloat(context.variables[name]) || 0;
+        context.variables[name] = current - (parseFloat(val) || 0);
+      } else if (op === "set") {
+        context.variables[name] = val;
+      } else if (op === "concat") {
+        const current = context.variables[name] !== undefined && context.variables[name] !== null ? String(context.variables[name]) : "";
+        const toAdd = val !== undefined && val !== null ? String(val) : "";
+        context.variables[name] = current + toAdd;
+      }
+      console.log(`[execution] Variable modified: ${name} (${op}) ->`, context.variables[name]);
+      break;
+    }
+    case "list_operation": {
+      let name = String(p.name || "").trim();
+      if (name.startsWith("$")) name = name.substring(1);
+      if (!name || !Array.isArray(context.variables[name])) throw new Error(`Lista "${name}" no encontrada`);
+      const op = p.op;
+      const val = resolveValue(p.value, context);
+      
+      if (op === "append") context.variables[name].push(val);
+      else if (op === "pop") context.variables[name].pop();
+      else if (op === "clear") context.variables[name] = [];
+      else if (op === "remove_at") {
+        const idx = parseInt(val);
+        if (!isNaN(idx)) context.variables[name].splice(idx, 1);
+      }
+      break;
+    }
     case "run_script": {
-      await runScript(step.params?.lang || "python", step.params?.code || "");
+      await runScript(p.lang || "python", p.code || "");
+      break;
+    }
+    case "loop": {
+      let iterations = 1;
+      const innerSteps = p.steps || [];
+
+      if (p.mode === "foreach") {
+        let list = resolveValue(p.list_name, context);
+        
+        if (!Array.isArray(list) && p.list_name) {
+          let rawName = String(p.list_name).trim();
+          if (rawName.startsWith("$")) rawName = rawName.substring(1);
+          if (Array.isArray(context.variables[rawName])) {
+            list = context.variables[rawName];
+          }
+        }
+        
+        // Auto-parse if it's a string representation of a list
+        if (typeof list === "string" && list.trim().startsWith("[")) {
+          try {
+            const parsed = JSON.parse(list);
+            if (Array.isArray(parsed)) list = parsed;
+          } catch (e) {
+            // Not a valid JSON array, keep as is
+          }
+        }
+
+        if (Array.isArray(list)) {
+          let varName = p.var_name || "item";
+          if (varName.startsWith("$")) varName = varName.substring(1);
+          
+          const oldValue = context.variables[varName]; // Scope: save old value
+          
+          console.log(`[execution] Starting loop foreach on list (length: ${list.length})`);
+          try {
+            for (const item of list) {
+              context.variables[varName] = item;
+              await executeStepsRecursive(innerSteps, context);
+            }
+          } finally {
+            // Scope: restore or delete after loop finishes
+            if (oldValue !== undefined) {
+              context.variables[varName] = oldValue;
+            } else {
+              delete context.variables[varName];
+            }
+          }
+        } else {
+          console.warn("[execution] Foreach loop: list is not an array", list);
+        }
+        return; // Important to return here
+      } else {
+        iterations = parseInt(resolveValue(p.iterations, context)) || 1;
+        for (let i = 0; i < iterations; i++) {
+          await executeStepsRecursive(innerSteps, context);
+        }
+      }
+      break;
+    }
+    case "condition": {
+      const isTrue = await evaluateCondition(p, context);
+      if (isTrue) {
+        const innerSteps = p.steps || [];
+        await executeStepsRecursive(innerSteps, context);
+      }
       break;
     }
   }
 }
 
+async function evaluateCondition(params, context) {
+  const type = params.type || "prev_step_success";
+  const expectedValue = resolveValue(params.value, context);
+
+  switch (type) {
+    case "prev_step_success":
+      return context.prevStepSuccess;
+    case "clipboard_match":
+      const text = clipboard.readText();
+      return text.includes(String(expectedValue));
+    case "app_running":
+      return await isAppRunning(String(expectedValue));
+    case "var_cmp": {
+      const v1 = resolveValue(params.var1, context);
+      const v2 = resolveValue(params.var2, context);
+      const op = params.op || "==";
+      if (op === "==") return v1 == v2;
+      if (op === "!=") return v1 != v2;
+      if (op === ">") return v1 > v2;
+      if (op === "<") return v1 < v2;
+      if (op === "contains") return Array.isArray(v1) ? v1.includes(v2) : String(v1).includes(String(v2));
+      return false;
+    }
+    default:
+      return false;
+  }
+}
+
+function isAppRunning(appName) {
+  return new Promise((resolve) => {
+    const plat = process.platform;
+    const cmd = plat === "win32" ? "tasklist" : "ps -ax";
+    exec(cmd, (err, stdout) => {
+      if (err) { resolve(false); return; }
+      resolve(stdout.toLowerCase().includes(appName.toLowerCase()));
+    });
+  });
+}
+
 function runCmd(cmd) {
   const win = getWindow();
-
-  // Validar longitud del comando
   if (cmd.length > MAX_CMD_LENGTH) {
     if (win) {
       win.webContents.send("action-result", {
@@ -149,7 +341,7 @@ function runCmd(cmd) {
     return Promise.resolve();
   }
 
-  return new Promise((resolve) =>
+  return new Promise((resolve, reject) =>
     exec(cmd, { timeout: 30000 }, (err, stdout) => {
       if (win) {
         win.webContents.send("action-result", {
@@ -158,15 +350,14 @@ function runCmd(cmd) {
           output: err ? err.message : stdout,
         });
       }
-      resolve();
+      if (err) reject(err);
+      else resolve();
     }),
   );
 }
 
 function runScript(lang, code) {
   const win = getWindow();
-
-  // Validar lenguaje permitido
   const allowedLangs = { python: ".py", javascript: ".js" };
   const ext = allowedLangs[lang];
   if (!ext) {
@@ -196,13 +387,12 @@ function runScript(lang, code) {
     return Promise.resolve();
   }
 
-  return new Promise((resolve) =>
+  return new Promise((resolve, reject) =>
     execFile(
       interpreter,
       [tmpFile],
       { timeout: 30000 },
       (err, stdout, stderr) => {
-        // Clean up temp file
         try {
           fs.unlinkSync(tmpFile);
         } catch (_) {}
@@ -219,7 +409,8 @@ function runScript(lang, code) {
               : output,
           });
         }
-        resolve();
+        if (err) reject(err);
+        else resolve();
       },
     ),
   );

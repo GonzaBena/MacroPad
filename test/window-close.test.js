@@ -11,7 +11,11 @@ jest.mock('electron', () => {
   const mBrowserWindow = jest.fn(() => ({
     loadFile: jest.fn(),
     on: jest.fn(),
+    once: jest.fn(),
     hide: jest.fn(),
+    show: jest.fn(),
+    maximize: jest.fn(),
+    minimize: jest.fn(),
   }));
   return {
     app: mApp,

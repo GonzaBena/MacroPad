@@ -11,6 +11,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     // Setup inicial de la vista de config
     const themeEl = document.getElementById("cfg-theme");
     const closeEl = document.getElementById("cfg-close");
+    const initialTabEl = document.getElementById("cfg-initial-tab");
+    const startupModeEl = document.getElementById("cfg-startup-mode");
     const accentEl = document.getElementById("cfg-accent");
     const pickerEl = document.getElementById("cfg-accent-picker");
 
@@ -29,6 +31,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (closeEl) closeEl.value = state.config.closeBehavior;
+    if (initialTabEl) initialTabEl.value = state.config.initialTab || "monitor";
+    if (startupModeEl) startupModeEl.value = state.config.startupMode || "none";
     if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
     if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
 

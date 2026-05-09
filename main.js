@@ -53,7 +53,13 @@ if (!gotTheLock) {
 
   // Inicialización de la App
   app.whenReady().then(() => {
-    const mainWindow = createWindow();
+    let startupMode = "normal";
+    if (process.argv.includes("--was-opened-at-login")) {
+      const arg = process.argv.find(a => a.startsWith("--startup-mode="));
+      if (arg) startupMode = arg.split("=")[1];
+    }
+
+    const mainWindow = createWindow(startupMode);
     setupTray(mainWindow);
     setupUpdater(mainWindow);
 
@@ -67,8 +73,13 @@ if (!gotTheLock) {
     // Handlers IPC generales (Diálogos y Ventana)
     ipcMain.handle("select-file", async () => {
       const win = getWindow();
+      if (!win) return null;
       const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-        properties: ["openFile", "openDirectory"],
+        properties: ["openFile"],
+        filters: [
+          { name: "Aplicaciones", extensions: ["exe", "lnk", "app", "bat", "cmd"] },
+          { name: "Todos los archivos", extensions: ["*"] }
+        ]
       });
       if (canceled) return null;
       return filePaths[0];
