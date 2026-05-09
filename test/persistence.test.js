@@ -70,7 +70,7 @@ describe('validateData', () => {
     expect(result.signals.SIG1.label).toBe('My Signal');
     expect(result.signals.SIG1.color).toBe('#ff0000');
     expect(result.signals.SIG1.steps).toEqual([]);
-    expect(result.signals.SIG1.assignedToButton).toBe(false);
+    expect(result.signals.SIG1.assignedToButton).toEqual([]);
   });
 
   it('filters out step entries missing a type field', () => {
@@ -93,17 +93,16 @@ describe('validateData', () => {
     expect(result.signals.SIG1.steps[1].type).toBe('wait');
   });
 
-  it('migrates boolean true to RAPIDA and preserves speed strings', () => {
-    // true -> RAPIDA
-    expect(validateData({ signals: { s: { assignedToButton: true } } }).signals.s.assignedToButton).toBe('RAPIDA');
-    // Speed strings are preserved
-    expect(validateData({ signals: { s: { assignedToButton: 'RAPIDA' } } }).signals.s.assignedToButton).toBe('RAPIDA');
-    expect(validateData({ signals: { s: { assignedToButton: 'MEDIA' } } }).signals.s.assignedToButton).toBe('MEDIA');
-    expect(validateData({ signals: { s: { assignedToButton: 'LENTA' } } }).signals.s.assignedToButton).toBe('LENTA');
-    // Invalid values become false
-    expect(validateData({ signals: { s: { assignedToButton: 1 } } }).signals.s.assignedToButton).toBe(false);
-    expect(validateData({ signals: { s: { assignedToButton: 'yes' } } }).signals.s.assignedToButton).toBe(false);
-    expect(validateData({ signals: { s: { assignedToButton: false } } }).signals.s.assignedToButton).toBe(false);
+  it('migrates boolean true to [RAPIDA] and preserves arrays', () => {
+    expect(validateData({ signals: { s: { assignedToButton: true } } }).signals.s.assignedToButton).toEqual(['RAPIDA']);
+    expect(validateData({ signals: { s: { assignedToButton: 'RAPIDA' } } }).signals.s.assignedToButton).toEqual(['RAPIDA']);
+    expect(validateData({ signals: { s: { assignedToButton: 'MEDIA' } } }).signals.s.assignedToButton).toEqual(['MEDIA']);
+    expect(validateData({ signals: { s: { assignedToButton: 'LENTA' } } }).signals.s.assignedToButton).toEqual(['LENTA']);
+    expect(validateData({ signals: { s: { assignedToButton: ['RAPIDA', 'MEDIA'] } } }).signals.s.assignedToButton).toEqual(['RAPIDA', 'MEDIA']);
+    expect(validateData({ signals: { s: { assignedToButton: ['MEDIA', 'LENTA', 'INVALID', 'RAPIDA'] } } }).signals.s.assignedToButton).toEqual(['MEDIA', 'LENTA', 'RAPIDA']);
+    expect(validateData({ signals: { s: { assignedToButton: 1 } } }).signals.s.assignedToButton).toEqual([]);
+    expect(validateData({ signals: { s: { assignedToButton: 'yes' } } }).signals.s.assignedToButton).toEqual([]);
+    expect(validateData({ signals: { s: { assignedToButton: false } } }).signals.s.assignedToButton).toEqual([]);
   });
 
   it('defaults missing signal fields to safe values', () => {
@@ -112,7 +111,7 @@ describe('validateData', () => {
     expect(result.signals.s.label).toBe('');
     expect(result.signals.s.color).toBe('#f5a623');
     expect(result.signals.s.steps).toEqual([]);
-    expect(result.signals.s.assignedToButton).toBe(false);
+    expect(result.signals.s.assignedToButton).toEqual([]);
   });
 });
 

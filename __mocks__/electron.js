@@ -23,4 +23,14 @@ module.exports = {
     showSaveDialog: jest.fn(),
     showOpenDialog: jest.fn(),
   },
+  Tray: jest.fn(() => ({
+    setToolTip: jest.fn(),
+    setContextMenu: jest.fn(),
+    on: jest.fn(),
+  })),
+  Menu: {
+    buildFromTemplate: jest.fn((template) => ({
+      template, // Store it for testing
+    })),
+  },
 };

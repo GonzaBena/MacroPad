@@ -41,9 +41,12 @@ async function executeSequence(incomingSignal) {
   // una señal con ese nombre exacto, buscamos la señal que el usuario asignó.
   if (!entry && ["RAPIDA", "MEDIA", "LENTA"].includes(incomingSignal)) {
     for (const key in signalMap) {
-      if (signalMap[key].assignedToButton === incomingSignal) {
+      const speeds = Array.isArray(signalMap[key].assignedToButton)
+        ? signalMap[key].assignedToButton
+        : (signalMap[key].assignedToButton ? [signalMap[key].assignedToButton] : []);
+      if (speeds.includes(incomingSignal)) {
         entry = signalMap[key];
-        signal = key; // Reasignamos para que la UI muestre el nombre real
+        signal = key;
         break;
       }
     }

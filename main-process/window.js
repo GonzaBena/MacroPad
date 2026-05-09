@@ -1,5 +1,6 @@
-const { BrowserWindow } = require("electron");
+const { BrowserWindow, app } = require("electron");
 const path = require("path");
+const { loadData } = require("./persistence");
 
 let mainWindow = null;
 let configWindow = null;
@@ -21,6 +22,16 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+
+  mainWindow.on("close", (event) => {
+    if (app.isQuiting) return;
+
+    const data = loadData();
+    if (data && data.config && data.config.closeBehavior === "tray") {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;

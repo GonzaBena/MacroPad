@@ -2,7 +2,7 @@ import { state, loadSignalsData, loadConfig } from './state.js';
 import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
-import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignMenu, assignSpeed, testCurrentSignal, toggleStepMenu, importWorkflow } from './workflows.js';
+import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignMenu, assignSpeed, testCurrentSignal, toggleStepMenu, importWorkflow, initAssignDropdown } from './workflows.js';
 
 window.addEventListener("DOMContentLoaded", async () => {
   // 1. Cargar las vistas
@@ -66,9 +66,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("add-step-btn")?.addEventListener("click", toggleStepMenu);
   document.getElementById("se-label-input")?.addEventListener("input", (e) => updateSignalLabel(e.target.value));
   document.getElementById("btn-assign")?.addEventListener("click", (e) => toggleAssignMenu(e));
-  document.querySelectorAll("#assign-dropdown .dropdown-item").forEach(item => {
-    item.addEventListener("click", () => assignSpeed(item.dataset.speed));
-  });
   document.getElementById("btn-test")?.addEventListener("click", testCurrentSignal);
   document.getElementById("btn-del-sig")?.addEventListener("click", deleteCurrentSignal);
 
@@ -98,6 +95,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   loadConfig();
   await loadSignalsData();
   renderSignalList();
+  initAssignDropdown();
   
   // Sincronizar estado de conexión al iniciar
   const initStatus = await window.arduino.getConnectionStatus();

@@ -238,15 +238,15 @@ describe('executeSequence', () => {
   it('ejecuta la señal asignada al botón cuando llega RAPIDA, MEDIA o LENTA', async () => {
     setSignalMap({
       Fast: {
-        assignedToButton: 'RAPIDA',
+        assignedToButton: ['RAPIDA'],
         steps: [{ type: 'clipboard', params: { text: 'fast' } }],
       },
       Medium: {
-        assignedToButton: 'MEDIA',
+        assignedToButton: ['MEDIA'],
         steps: [{ type: 'clipboard', params: { text: 'medium' } }],
       },
       Slow: {
-        assignedToButton: 'LENTA',
+        assignedToButton: ['LENTA'],
         steps: [{ type: 'clipboard', params: { text: 'slow' } }],
       },
     });
@@ -261,9 +261,24 @@ describe('executeSequence', () => {
     expect(clipboard.writeText).toHaveBeenCalledWith('slow');
   });
 
+  it('ejecuta la señal cuando tiene múltiples velocidades asignadas', async () => {
+    setSignalMap({
+      Multi: {
+        assignedToButton: ['RAPIDA', 'MEDIA'],
+        steps: [{ type: 'clipboard', params: { text: 'multi' } }],
+      },
+    });
+
+    await executeSequence('RAPIDA');
+    expect(clipboard.writeText).toHaveBeenCalledWith('multi');
+
+    await executeSequence('MEDIA');
+    expect(clipboard.writeText).toHaveBeenCalledWith('multi');
+  });
+
   it('no hace nada con señales de velocidad cuando ninguna señal las tiene asignadas', async () => {
     setSignalMap({
-      SIG: { assignedToButton: false, steps: [{ type: 'clipboard', params: { text: 'nope' } }] },
+      SIG: { assignedToButton: [], steps: [{ type: 'clipboard', params: { text: 'nope' } }] },
     });
     await executeSequence('RAPIDA');
     await executeSequence('MEDIA');

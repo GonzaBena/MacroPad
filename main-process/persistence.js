@@ -47,11 +47,13 @@ function validateData(raw) {
       data.signals[key] = {
         label: typeof val.label === "string" ? val.label : "",
         color: typeof val.color === "string" ? val.color : "#f5a623",
-        assignedToButton: (function() {
-          if (val.assignedToButton === true) return "RAPIDA";
-          if (["RAPIDA", "MEDIA", "LENTA"].includes(val.assignedToButton)) return val.assignedToButton;
-          return false;
-        })(),
+        assignedToButton: Array.isArray(val.assignedToButton)
+          ? val.assignedToButton.filter(s => ["RAPIDA", "MEDIA", "LENTA"].includes(s))
+          : (function() {
+              if (val.assignedToButton === true) return ["RAPIDA"];
+              if (["RAPIDA", "MEDIA", "LENTA"].includes(val.assignedToButton)) return [val.assignedToButton];
+              return [];
+            })(),
         steps: Array.isArray(val.steps)
           ? val.steps.filter(
               (s) => s && typeof s === "object" && typeof s.type === "string"

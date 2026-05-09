@@ -139,8 +139,10 @@ export function saveConfigView() {
 window.saveConfigView = saveConfigView;
 
 export function closeConfigView() {
-  document.getElementById("config-view").classList.add("d-none");
-  document.getElementById("main-content").classList.remove("d-none");
+  const configView = document.getElementById("config-view");
+  const mainContent = document.getElementById("main-content");
+  if (configView) configView.classList.add("d-none");
+  if (mainContent) mainContent.classList.remove("d-none");
 }
 window.closeConfigView = closeConfigView;
 

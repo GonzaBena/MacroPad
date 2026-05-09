@@ -5,6 +5,7 @@ const { setupMedia } = require("./main-process/media");
 const { setupKeyboard } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
 const { setupPersistence } = require("./main-process/persistence");
+const { setupTray } = require("./main-process/tray");
 const path = require("path");
 
 // Habilitar hot reload en desarrollo
@@ -29,13 +30,20 @@ if (!gotTheLock) {
     const win = getWindow();
     if (win) {
       if (win.isMinimized()) win.restore();
+      win.show();
       win.focus();
     }
   });
 
+  // Flag para detectar cierre intencional de la app (ej: desde el tray)
+  app.on("before-quit", () => {
+    app.isQuiting = true;
+  });
+
   // Inicialización de la App
   app.whenReady().then(() => {
-    createWindow();
+    const mainWindow = createWindow();
+    setupTray(mainWindow);
 
   // Configuración de módulos e IPCs
   setupSerial();

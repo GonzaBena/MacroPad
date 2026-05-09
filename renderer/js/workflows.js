@@ -138,9 +138,9 @@ export function renderSignalList() {
     div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
     div.dataset.sig = sig;
     let badge = '';
-    if (entry.assignedToButton) {
-      const label = entry.assignedToButton === "RAPIDA" ? "RÁP" : (entry.assignedToButton === "MEDIA" ? "MED" : "LEN");
-      badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.toLowerCase()}">🔌 ${label}</span>`;
+    if (entry.assignedToButton?.length) {
+      const label = entry.assignedToButton.map(s => s === "RAPIDA" ? "RÁP" : (s === "MEDIA" ? "MED" : "LEN")).join("+");
+      badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.join(", ").toLowerCase()}">🔌 ${label}</span>`;
     }
     div.innerHTML = `
       <div class="sig-card-top">
@@ -167,7 +167,7 @@ export function addSignal() {
   if (state.signals[sig]) { showToast("Ya existe", `"${sig}" ya está`); return; }
   pushUndo();
   const color = SIG_COLORS[Object.keys(state.signals).length % SIG_COLORS.length];
-  state.signals[sig] = { label: "", color, steps: [], assignedToButton: false };
+  state.signals[sig] = { label: "", color, steps: [], assignedToButton: [] };
   input.value = "";
   saveSignals(); renderSignalList(); selectSignal(sig);
 }
@@ -233,7 +233,7 @@ export function duplicateSignal(sig) {
   
   pushUndo();
   state.signals[newName] = JSON.parse(JSON.stringify(original));
-  state.signals[newName].assignedToButton = false;
+  state.signals[newName].assignedToButton = [];
   if (state.signals[newName].label) {
     state.signals[newName].label += " (Copia)";
   }
@@ -387,58 +387,55 @@ export function toggleAssignMenu(e) {
   const dropdown = document.getElementById("assign-dropdown");
   if (!dropdown) return;
   dropdown.classList.toggle("show");
-  
-  // Close other menus
+
   document.getElementById("step-menu")?.classList.remove("open");
 }
 window.toggleAssignMenu = toggleAssignMenu;
 
+export function initAssignDropdown() {
+  document.querySelectorAll("#assign-dropdown .dropdown-item").forEach(item => {
+    item.addEventListener("click", () => assignSpeed(item.dataset.speed));
+  });
+}
+
 export function assignSpeed(speed) {
   if (!state.selectedSig) return;
   pushUndo();
-  
-  const currentAssigned = state.signals[state.selectedSig].assignedToButton;
-  
-  if (currentAssigned === speed) {
-    // Si ya tiene esta velocidad, desasignar
-    state.signals[state.selectedSig].assignedToButton = false;
-    showToast("Desasignado", `"${state.selectedSig}" ya no está asignado.`);
+
+  let speeds = state.signals[state.selectedSig].assignedToButton;
+  if (!Array.isArray(speeds)) speeds = speeds ? [speeds] : [];
+
+  if (speeds.includes(speed)) {
+    speeds = speeds.filter(s => s !== speed);
   } else {
-    // Quitar esa velocidad de cualquier otro workflow que la tenga
-    for (const key in state.signals) {
-      if (state.signals[key].assignedToButton === speed) {
-        state.signals[key].assignedToButton = false;
-      }
-    }
-    state.signals[state.selectedSig].assignedToButton = speed;
-    showToast("Asignado", `"${state.selectedSig}" asignado a toque ${speed.toLowerCase()}.`);
+    speeds.push(speed);
   }
-  
+
+  state.signals[state.selectedSig].assignedToButton = speeds;
   saveSignals();
   updateAssignButtonUI();
   renderSignalList();
-  document.getElementById("assign-dropdown")?.classList.remove("show");
 }
-window.assignSpeed = assignSpeed;
 
 export function updateAssignButtonUI() {
   if (!state.selectedSig) return;
   const btn = document.getElementById("btn-assign");
   if (!btn) return;
-  
+
   const assigned = state.signals[state.selectedSig].assignedToButton;
-  
-  if (assigned) {
+  const speeds = Array.isArray(assigned) ? assigned : (assigned ? [assigned] : []);
+
+  if (speeds.length) {
     btn.classList.add("assigned");
-    btn.textContent = `✅ ${assigned === 'RAPIDA' ? 'Rápida' : (assigned === 'MEDIA' ? 'Media' : 'Lenta')}`;
+    const label = speeds.map(s => s === 'RAPIDA' ? 'Rápida' : (s === 'MEDIA' ? 'Media' : 'Lenta')).join(" + ");
+    btn.textContent = `✅ ${label}`;
   } else {
     btn.classList.remove("assigned");
     btn.textContent = "🔌 Asignar";
   }
 
-  // Marcar el item activo en el dropdown
   document.querySelectorAll("#assign-dropdown .dropdown-item").forEach(item => {
-    item.classList.toggle("active", item.dataset.speed === assigned);
+    item.classList.toggle("active", speeds.includes(item.dataset.speed));
   });
 }
 
