@@ -63,6 +63,7 @@ export function initFlowDelegation() {
 
 // ── Context Menu Logic ──
 let activeContextMenu = null;
+let stepClipboard = null;
 
 function closeContextMenu() {
   if (activeContextMenu) {
@@ -73,7 +74,7 @@ function closeContextMenu() {
 
 document.addEventListener('click', closeContextMenu);
 document.addEventListener('contextmenu', (e) => {
-  if (!e.target.closest('.sig-card') && !e.target.closest('.context-menu')) {
+  if (!e.target.closest('.sig-card') && !e.target.closest('.context-menu') && !e.target.closest('.step-card')) {
     closeContextMenu();
   }
 });
@@ -97,6 +98,65 @@ function showSignalContextMenu(e, sig) {
     }}
   ];
 
+  renderContextMenuOptions(menu, options);
+
+  menu.onclick = (e) => e.stopPropagation();
+  document.body.appendChild(menu);
+  
+  positionContextMenu(e, menu);
+  activeContextMenu = menu;
+}
+
+function showStepContextMenu(e, path, onEdit = null) {
+  e.preventDefault();
+  e.stopPropagation();
+  closeContextMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  
+  const options = [];
+
+  // If there's selected text, add a copy option
+  const selectedText = window.getSelection().toString();
+  if (selectedText) {
+    options.push({ 
+      label: 'Copiar texto seleccionado', 
+      ico: '✂️', 
+      action: () => {
+        navigator.clipboard.writeText(selectedText);
+        showToast("Copiado", "Texto copiado al portapapeles");
+      }
+    });
+    options.push({ type: 'divider' });
+  }
+
+  if (onEdit) {
+    options.push({ label: 'Modificar nota', ico: '✏️', action: onEdit });
+    options.push({ type: 'divider' });
+  }
+
+  options.push({ label: 'Duplicar', ico: '👯', action: () => duplicateStep(path) });
+  options.push({ label: 'Copiar paso', ico: '📋', action: () => copyStep(path) });
+  
+  if (stepClipboard) {
+    options.push({ label: 'Pegar antes', ico: '📥', action: () => pasteStep(path, false) });
+    options.push({ label: 'Pegar después', ico: '📥', action: () => pasteStep(path, true) });
+  }
+
+  options.push({ type: 'divider' });
+  options.push({ label: 'Eliminar', ico: '✕', action: () => deleteStep(path) });
+
+  renderContextMenuOptions(menu, options);
+
+  menu.onclick = (e) => e.stopPropagation();
+  document.body.appendChild(menu);
+  
+  positionContextMenu(e, menu);
+  activeContextMenu = menu;
+}
+
+function renderContextMenuOptions(menu, options) {
   options.forEach(opt => {
     if (opt.type === 'divider') {
       const div = document.createElement('div');
@@ -113,13 +173,11 @@ function showSignalContextMenu(e, sig) {
     };
     menu.appendChild(item);
   });
+}
 
-  menu.onclick = (e) => e.stopPropagation();
-  document.body.appendChild(menu);
-  
-  // Position
-  const menuWidth = 160;
-  const menuHeight = menu.offsetHeight;
+function positionContextMenu(e, menu) {
+  const menuWidth = 180;
+  const menuHeight = menu.offsetHeight || 200; // Estimate if not yet in DOM
   let x = e.clientX;
   let y = e.clientY;
   
@@ -128,7 +186,88 @@ function showSignalContextMenu(e, sig) {
   
   menu.style.left = `${x}px`;
   menu.style.top = `${y}px`;
-  activeContextMenu = menu;
+}
+
+// ── Step Clipboard Actions ──
+
+export function copyStep(path) {
+  const step = getStepByPath(path);
+  if (step) {
+    stepClipboard = JSON.parse(JSON.stringify(step));
+    showToast("Paso copiado", `"${STEP_TYPES[step.type]?.label || step.type}" al portapapeles`);
+  }
+}
+
+export function pasteStep(path, after = true) {
+  if (!stepClipboard) {
+    showToast("Error", "No hay nada para pegar");
+    return;
+  }
+  pushUndo();
+  
+  const parentPath = path.slice(0, -1);
+  const index = path[path.length - 1];
+  const newIndex = after ? index + 1 : index;
+  
+  const stepCopy = JSON.parse(JSON.stringify(stepClipboard));
+  stepCopy.id = uid();
+  
+  const updateIds = (s) => {
+    if (s.params?.steps) {
+      s.params.steps.forEach(sub => {
+        sub.id = uid();
+        updateIds(sub);
+      });
+    }
+  };
+  updateIds(stepCopy);
+
+  let targetSteps;
+  if (parentPath.length === 0) {
+    targetSteps = state.signals[state.selectedSig].steps;
+  } else {
+    const parent = getStepByPath(parentPath);
+    targetSteps = parent.params.steps;
+  }
+
+  targetSteps.splice(newIndex, 0, stepCopy);
+  saveSignals();
+  renderFlow();
+  showToast("Pegado", "Paso insertado correctamente");
+}
+
+export function duplicateStep(path) {
+  const step = getStepByPath(path);
+  if (!step) return;
+  
+  pushUndo();
+  const parentPath = path.slice(0, -1);
+  const index = path[path.length - 1];
+  
+  const stepCopy = JSON.parse(JSON.stringify(step));
+  stepCopy.id = uid();
+  const updateIds = (s) => {
+    if (s.params?.steps) {
+      s.params.steps.forEach(sub => {
+        sub.id = uid();
+        updateIds(sub);
+      });
+    }
+  };
+  updateIds(stepCopy);
+
+  let targetSteps;
+  if (parentPath.length === 0) {
+    targetSteps = state.signals[state.selectedSig].steps;
+  } else {
+    const parent = getStepByPath(parentPath);
+    targetSteps = parent.params.steps;
+  }
+
+  targetSteps.splice(index + 1, 0, stepCopy);
+  saveSignals();
+  renderFlow();
+  showToast("Duplicado", "Paso duplicado correctamente");
 }
 
 // ── Signal Logic ──
@@ -460,25 +599,25 @@ export function renderFlow(container, steps, path = []) {
   if (isRoot) {
     fc.innerHTML = "";
     steps = state.signals[state.selectedSig]?.steps || [];
-    if (!steps.length) {
-      const empty = document.createElement("div");
-      empty.className = "flow-empty";
-      empty.innerHTML = `<span class="flow-empty-icon">⋯</span><span>Sin pasos — agregá uno abajo</span>`;
-      fc.appendChild(empty);
-      return;
-    }
   }
 
-  steps.forEach((step, i) => {
-    const currentPath = [...path, i];
-    fc.appendChild(makeStepCard(step, i, currentPath));
-    if (i < steps.length - 1) {
-      const conn = document.createElement("div");
-      conn.className = "step-connector";
-      conn.innerHTML = '<span class="step-connector-arrow">↓</span>';
-      fc.appendChild(conn);
-    }
-  });
+  // Initial insertion bar
+  fc.appendChild(makeInsertionBar(path, 0));
+
+  if (!steps.length) {
+    const empty = document.createElement("div");
+    empty.className = "flow-empty";
+    empty.innerHTML = `<span class="flow-empty-icon">⋯</span><span>Sin pasos — agregá uno arriba</span>`;
+    fc.appendChild(empty);
+  } else {
+    steps.forEach((step, i) => {
+      const currentPath = [...path, i];
+      fc.appendChild(makeStepCard(step, i, currentPath));
+      
+      // Insertion bar after each step
+      fc.appendChild(makeInsertionBar(path, i + 1));
+    });
+  }
 
   if (isRoot) {
     // Post-render script initialization
@@ -493,12 +632,99 @@ export function renderFlow(container, steps, path = []) {
   }
 }
 
+function makeInsertionBar(parentPath, index) {
+  const bar = document.createElement("div");
+  bar.className = "step-insertion-bar";
+  
+  const line = document.createElement("div");
+  line.className = "step-insertion-line";
+  bar.appendChild(line);
+
+  const group = document.createElement("div");
+  group.className = "step-insertion-group";
+  
+  const btnStep = document.createElement("button");
+  btnStep.className = "btn-insert btn-insert-step";
+  btnStep.innerHTML = `<span>+ Paso</span>`;
+  btnStep.title = "Agregar paso aquí";
+  btnStep.onclick = (e) => {
+    e.stopPropagation();
+    state.insertionPoint = { path: parentPath, index };
+    toggleStepMenuAt(e.clientX, e.clientY);
+  };
+
+  const btnNote = document.createElement("button");
+  btnNote.className = "btn-insert btn-insert-note";
+  btnNote.innerHTML = `<span>+ Nota</span>`;
+  btnNote.title = "Agregar nota aquí";
+  btnNote.onclick = (e) => {
+    e.stopPropagation();
+    addStep("note", parentPath, index);
+  };
+
+  group.appendChild(btnStep);
+  group.appendChild(btnNote);
+
+  if (stepClipboard) {
+    const btnPaste = document.createElement("button");
+    btnPaste.className = "btn-insert btn-insert-paste";
+    btnPaste.innerHTML = `<span>📋 Pegar</span>`;
+    btnPaste.title = "Pegar paso copiado aquí";
+    btnPaste.onclick = (e) => {
+      e.stopPropagation();
+      pasteStep([...parentPath, index], false);
+    };
+    group.appendChild(btnPaste);
+  }
+
+  bar.appendChild(group);
+
+  // Drag & Drop support
+  bar.addEventListener("dragover", (e) => {
+    if (!state.dragSrcPath) return;
+    e.preventDefault();
+    e.stopPropagation();
+    bar.classList.add("drag-over");
+  });
+
+  bar.addEventListener("dragleave", (e) => {
+    bar.classList.remove("drag-over");
+  });
+
+  bar.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    bar.classList.remove("drag-over");
+    
+    if (!state.dragSrcPath) return;
+    const srcPath = JSON.parse(state.dragSrcPath);
+    const destPath = [...parentPath, index];
+    
+    moveStep(srcPath, destPath);
+  });
+
+  return bar;
+}
+
+function toggleStepMenuAt(x, y) {
+  const menu = document.getElementById("step-menu");
+  if (!menu) return;
+  menu.style.display = "block";
+  const menuH = menu.offsetHeight;
+  menu.style.display = "";
+  menu.style.top = `${Math.min(y, window.innerHeight - menuH - 10)}px`;
+  menu.style.left = `${x}px`;
+  menu.style.transform = "none";
+  menu.classList.add("open");
+}
+
 export function makeStepCard(step, idx, path) {
   const meta = STEP_TYPES[step.type] || STEP_TYPES.notify;
   const pathStr = JSON.stringify(path);
   const card = document.createElement("div");
   card.className = "step-card"; 
   if (meta.isContainer) card.classList.add("step-card-container");
+  if (step.type === "note") card.classList.add("step-card-note");
   card.draggable = true; 
   card.dataset.path = pathStr;
 
@@ -537,11 +763,51 @@ export function makeStepCard(step, idx, path) {
 
   card.appendChild(header);
 
-  // Params
-  const params = document.createElement("div");
-  params.className = "step-params";
-  buildStepParams(params, step, path);
-  card.appendChild(params);
+  // Params or Content
+  if (step.type === "note") {
+    const content = document.createElement("div");
+    content.className = "step-note-content";
+    
+    const render = () => {
+      content.innerHTML = window.marked ? marked.parse(step.params?.text || "_Nota vacía (doble click para editar)_") : (step.params?.text || "");
+    };
+
+    const edit = () => {
+      const ta = document.createElement("textarea");
+      ta.className = "step-note-editor";
+      ta.value = step.params?.text || "";
+      ta.placeholder = "Escribí tu nota en Markdown...";
+      ta.onblur = () => {
+        updateParam(path, "text", ta.value);
+        render();
+      };
+      content.innerHTML = "";
+      content.appendChild(ta);
+      ta.focus();
+    };
+
+    content.ondblclick = (e) => { e.stopPropagation(); edit(); };
+    content.oncontextmenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showStepContextMenu(e, path, edit);
+    };
+
+    render();
+    card.appendChild(content);
+  } else {
+    const params = document.createElement("div");
+    params.className = "step-params";
+    buildStepParams(params, step, path);
+    card.appendChild(params);
+  }
+
+  // Context Menu
+  card.addEventListener("contextmenu", (e) => {
+    if (step.type !== 'note') {
+      showStepContextMenu(e, path);
+    }
+  });
 
   // Nested steps if container
   if (meta.isContainer) {
@@ -552,8 +818,9 @@ export function makeStepCard(step, idx, path) {
     renderFlow(children, childSteps, path);
     card.appendChild(children);
 
-    // Drop zone for children
+    // Drop zone for children (to move INSIDE)
     children.addEventListener("dragover", (e) => {
+      if (!state.dragSrcPath) return;
       e.preventDefault();
       e.stopPropagation();
       children.classList.add("drag-over");
@@ -579,30 +846,14 @@ export function makeStepCard(step, idx, path) {
     e.stopPropagation();
     state.dragSrcPath = pathStr; 
     card.classList.add("dragging"); 
+    document.getElementById("flow-container")?.classList.add("is-dragging");
     e.dataTransfer.effectAllowed = "move"; 
   });
   card.addEventListener("dragend", () => { 
     card.classList.remove("dragging"); 
-    document.querySelectorAll(".step-card, .step-children").forEach((c) => c.classList.remove("drag-over")); 
-  });
-  card.addEventListener("dragover", (e) => { 
-    e.preventDefault(); 
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = "move"; 
-    card.classList.add("drag-over"); 
-  });
-  card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
-  card.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!state.dragSrcPath || state.dragSrcPath === pathStr) return;
-    
-    const srcPath = JSON.parse(state.dragSrcPath);
-    const destPath = path;
-
-    if (isPathParent(srcPath, destPath)) return;
-
-    moveStep(srcPath, destPath);
+    state.dragSrcPath = null;
+    document.getElementById("flow-container")?.classList.remove("is-dragging");
+    document.querySelectorAll(".step-card, .step-children, .step-insertion-bar").forEach((c) => c.classList.remove("drag-over")); 
   });
 
   return card;
@@ -986,11 +1237,11 @@ export function deleteStep(path) {
 }
 window.deleteStep = deleteStep;
 
-export function addStep(type, containerPath = null) {
+export function addStep(type, containerPath = null, index = -1) {
   if (!state.selectedSig) return;
   pushUndo();
-  // Si estamos agregando a un contenedor, el contexto es "dentro" de ese contenedor
-  const contextPath = containerPath ? [...containerPath, 999] : null;
+  
+  const contextPath = containerPath ? [...containerPath, index === -1 ? 999 : index] : null;
   const availableVars = discoverVariables(contextPath);
   const firstVar = availableVars[0] || "";
 
@@ -1009,22 +1260,34 @@ export function addStep(type, containerPath = null) {
     condition: { type: "prev_step_success", value: "", steps: [] },
     set_variable: { name: "variable_" + uid().substring(0,4), type: "int", value: "0" },
     modify_variable: { name: firstVar, op: "add", value: "1" },
-    list_operation: { name: firstVar, op: "append", value: "" }
+    list_operation: { name: firstVar, op: "append", value: "" },
+    note: { text: "" }
   };
   const step = { id: uid(), type, params: JSON.parse(JSON.stringify(defaults[type] || {})) };
   
-  if (containerPath) {
+  let targetSteps;
+  if (containerPath && containerPath.length > 0) {
     const container = getStepByPath(containerPath);
     if (container) {
       if (!container.params.steps) container.params.steps = [];
-      container.params.steps.push(step);
+      targetSteps = container.params.steps;
     }
   } else {
-    state.signals[state.selectedSig].steps.push(step);
+    targetSteps = state.signals[state.selectedSig].steps;
+  }
+
+  if (targetSteps) {
+    if (index === -1) {
+      targetSteps.push(step);
+    } else {
+      targetSteps.splice(index, 0, step);
+    }
   }
   
   saveSignals(); renderSignalList(); renderFlow();
-  setTimeout(() => { const fc = document.getElementById("flow-container"); fc.scrollTop = fc.scrollHeight; }, 50);
+  if (index === -1) {
+    setTimeout(() => { const fc = document.getElementById("flow-container"); fc.scrollTop = fc.scrollHeight; }, 50);
+  }
 }
 window.addStep = addStep;
 
@@ -1079,40 +1342,77 @@ export function buildStepMenu() {
   const menu = document.getElementById("step-menu");
   if (!menu) return;
   menu.innerHTML = "";
-  const groups = [
-    { items: ["keypress","wait","clipboard"] }, 
-    { items: ["media"] }, 
-    { items: ["open_url","run_cmd","open_file","open_app"] }, 
-    { items: ["set_variable", "modify_variable", "list_operation"] },
-    { items: ["loop", "condition"] },
-    { items: ["run_script"] }, 
-    { items: ["notify"] }
+
+  const sections = [
+    { 
+      title: "Básicos", 
+      items: ["keypress", "wait", "clipboard", "notify", "note"] 
+    },
+    { 
+      title: "Sistema / Archivos", 
+      items: ["open_url", "run_cmd", "open_file", "open_app"] 
+    },
+    { 
+      title: "Lógica / Variables", 
+      items: ["set_variable", "modify_variable", "list_operation", "loop", "condition"] 
+    },
+    { 
+      title: "Avanzado", 
+      items: ["media", "run_script"] 
+    }
   ];
-  groups.forEach((group, gi) => {
-    if (gi > 0) { const div = document.createElement("div"); div.className = "menu-divider"; menu.appendChild(div); }
-    group.items.forEach((type) => {
-      const meta = STEP_TYPES[type]; const item = document.createElement("div"); item.className = "menu-item";
-      const iconEl = document.createElement("div"); iconEl.className = `menu-icon ${meta.cls}`; iconEl.textContent = meta.icon;
-      const textEl = document.createElement("div"); textEl.className = "menu-text";
-      const labelEl = document.createElement("span"); labelEl.className = "menu-label"; labelEl.textContent = meta.label;
-      textEl.appendChild(labelEl); item.appendChild(iconEl); item.appendChild(textEl);
-      item.addEventListener("click", () => { addStep(type); menu.classList.remove("open"); });
-      menu.appendChild(item);
+
+  sections.forEach((section) => {
+    const col = document.createElement("div");
+    col.className = "step-menu-col";
+    
+    const title = document.createElement("div");
+    title.className = "step-menu-title";
+    title.textContent = section.title;
+    col.appendChild(title);
+
+    section.items.forEach((type) => {
+      const meta = STEP_TYPES[type];
+      if (!meta) return;
+
+      const item = document.createElement("div");
+      item.className = "menu-item";
+      
+      const iconEl = document.createElement("div");
+      iconEl.className = `menu-icon ${meta.cls}`;
+      iconEl.textContent = meta.icon;
+      
+      const textEl = document.createElement("div");
+      textEl.className = "menu-text";
+      
+      const labelEl = document.createElement("span");
+      labelEl.className = "menu-label";
+      labelEl.textContent = meta.label;
+      
+      textEl.appendChild(labelEl);
+      item.appendChild(iconEl);
+      item.appendChild(textEl);
+      
+      item.addEventListener("click", () => { 
+        if (state.insertionPoint) {
+          addStep(type, state.insertionPoint.path, state.insertionPoint.index);
+          state.insertionPoint = null;
+        } else {
+          addStep(type); 
+        }
+        menu.classList.remove("open"); 
+      });
+      col.appendChild(item);
     });
+    menu.appendChild(col);
   });
 }
 
 export function toggleStepMenu() {
   if (!state.selectedSig) { showToast("Sin señal", "Seleccioná una señal primero"); return; }
+  state.insertionPoint = null;
   const menu = document.getElementById("step-menu");
-  const btn = document.getElementById("add-step-btn");
-  if (menu.classList.contains("open")) { menu.classList.remove("open"); return; }
-  const rect = btn.getBoundingClientRect();
-  menu.style.display = "block"; const menuH = menu.offsetHeight; menu.style.display = "";
-  menu.style.top = `${Math.max(8, rect.top - menuH - 8)}px`;
-  menu.style.left = `${rect.left + rect.width / 2}px`;
-  menu.style.transform = "translateX(-50%)";
-  menu.classList.add("open");
+  menu.classList.toggle("open");
 }
 window.toggleStepMenu = toggleStepMenu;
 

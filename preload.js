@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webFrame } = require("electron");
 
 /**
  * Helper: register a one-way listener with auto-cleanup.
@@ -10,6 +10,9 @@ function safeOn(channel, cb) {
 }
 
 contextBridge.exposeInMainWorld("arduino", {
+  // Native Zoom
+  setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
+
   // Serial
   listPorts: () => ipcRenderer.invoke("list-ports"),
   getConnectionStatus: () => ipcRenderer.invoke("get-connection-status"),

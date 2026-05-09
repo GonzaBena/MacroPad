@@ -166,3 +166,22 @@
     opacity: 0.7;
     font-style: italic;
 }
+
+.config-check-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 250px;
+}
+
+.config-check-field input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--amber);
+}
+
+.config-check-field label {
+    cursor: pointer;
+    user-select: none;
+}

@@ -13,6 +13,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const closeEl = document.getElementById("cfg-close");
     const initialTabEl = document.getElementById("cfg-initial-tab");
     const startupModeEl = document.getElementById("cfg-startup-mode");
+    const zoomEnabledEl = document.getElementById("cfg-zoom-enabled");
     const accentEl = document.getElementById("cfg-accent");
     const pickerEl = document.getElementById("cfg-accent-picker");
 
@@ -33,6 +34,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (closeEl) closeEl.value = state.config.closeBehavior;
     if (initialTabEl) initialTabEl.value = state.config.initialTab || "monitor";
     if (startupModeEl) startupModeEl.value = state.config.startupMode || "none";
+    if (zoomEnabledEl) zoomEnabledEl.checked = state.config.enableZoom !== false;
     if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
     if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
 
@@ -43,6 +45,11 @@ window.addEventListener("DOMContentLoaded", async () => {
         state.config.theme = themeEl.value;
         saveConfig(); // Guardar para persistir el cambio
         window.arduino.notifyThemeChanged();
+    });
+
+    zoomEnabledEl?.addEventListener("change", () => {
+        state.config.enableZoom = zoomEnabledEl.checked;
+        saveConfig();
     });
 
     document.getElementById("btn-open-themes")?.addEventListener("click", () => window.arduino.openThemesFolder());

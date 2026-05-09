@@ -1,4 +1,4 @@
-import { state, loadSignalsData, loadConfig } from './state.js';
+import { state, loadSignalsData, loadConfig, saveConfig } from './state.js';
 import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
@@ -37,6 +37,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   initResizers();
   initMenu();
   initKeyboardShortcuts();
+  initZoom();
   buildStepMenu();
   initFlowDelegation(); // Event delegation para step cards
 
@@ -64,7 +65,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     e.stopPropagation();
     importWorkflow(e);
   });
-  document.getElementById("add-step-btn")?.addEventListener("click", toggleStepMenu);
+  document.getElementById("add-step-btn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleStepMenu();
+  });
   document.getElementById("se-label-input")?.addEventListener("input", (e) => updateSignalLabel(e.target.value));
   document.getElementById("btn-assign")?.addEventListener("click", (e) => toggleAssignMenu(e));
   document.getElementById("btn-test")?.addEventListener("click", testCurrentSignal);
@@ -83,7 +87,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.addEventListener("click", (e) => {
     // Step menu
     const menu = document.getElementById("step-menu");
-    if (menu && menu.classList.contains("open") && !e.target.closest(".add-step-wrap"))
+    if (menu && menu.classList.contains("open") && !e.target.closest("#step-menu"))
       menu.classList.remove("open");
     
     // Assign dropdown
@@ -188,3 +192,50 @@ window.addEventListener("DOMContentLoaded", async () => {
     await loadConfig();
   });
 });
+
+// ── Lógica de Zoom ──
+let zoomTimeout = null;
+
+function applyZoom(factor) {
+  state.config.zoomLevel = factor;
+  window.arduino.setZoomFactor(factor);
+  
+  // Guardado debounced para no saturar el disco al hacer scroll rápido
+  if (zoomTimeout) clearTimeout(zoomTimeout);
+  zoomTimeout = setTimeout(() => {
+    saveConfig();
+  }, 1000);
+}
+
+function initZoom() {
+  // 1. Zoom con Rueda del Mouse (Ctrl + Scroll)
+  window.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey || !state.config.enableZoom) return;
+    
+    e.preventDefault();
+    let currentZoom = state.config.zoomLevel || 1.0;
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    const newZoom = Math.min(Math.max(currentZoom + delta, 0.5), 3.0);
+    
+    applyZoom(newZoom);
+  }, { passive: false });
+
+  // 2. Zoom con Teclado (Ctrl + Plus/Minus/0)
+  window.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || !state.config.enableZoom) return;
+
+    let currentZoom = state.config.zoomLevel || 1.0;
+    
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      applyZoom(Math.min(currentZoom + 0.1, 3.0));
+    } else if (e.key === '-') {
+      e.preventDefault();
+      applyZoom(Math.max(currentZoom - 0.1, 0.5));
+    } else if (e.key === '0') {
+      e.preventDefault();
+      applyZoom(1.0);
+    }
+  });
+}
+

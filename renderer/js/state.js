@@ -11,7 +11,9 @@ export const state = {
     closeBehavior: "close",
     accentColor: "#f5a623",
     initialTab: "monitor",
-    startupMode: "none"
+    startupMode: "none",
+    enableZoom: true,
+    zoomLevel: 1.0
   }
 };
 
@@ -67,6 +69,7 @@ export const STEP_TYPES = {
   condition: { label: "Condicional (Si...)", icon: "❓", cls: "t-condition", isContainer: true },
   notify: { label: "Notificación", icon: "◉", cls: "t-notify" },
   run_script: { label: "Ejecutar script", icon: "{ }", cls: "t-run_script" },
+  note: { label: "Nota / Comentario", icon: "📝", cls: "t-note" },
 };
 
 export const MEDIA_OPTIONS = [
@@ -118,6 +121,13 @@ export async function applyConfig() {
     for (const [key, value] of Object.entries(themeData.colors)) {
       root.style.setProperty(key, value);
     }
+  }
+
+  // Apply zoom
+  if (state.config.enableZoom) {
+    window.arduino.setZoomFactor(state.config.zoomLevel || 1.0);
+  } else {
+    window.arduino.setZoomFactor(1.0);
   }
 }
 

@@ -7,19 +7,19 @@ let configWindow = null;
 
 function createWindow(startupMode = "normal") {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 700,
+    width: 1800,
+    height: 1000,
     minWidth: 800,
     minHeight: 520,
     frame: false,
-    icon: path.join(__dirname, '..', 'assets', 'logo.png'),
+    icon: path.join(__dirname, "..", "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
-    show: startupMode !== "minimized" && startupMode !== "hidden"
+    show: startupMode !== "minimized" && startupMode !== "hidden",
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
@@ -66,7 +66,7 @@ function createConfigWindow() {
     height: 700,
     resizable: true,
     frame: false,
-    icon: path.join(__dirname, '..', 'assets', 'logo.png'),
+    icon: path.join(__dirname, "..", "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -97,7 +97,7 @@ function createAboutWindow() {
     height: 400,
     resizable: false,
     frame: false,
-    icon: path.join(__dirname, '..', 'assets', 'logo.png'),
+    icon: path.join(__dirname, "..", "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -130,7 +130,7 @@ function createThemePreviewWindow(parentWindow) {
     modal: true,
     frame: false,
     resizable: false,
-    icon: path.join(__dirname, '..', 'assets', 'logo.png'),
+    icon: path.join(__dirname, "..", "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -139,7 +139,9 @@ function createThemePreviewWindow(parentWindow) {
     },
   });
 
-  themePreviewWindow.loadFile(path.join(__dirname, "..", "renderer", "theme-preview.html"));
+  themePreviewWindow.loadFile(
+    path.join(__dirname, "..", "renderer", "theme-preview.html"),
+  );
 
   themePreviewWindow.on("closed", () => {
     themePreviewWindow = null;
