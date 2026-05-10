@@ -1,24 +1,15 @@
 name: Release
+
 on:
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: write  # necesario para crear la release
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create Draft Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          generate_release_notes: true
-
   build:
-    needs: create-release
     strategy:
       matrix:
         include:
@@ -28,7 +19,9 @@ jobs:
             artifact: dist/*.dmg
           - os: ubuntu-latest
             artifact: dist/*.AppImage
+
     runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -40,14 +33,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # serialport es nativo → hay que recompilarlo para Electron
       - name: Rebuild native modules
         run: npx @electron/rebuild
 
-      - name: Build installer
-        run: npx electron-builder  # sin --publish, solo construye
-
-      - name: Upload artifact to release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: ${{ matrix.artifact }}
+      - name: Build installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --publish always
