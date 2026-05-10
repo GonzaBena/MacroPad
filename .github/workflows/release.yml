@@ -8,7 +8,6 @@ permissions:
   contents: write
 
 jobs:
-  # Job 1: crea el draft release ANTES de que arranquen los builds
   create-release:
     runs-on: ubuntu-latest
     steps:
@@ -16,9 +15,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          generate_release_notes: true  # auto-genera changelog desde commits
+          generate_release_notes: true
 
-  # Job 2: matriz de builds, depende de que el release ya exista
   build:
     needs: create-release
     strategy:
@@ -45,7 +43,11 @@ jobs:
       - name: Rebuild native modules
         run: npx @electron/rebuild
 
-      - name: Build & upload installers
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --publish always
+      - name: Build installer
+        run: npx electron-builder  # sin --publish, solo construye
+
+      - name: Upload artifact to release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ matrix.artifact }}
