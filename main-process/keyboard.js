@@ -64,7 +64,7 @@ function simulateKey(combo) {
   return new Promise((resolve) => {
     if (!combo) return resolve();
     const win = getWindow();
-    const parts = combo.toLowerCase().split("+").map((s) => s.trim());
+    const parts = combo.toLowerCase().replace(/"/g, "").split("+").map((s) => s.trim());
     const key = parts[parts.length - 1];
     const mods = parts.slice(0, -1);
 

@@ -150,6 +150,56 @@ function createThemePreviewWindow(parentWindow) {
   return themePreviewWindow;
 }
 
+let selectionWindow = null;
+
+function createSelectionWindow() {
+  if (selectionWindow) return selectionWindow;
+
+  const { screen } = require("electron");
+  const displays = screen.getAllDisplays();
+  
+  // Calculate bounding box of all displays
+  const left = Math.min(...displays.map(d => d.bounds.x));
+  const top = Math.min(...displays.map(d => d.bounds.y));
+  const right = Math.max(...displays.map(d => d.bounds.x + d.bounds.width));
+  const bottom = Math.max(...displays.map(d => d.bounds.y + d.bounds.height));
+
+  selectionWindow = new BrowserWindow({
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    fullscreen: process.platform !== "darwin", // MacOS doesn't like transparent fullscreen
+    enableLargerThanScreen: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    webPreferences: {
+      preload: path.join(__dirname, "..", "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // On macOS, we can't use fullscreen for transparency properly with all monitors
+  if (process.platform === "darwin") {
+    selectionWindow.setSize(right - left, bottom - top);
+    selectionWindow.setPosition(left, top);
+  }
+
+  selectionWindow.setAlwaysOnTop(true, "screen-saver");
+  selectionWindow.loadFile(path.join(__dirname, "..", "renderer", "selection.html"));
+
+  selectionWindow.on("closed", () => {
+    selectionWindow = null;
+  });
+
+  return selectionWindow;
+}
+
 function getWindow() {
   return mainWindow;
 }
@@ -159,5 +209,6 @@ module.exports = {
   createConfigWindow,
   createAboutWindow,
   createThemePreviewWindow,
+  createSelectionWindow,
   getWindow,
 };

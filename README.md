@@ -65,17 +65,65 @@ arduino-controller/
 └── package.json
 ```
 
-## Agregar nuevos tipos de acción
+## Agregar nuevos bloques a los Workflows
 
-En `main.js`, función `executeAction()`:
+Para agregar un nuevo tipo de bloque (paso) que se pueda usar en los flujos de trabajo, seguí estos pasos:
+
+### 1. Definir el tipo en el Frontend
+En `renderer/js/state.js`, agregá el nuevo tipo al objeto `STEP_TYPES`:
 
 ```javascript
-case 'mi_accion':
-  // tu lógica acá
-  break;
+export const STEP_TYPES = {
+  // ... existentes
+  mi_nuevo_bloque: { 
+    label: "Nombre para mostrar", 
+    icon: "🚀", 
+    cls: "t-mi-clase-css" 
+  },
+};
 ```
 
-Y agregarlo al `<select>` en el menú de pasos de `renderer/js/state.js` (en `STEP_TYPES`).
+### 2. Crear la interfaz del bloque
+En `renderer/js/workflows.js`, dentro de la función `buildStepParams(container, step, path)`, agregá un nuevo `case` para tu tipo:
+
+```javascript
+case "mi_nuevo_bloque": {
+  const row = makeRow("Configuración del bloque");
+  const wrap = document.createElement("div"); wrap.className = "param-input-row";
+  
+  // Usá makeInput para que el valor se guarde automáticamente en params.mi_parametro
+  const inp = makeInput("text", p.mi_parametro || "", "placeholder...", "mi_parametro");
+  inp.className = "param-input flex-1";
+  
+  wrap.appendChild(inp);
+  wrap.appendChild(makeVarLink("mi_parametro")); // Permitir usar variables
+  row.appendChild(wrap);
+  container.appendChild(row);
+  break;
+}
+```
+
+### 3. Implementar la ejecución en el Backend
+En `main-process/execution.js`, dentro de la función `executeStep(step, context)`, agregá la lógica de ejecución:
+
+```javascript
+case "mi_nuevo_bloque": {
+  // Obtené los parámetros (se resuelven automáticamente si usás resolveValue)
+  const miValor = resolveValue(p.mi_parametro, context);
+  
+  // Tu lógica de ejecución aquí (debe ser async)
+  await miFuncionDeEjecucion(miValor);
+  break;
+}
+```
+
+### 4. Estilos (Opcional)
+Si definiste una clase CSS en el paso 1 (ej: `t-mi-clase-css`), podés agregar estilos para el borde o el icono en `renderer/css/workflows.css`.
+
+---
+
+## Agregar nuevos tipos de acción (Legado)
+Esta sección aplica a la lógica antigua. Para el sistema de Workflows actual, seguí los pasos de la sección anterior.
 
 ## Agregar nuevas Pestañas y Ventanas
 

@@ -451,4 +451,22 @@ describe('executeSequence', () => {
     expect(clipboard.writeText).toHaveBeenCalledWith('a');
     expect(clipboard.writeText).toHaveBeenCalledWith('b');
   });
+
+  it('auto-quotes string variables in interpolation if not already quoted', async () => {
+    setSignalMap({
+      SMART_QUOTE: {
+        steps: [
+          { type: 'set_variable', params: { name: 'msg', value: 'hello world' } },
+          { type: 'clipboard', params: { text: 'Text: $msg' } },
+          { type: 'set_variable', params: { name: 'quoted', value: 'fixed' } },
+          { type: 'clipboard', params: { text: 'Quoted: "$quoted"' } }
+        ]
+      }
+    });
+    await executeSequence('SMART_QUOTE');
+    // hello world becomes "hello world"
+    expect(clipboard.writeText).toHaveBeenCalledWith('Text: "hello world"');
+    // "fixed" remains "fixed" (no double quotes)
+    expect(clipboard.writeText).toHaveBeenCalledWith('Quoted: "fixed"');
+  });
 });

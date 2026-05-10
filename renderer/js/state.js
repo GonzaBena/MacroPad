@@ -4,8 +4,9 @@ export const state = {
   selectedSig: null,
   logAll: [],
   stats: { sig: 0, act: 0, err: 0 },
-  dragSrcIdx: null,
-  capturingIdx: null,
+  dragSrcPath: null,
+  capturingPath: null,
+  selectingRegionPath: null,
   config: {
     theme: "dark",
     closeBehavior: "close",
@@ -13,8 +14,8 @@ export const state = {
     initialTab: "monitor",
     startupMode: "none",
     enableZoom: true,
-    zoomLevel: 1.0
-  }
+    zoomLevel: 1.0,
+  },
 };
 
 // ── Undo / Redo ──
@@ -48,8 +49,12 @@ export function redo() {
   return true;
 }
 
-export function canUndo() { return undoStack.length > 0; }
-export function canRedo() { return redoStack.length > 0; }
+export function canUndo() {
+  return undoStack.length > 0;
+}
+export function canRedo() {
+  return redoStack.length > 0;
+}
 
 // ── Constants ──
 
@@ -65,10 +70,22 @@ export const STEP_TYPES = {
   set_variable: { label: "Definir variable", icon: "📦", cls: "t-var" },
   modify_variable: { label: "Modificar variable", icon: "⚙", cls: "t-var" },
   list_operation: { label: "Operación de lista", icon: "▤", cls: "t-var" },
-  loop: { label: "Bucle (Repetir)", icon: "🔄", cls: "t-loop", isContainer: true },
-  condition: { label: "Condicional (Si...)", icon: "❓", cls: "t-condition", isContainer: true },
+  loop: {
+    label: "Bucle (Repetir)",
+    icon: "🔄",
+    cls: "t-loop",
+    isContainer: true,
+  },
+  condition: {
+    label: "Condicional (Si...)",
+    icon: "❓",
+    cls: "t-condition",
+    isContainer: true,
+  },
   notify: { label: "Notificación", icon: "◉", cls: "t-notify" },
   run_script: { label: "Ejecutar script", icon: "{ }", cls: "t-run_script" },
+  screenshot: { label: "Captura de pantalla", icon: "📸", cls: "t-screenshot" },
+  screenshot_region: { label: "Captura de región", icon: "✂️", cls: "t-screenshot" },
   note: { label: "Nota / Comentario", icon: "📝", cls: "t-note" },
 };
 
@@ -110,10 +127,16 @@ export function saveSignals() {
 export async function applyConfig() {
   // Apply accent color using hex
   const root = document.documentElement;
-  root.style.setProperty('--amber', state.config.accentColor);
-  root.style.setProperty('--amber-dim', `color-mix(in srgb, ${state.config.accentColor} 70%, black)`);
-  root.style.setProperty('--amber-bg', `color-mix(in srgb, ${state.config.accentColor} 10%, transparent)`);
-  
+  root.style.setProperty("--amber", state.config.accentColor);
+  root.style.setProperty(
+    "--amber-dim",
+    `color-mix(in srgb, ${state.config.accentColor} 70%, black)`,
+  );
+  root.style.setProperty(
+    "--amber-bg",
+    `color-mix(in srgb, ${state.config.accentColor} 10%, transparent)`,
+  );
+
   // Apply theme
   const themeId = state.config.theme || "dark-default";
   const themeData = await window.arduino.getThemeData(themeId);
@@ -144,7 +167,9 @@ export async function loadConfig() {
         state.config = { ...state.config, ...JSON.parse(c) };
       }
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e);
+  }
   await applyConfig();
 }
 
@@ -190,7 +215,11 @@ export async function loadSignalsData() {
   try {
     // Try loading from file first
     const fileData = await window.arduino.loadData();
-    if (fileData && fileData.signals && Object.keys(fileData.signals).length > 0) {
+    if (
+      fileData &&
+      fileData.signals &&
+      Object.keys(fileData.signals).length > 0
+    ) {
       state.signals = fileData.signals;
       if (fileData.config) {
         state.config = { ...state.config, ...fileData.config };
@@ -201,7 +230,10 @@ export async function loadSignalsData() {
       return;
     }
   } catch (e) {
-    console.warn("[state] File persistence not available, falling back to localStorage", e);
+    console.warn(
+      "[state] File persistence not available, falling back to localStorage",
+      e,
+    );
   }
 
   // Fallback to localStorage (migration path)
@@ -227,12 +259,17 @@ export async function loadSignalsData() {
                   ]
                 : [],
             assignedToButton: Array.isArray(val.assignedToButton)
-              ? val.assignedToButton.filter(s => ["RAPIDA", "MEDIA", "LENTA"].includes(s))
-              : (function() {
-                if (val.assignedToButton === true) return ["RAPIDA"];
-                if (["RAPIDA", "MEDIA", "LENTA"].includes(val.assignedToButton)) return [val.assignedToButton];
-                return [];
-              })(),
+              ? val.assignedToButton.filter((s) =>
+                  ["RAPIDA", "MEDIA", "LENTA"].includes(s),
+                )
+              : (function () {
+                  if (val.assignedToButton === true) return ["RAPIDA"];
+                  if (
+                    ["RAPIDA", "MEDIA", "LENTA"].includes(val.assignedToButton)
+                  )
+                    return [val.assignedToButton];
+                  return [];
+                })(),
           };
         } else {
           state.signals[sig] = val;
@@ -246,6 +283,8 @@ export async function loadSignalsData() {
         config: state.config,
       });
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e);
+  }
   pushSignals();
 }

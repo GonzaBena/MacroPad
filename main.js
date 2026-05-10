@@ -5,6 +5,7 @@ const {
   createConfigWindow,
   createAboutWindow,
   createThemePreviewWindow,
+  createSelectionWindow,
 } = require("./main-process/window");
 const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
@@ -17,7 +18,7 @@ const { setupUpdater } = require("./main-process/updater");
 const path = require("path");
 
 // Forzar el nombre correcto en notificaciones de Windows
-app.setAppUserModelId("PokePad"); // ← el string que quieras que aparezca
+app.setAppUserModelId("PokePad");
 
 // Habilitar hot reload en desarrollo
 if (!app.isPackaged) {
@@ -37,7 +38,6 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on("second-instance", (event, commandLine, workingDirectory) => {
-    // Si alguien intenta ejecutar una segunda instancia, enfocamos la ventana principal.
     const win = getWindow();
     if (win) {
       if (win.isMinimized()) win.restore();
@@ -46,10 +46,18 @@ if (!gotTheLock) {
     }
   });
 
-  // Flag para detectar cierre intencional de la app (ej: desde el tray)
   app.on("before-quit", () => {
     app.isQuiting = true;
   });
+
+  let selectionResolve = null;
+
+  function promptForRegion() {
+    return new Promise((resolve) => {
+      selectionResolve = resolve;
+      createSelectionWindow();
+    });
+  }
 
   // Inicialización de la App
   app.whenReady().then(() => {
@@ -63,14 +71,12 @@ if (!gotTheLock) {
     setupTray(mainWindow);
     setupUpdater(mainWindow);
 
-    // Configuración de módulos e IPCs
     setupSerial();
     setupMedia();
     setupKeyboard();
-    setupExecution();
+    setupExecution(promptForRegion); // Pass promptForRegion to execution
     setupPersistence();
 
-    // Handlers IPC generales (Diálogos y Ventana)
     ipcMain.handle("select-file", async () => {
       const win = getWindow();
       if (!win) return null;
@@ -102,7 +108,6 @@ if (!gotTheLock) {
       return app.getVersion();
     });
 
-    // Theme Handlers
     ipcMain.handle("get-themes", () => getThemeList());
     ipcMain.handle("get-theme-data", (event, themeId) => getThemeData(themeId));
     ipcMain.on("open-themes-folder", () => openThemesFolder());
@@ -128,6 +133,33 @@ if (!gotTheLock) {
     ipcMain.on("win-close", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       if (win) win.close();
+    });
+
+    // Region Selection Handlers
+    ipcMain.on("start-region-selection", () => {
+      createSelectionWindow();
+    });
+
+    ipcMain.on("finish-region-selection", (event, rect) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win) win.close();
+      
+      if (selectionResolve) {
+        selectionResolve(rect);
+        selectionResolve = null;
+      } else {
+        const mainWin = getWindow();
+        if (mainWin) mainWin.webContents.send("region-selection-complete", rect);
+      }
+    });
+
+    ipcMain.on("cancel-region-selection", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win) win.close();
+      if (selectionResolve) {
+        selectionResolve(null);
+        selectionResolve = null;
+      }
     });
   });
 

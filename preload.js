@@ -62,4 +62,13 @@ contextBridge.exposeInMainWorld("arduino", {
   openThemesFolder: () => ipcRenderer.send("open-themes-folder"),
   notifyThemeChanged: () => ipcRenderer.send("theme-changed"),
   onApplyTheme: (cb) => safeOn("apply-theme", cb),
+
+  // Region Selection
+  startRegionSelection: () => ipcRenderer.send("start-region-selection"),
+  onRegionSelected: (cb) => safeOn("region-selection-complete", cb),
+});
+
+contextBridge.exposeInMainWorld("selectionApi", {
+  finishSelection: (rect) => ipcRenderer.send("finish-region-selection", rect),
+  cancelSelection: () => ipcRenderer.send("cancel-region-selection"),
 });

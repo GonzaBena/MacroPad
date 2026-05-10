@@ -2,7 +2,22 @@ import { state, loadSignalsData, loadConfig, saveConfig } from './state.js';
 import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
-import { buildStepMenu, renderSignalList, updateParam, initFlowDelegation, addSignal, deleteCurrentSignal, updateSignalLabel, toggleAssignMenu, assignSpeed, testCurrentSignal, toggleStepMenu, importWorkflow, initAssignDropdown } from './workflows.js';
+import {
+  buildStepMenu,
+  renderSignalList,
+  updateParam,
+  initFlowDelegation,
+  addSignal,
+  deleteCurrentSignal,
+  updateSignalLabel,
+  toggleAssignMenu,
+  assignSpeed,
+  testCurrentSignal,
+  toggleStepMenu,
+  importWorkflow,
+  initAssignDropdown,
+  renderFlow,
+} from "./workflows.js";
 
 window.addEventListener("DOMContentLoaded", async () => {
   // 1. Cargar las vistas
@@ -168,16 +183,30 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   window.arduino.onKeyCaptured((combo) => {
-    if (state.capturingIdx === null) return;
-    const idx = state.capturingIdx;
-    state.capturingIdx = null;
-    const input = document.querySelector(`.param-input[data-idx="${idx}"][data-param="combo"]`);
+    if (state.capturingPath === null) return;
+    const path = JSON.parse(state.capturingPath);
+    state.capturingPath = null;
+    
+    const input = document.querySelector(`.param-input[data-path='${JSON.stringify(path)}'][data-param="combo"]`);
     if (input) {
       input.value = combo;
       input.classList.remove("capturing");
       input.readOnly = false;
     }
-    updateParam(idx, "combo", combo);
+    updateParam(path, "combo", combo);
+  });
+
+  window.arduino.onRegionSelected(({ x, y, width, height }) => {
+    if (state.selectingRegionPath === null) return;
+    const path = JSON.parse(state.selectingRegionPath);
+    state.selectingRegionPath = null;
+    
+    updateParam(path, "x", x);
+    updateParam(path, "y", y);
+    updateParam(path, "w", width);
+    updateParam(path, "h", height);
+    
+    renderFlow();
   });
 
   log("Sistema listo", "sys");

@@ -9,6 +9,7 @@ const path = require("path");
 
 let signalMap = {};
 const runningSequences = new Set();
+let promptForRegionFn = null;
 
 // Private temp directory for scripts
 const SCRIPT_DIR = path.join(os.tmpdir(), "pokepad_scripts");
@@ -19,7 +20,8 @@ try {
 // Maximum command length to prevent abuse
 const MAX_CMD_LENGTH = 4096;
 
-function setupExecution() {
+function setupExecution(promptRegion) {
+  promptForRegionFn = promptRegion;
   ipcMain.on("update-signal-map", (_, map) => {
     signalMap = map;
   });
@@ -41,7 +43,9 @@ async function executeSequence(incomingSignal) {
     for (const key in signalMap) {
       const speeds = Array.isArray(signalMap[key].assignedToButton)
         ? signalMap[key].assignedToButton
-        : (signalMap[key].assignedToButton ? [signalMap[key].assignedToButton] : []);
+        : signalMap[key].assignedToButton
+          ? [signalMap[key].assignedToButton]
+          : [];
       if (speeds.includes(incomingSignal)) {
         entry = signalMap[key];
         signal = key;
@@ -61,9 +65,9 @@ async function executeSequence(incomingSignal) {
   if (win) win.webContents.send("sequence-start", signal);
 
   // Context initialized with prevStepSuccess and an empty variables object
-  const context = { 
+  const context = {
     prevStepSuccess: true,
-    variables: {} 
+    variables: {},
   };
 
   try {
@@ -100,13 +104,25 @@ function resolveValue(val, context) {
   }
 
   // Caso 2: Interpolación y secuencias de escape
-  let result = val.replace(/\$([a-zA-Z0-9_]+)/g, (match, name) => {
-    if (context.variables[name] !== undefined) {
-      const v = context.variables[name];
-      return Array.isArray(v) ? JSON.stringify(v) : String(v);
-    }
-    return match;
-  });
+  let result = val.replace(
+    /\$([a-zA-Z0-9_]+)/g,
+    (match, name, offset, wholeString) => {
+      if (context.variables[name] !== undefined) {
+        const v = context.variables[name];
+        if (Array.isArray(v)) return JSON.stringify(v);
+        if (typeof v === "string") {
+          const before = wholeString[offset - 1];
+          const after = wholeString[offset + match.length];
+          const isQuoted =
+            (before === '"' || before === "'") &&
+            (after === '"' || after === "'");
+          return isQuoted ? v : JSON.stringify(v);
+        }
+        return String(v);
+      }
+      return match;
+    },
+  );
 
   // Soporte para \s (espacio) y \n (nueva línea)
   return result.replace(/\\s/g, " ").replace(/\\n/g, "\n");
@@ -117,6 +133,33 @@ async function executeStep(step, context) {
   const p = step.params || {};
 
   switch (step.type) {
+    case "screenshot": {
+      const filename = resolveValue(p.filename, context);
+      await takeScreenshot(filename);
+      break;
+    }
+    case "screenshot_region": {
+      const filename = resolveValue(p.filename, context);
+      let x, y, w, h;
+
+      if (promptForRegionFn) {
+        const rect = await promptForRegionFn();
+        if (!rect) throw new Error("Selección de región cancelada");
+        x = rect.x;
+        y = rect.y;
+        w = rect.width;
+        h = rect.height;
+      } else {
+        // Fallback for safety, although promptForRegionFn should be present
+        x = parseInt(resolveValue(p.x, context)) || 0;
+        y = parseInt(resolveValue(p.y, context)) || 0;
+        w = parseInt(resolveValue(p.w, context)) || 400;
+        h = parseInt(resolveValue(p.h, context)) || 300;
+      }
+
+      await takeScreenshotRegion(filename, x, y, w, h);
+      break;
+    }
     case "keypress":
       await simulateKey(resolveValue(p.combo, context) || "");
       break;
@@ -171,8 +214,12 @@ async function executeStep(step, context) {
       let val = p.value;
       if (p.type === "int") val = parseInt(val) || 0;
       else if (p.type === "list") {
-        try { val = typeof val === "string" ? JSON.parse(val) : val; if (!Array.isArray(val)) val = []; }
-        catch (e) { val = []; }
+        try {
+          val = typeof val === "string" ? JSON.parse(val) : val;
+          if (!Array.isArray(val)) val = [];
+        } catch (e) {
+          val = [];
+        }
       }
       context.variables[name] = val;
       console.log(`[execution] Variable set: ${name} =`, val);
@@ -181,10 +228,11 @@ async function executeStep(step, context) {
     case "modify_variable": {
       let name = String(p.name || "").trim();
       if (name.startsWith("$")) name = name.substring(1);
-      if (!name || context.variables[name] === undefined) throw new Error(`Variable "${name}" no encontrada`);
+      if (!name || context.variables[name] === undefined)
+        throw new Error(`Variable "${name}" no encontrada`);
       const op = p.op;
       let val = resolveValue(p.value, context);
-      
+
       if (op === "add") {
         const current = parseFloat(context.variables[name]) || 0;
         context.variables[name] = current + (parseFloat(val) || 0);
@@ -194,20 +242,28 @@ async function executeStep(step, context) {
       } else if (op === "set") {
         context.variables[name] = val;
       } else if (op === "concat") {
-        const current = context.variables[name] !== undefined && context.variables[name] !== null ? String(context.variables[name]) : "";
+        const current =
+          context.variables[name] !== undefined &&
+          context.variables[name] !== null
+            ? String(context.variables[name])
+            : "";
         const toAdd = val !== undefined && val !== null ? String(val) : "";
         context.variables[name] = current + toAdd;
       }
-      console.log(`[execution] Variable modified: ${name} (${op}) ->`, context.variables[name]);
+      console.log(
+        `[execution] Variable modified: ${name} (${op}) ->`,
+        context.variables[name],
+      );
       break;
     }
     case "list_operation": {
       let name = String(p.name || "").trim();
       if (name.startsWith("$")) name = name.substring(1);
-      if (!name || !Array.isArray(context.variables[name])) throw new Error(`Lista "${name}" no encontrada`);
+      if (!name || !Array.isArray(context.variables[name]))
+        throw new Error(`Lista "${name}" no encontrada`);
       const op = p.op;
       const val = resolveValue(p.value, context);
-      
+
       if (op === "append") context.variables[name].push(val);
       else if (op === "pop") context.variables[name].pop();
       else if (op === "clear") context.variables[name] = [];
@@ -218,7 +274,8 @@ async function executeStep(step, context) {
       break;
     }
     case "run_script": {
-      await runScript(p.lang || "python", p.code || "");
+      const code = resolveValue(p.code || "", context);
+      await runScript(p.lang || "python", code);
       break;
     }
     case "loop": {
@@ -227,7 +284,7 @@ async function executeStep(step, context) {
 
       if (p.mode === "foreach") {
         let list = resolveValue(p.list_name, context);
-        
+
         if (!Array.isArray(list) && p.list_name) {
           let rawName = String(p.list_name).trim();
           if (rawName.startsWith("$")) rawName = rawName.substring(1);
@@ -235,7 +292,7 @@ async function executeStep(step, context) {
             list = context.variables[rawName];
           }
         }
-        
+
         // Auto-parse if it's a string representation of a list
         if (typeof list === "string" && list.trim().startsWith("[")) {
           try {
@@ -249,10 +306,12 @@ async function executeStep(step, context) {
         if (Array.isArray(list)) {
           let varName = p.var_name || "item";
           if (varName.startsWith("$")) varName = varName.substring(1);
-          
+
           const oldValue = context.variables[varName]; // Scope: save old value
-          
-          console.log(`[execution] Starting loop foreach on list (length: ${list.length})`);
+
+          console.log(
+            `[execution] Starting loop foreach on list (length: ${list.length})`,
+          );
           try {
             for (const item of list) {
               context.variables[varName] = item;
@@ -309,7 +368,10 @@ async function evaluateCondition(params, context) {
       if (op === "!=") return v1 != v2;
       if (op === ">") return v1 > v2;
       if (op === "<") return v1 < v2;
-      if (op === "contains") return Array.isArray(v1) ? v1.includes(v2) : String(v1).includes(String(v2));
+      if (op === "contains")
+        return Array.isArray(v1)
+          ? v1.includes(v2)
+          : String(v1).includes(String(v2));
       return false;
     }
     default:
@@ -322,7 +384,10 @@ function isAppRunning(appName) {
     const plat = process.platform;
     const cmd = plat === "win32" ? "tasklist" : "ps -ax";
     exec(cmd, (err, stdout) => {
-      if (err) { resolve(false); return; }
+      if (err) {
+        resolve(false);
+        return;
+      }
       resolve(stdout.toLowerCase().includes(appName.toLowerCase()));
     });
   });
@@ -420,11 +485,107 @@ function setSignalMap(map) {
   signalMap = map;
 }
 
+function takeScreenshot(fileName) {
+  const picturesDir = path.join(os.homedir(), "Pictures", "MacroPad");
+  if (!fs.existsSync(picturesDir)) {
+    try {
+      fs.mkdirSync(picturesDir, { recursive: true });
+    } catch (_) {}
+  }
+  const name = fileName || `screenshot_${Date.now()}.png`;
+  const fullPath = path.join(picturesDir, name);
+  const platform = process.platform;
+
+  return new Promise((resolve, reject) => {
+    if (platform === "win32") {
+      const psScript = `
+        Add-Type -AssemblyName System.Windows.Forms, System.Drawing;
+        $screens = [System.Windows.Forms.Screen]::AllScreens;
+        $left = 0; $top = 0; $right = 0; $bottom = 0;
+        foreach ($s in $screens) {
+          if ($s.Bounds.X -lt $left) { $left = $s.Bounds.X }
+          if ($s.Bounds.Y -lt $top) { $top = $s.Bounds.Y }
+          if ($s.Bounds.Right -gt $right) { $right = $s.Bounds.Right }
+          if ($s.Bounds.Bottom -gt $bottom) { $bottom = $s.Bounds.Bottom }
+        }
+        $width = $right - $left;
+        $height = $bottom - $top;
+        $bmp = New-Object System.Drawing.Bitmap($width, $height);
+        $g = [System.Drawing.Graphics]::FromImage($bmp);
+        $g.CopyFromScreen($left, $top, 0, 0, $bmp.Size);
+        $bmp.Save('${fullPath.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png);
+        $g.Dispose();
+        $bmp.Dispose();
+      `.replace(/\n/g, " ");
+      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], (err) => {
+        if (err) reject(err);
+        else resolve(fullPath);
+      });
+    } else if (platform === "darwin") {
+      exec(`screencapture -x "${fullPath}"`, (err) => {
+        if (err) reject(err);
+        else resolve(fullPath);
+      });
+    } else {
+      exec(`gnome-screenshot -f "${fullPath}" || scrot "${fullPath}"`, (err) => {
+        if (err) reject(err);
+        else resolve(fullPath);
+      });
+    }
+  });
+}
+
+function takeScreenshotRegion(fileName, x, y, w, h) {
+  const picturesDir = path.join(os.homedir(), "Pictures", "MacroPad");
+  if (!fs.existsSync(picturesDir)) {
+    try {
+      fs.mkdirSync(picturesDir, { recursive: true });
+    } catch (_) {}
+  }
+  const name = fileName || `region_${Date.now()}.png`;
+  const fullPath = path.join(picturesDir, name);
+  const platform = process.platform;
+
+  return new Promise((resolve, reject) => {
+    if (platform === "win32") {
+      const psScript = `
+        Add-Type -AssemblyName System.Windows.Forms, System.Drawing;
+        $bmp = New-Object System.Drawing.Bitmap(${w}, ${h});
+        $g = [System.Drawing.Graphics]::FromImage($bmp);
+        $g.CopyFromScreen(${x}, ${y}, 0, 0, $bmp.Size);
+        $bmp.Save('${fullPath.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png);
+        $g.Dispose();
+        $bmp.Dispose();
+      `.replace(/\n/g, " ");
+      execFile(
+        "powershell",
+        ["-NoProfile", "-NonInteractive", "-Command", psScript],
+        (err) => {
+          if (err) reject(err);
+          else resolve(fullPath);
+        },
+      );
+    } else if (platform === "darwin") {
+      exec(`screencapture -R${x},${y},${w},${h} -x "${fullPath}"`, (err) => {
+        if (err) reject(err);
+        else resolve(fullPath);
+      });
+    } else {
+      exec(`scrot -a ${x},${y},${w},${h} "${fullPath}"`, (err) => {
+        if (err) reject(err);
+        else resolve(fullPath);
+      });
+    }
+  });
+}
+
 module.exports = {
   setupExecution,
   executeSequence,
   executeStep,
   runCmd,
   runScript,
+  takeScreenshot,
+  takeScreenshotRegion,
   setSignalMap,
 };
