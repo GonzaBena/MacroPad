@@ -26,36 +26,90 @@ function setupExecution(promptRegion) {
     signalMap = map;
   });
 
-  ipcMain.on("test-sequence", (_, signal) => executeSequence(signal));
+  ipcMain.on("test-sequence", (_, signal) => executeSequence(signal, true));
 }
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function executeSequence(incomingSignal) {
+async function executeSequence(incomingSignal, isTest = false) {
   const win = getWindow();
 
-  let signal = incomingSignal;
-  let entry = signalMap[signal];
-
-  if (!entry && ["RAPIDA", "MEDIA", "LENTA"].includes(incomingSignal)) {
+  // 1. Gather all candidate workflows for this signal (unique by their key)
+  let candidatesMap = new Map();
+  
+  if (signalMap[incomingSignal]) {
+    candidatesMap.set(incomingSignal, signalMap[incomingSignal]);
+  } 
+  
+  if (["RAPIDA", "MEDIA", "LENTA"].includes(incomingSignal)) {
     for (const key in signalMap) {
-      const speeds = Array.isArray(signalMap[key].assignedToButton)
-        ? signalMap[key].assignedToButton
-        : signalMap[key].assignedToButton
-          ? [signalMap[key].assignedToButton]
-          : [];
+      const entry = signalMap[key];
+      const speeds = Array.isArray(entry.assignedToButton)
+        ? entry.assignedToButton
+        : entry.assignedToButton ? [entry.assignedToButton] : [];
+        
       if (speeds.includes(incomingSignal)) {
-        entry = signalMap[key];
-        signal = key;
-        break;
+        candidatesMap.set(key, entry);
       }
     }
   }
 
-  if (runningSequences.has(signal)) return;
+  if (candidatesMap.size === 0) return;
+
+  // 2. Find the best candidate based on focus priority
+  let bestCandidate = null;
+  
+  if (isTest) {
+    const firstKey = candidatesMap.keys().next().value;
+    bestCandidate = { signal: firstKey, entry: candidatesMap.get(firstKey) };
+  } else {
+    const focusedAppName = await getFocusedApp();
+    console.log(`[execution] Focused App: "${focusedAppName}" (Incoming: ${incomingSignal})`);
+
+    let globalCandidate = null;
+    let partialMatchCandidate = null;
+
+    for (const [key, entry] of candidatesMap.entries()) {
+      const assigned = entry.assignedApp;
+      if (!assigned) {
+        if (!globalCandidate) globalCandidate = { signal: key, entry };
+      } else {
+        const target = assigned.toLowerCase().endsWith(".exe") ? assigned.slice(0, -4) : assigned;
+        const targetLower = target.toLowerCase();
+        
+        if (focusedAppName) {
+          if (focusedAppName === targetLower) {
+            bestCandidate = { signal: key, entry };
+            break; 
+          }
+          if (focusedAppName.includes(targetLower)) {
+            if (!partialMatchCandidate) partialMatchCandidate = { signal: key, entry };
+          }
+        }
+      }
+    }
+
+    if (!bestCandidate) {
+      bestCandidate = partialMatchCandidate || globalCandidate;
+    }
+  }
+
+  if (!bestCandidate) {
+    console.log(`[execution] No matching workflow found for signal "${incomingSignal}" with focus.`);
+    return;
+  }
+
+  const { signal, entry } = bestCandidate;
+
+  if (runningSequences.has(signal)) {
+    console.log(`[execution] Skipping: "${signal}" is already running.`);
+    return;
+  }
+  
   runningSequences.add(signal);
+  console.log(`[execution] Running: "${signal}"`);
 
   if (!entry || !entry.steps?.length) {
     runningSequences.delete(signal);
@@ -64,7 +118,6 @@ async function executeSequence(incomingSignal) {
 
   if (win) win.webContents.send("sequence-start", signal);
 
-  // Context initialized with prevStepSuccess and an empty variables object
   const context = {
     prevStepSuccess: true,
     variables: {},
@@ -72,7 +125,10 @@ async function executeSequence(incomingSignal) {
 
   try {
     await executeStepsRecursive(entry.steps, context);
+  } catch (err) {
+    console.error(`[execution] Error in "${signal}":`, err.message);
   } finally {
+    console.log(`[execution] Completed: "${signal}"`);
     if (win) win.webContents.send("sequence-end", signal);
     runningSequences.delete(signal);
   }
@@ -379,17 +435,97 @@ async function evaluateCondition(params, context) {
   }
 }
 
+async function getFocusedApp() {
+  const { getActiveWindow } = require("@nut-tree-fork/nut-js");
+  
+  // Fast path using nut-js (Window Title)
+  try {
+    // Timeout-protected nut-js call (2 seconds max)
+    const activeWin = await Promise.race([
+      getActiveWindow(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000))
+    ]);
+    const title = await activeWin.title;
+    if (title && title.trim().length > 0) return title.toLowerCase();
+  } catch (e) {
+    console.warn("[execution] nut-js focus detection failed or timed out:", e.message);
+  }
+
+  // Fallback to PowerShell (Process Name) - slow but robust
+  return new Promise((resolve) => {
+    const plat = process.platform;
+    if (plat === "win32") {
+      const psScript = `
+        Add-Type -TypeDefinition @'
+        using System;
+        using System.Runtime.InteropServices;
+        public class Win32 {
+          [DllImport("user32.dll")]
+          public static extern IntPtr GetForegroundWindow();
+          [DllImport("user32.dll")]
+          public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
+        }
+'@
+        $hwnd = [Win32]::GetForegroundWindow()
+        $pid = 0
+        [Win32]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null
+        if ($pid -gt 0) {
+          (Get-Process -Id $pid).Name
+        }
+      `.replace(/\n/g, " ");
+      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], (err, stdout) => {
+        resolve(stdout ? stdout.trim().toLowerCase() : null);
+      });
+    } else if (plat === "darwin") {
+      exec("osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'", (err, stdout) => {
+        resolve(stdout ? stdout.trim().toLowerCase() : null);
+      });
+    } else {
+      // Linux fallback (requires xdotool)
+      exec("xdotool getactivewindow getwindowpid", (err, pid) => {
+        if (err || !pid) return resolve(null);
+        exec(`ps -p ${pid.trim()} -o comm=`, (err2, stdout2) => {
+          resolve(stdout2 ? stdout2.trim().toLowerCase() : null);
+        });
+      });
+    }
+  });
+}
+
 function isAppRunning(appName) {
   return new Promise((resolve) => {
     const plat = process.platform;
-    const cmd = plat === "win32" ? "tasklist" : "ps -ax";
-    exec(cmd, (err, stdout) => {
-      if (err) {
-        resolve(false);
-        return;
-      }
-      resolve(stdout.toLowerCase().includes(appName.toLowerCase()));
-    });
+    
+    if (plat === "win32") {
+      // Use PowerShell to check if process exists. 
+      // This is more reliable and handles both "brave" and "brave.exe" better.
+      const processName = appName.toLowerCase().endsWith(".exe") 
+        ? appName.slice(0, -4) 
+        : appName;
+      
+      const psCommand = `Get-Process -Name "${processName}" -ErrorAction SilentlyContinue`;
+      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psCommand], (err, stdout) => {
+        // If stdout has content, the process exists
+        if (stdout && stdout.trim().length > 0) {
+          resolve(true);
+        } else {
+          // Broad fallback with tasklist if PowerShell fails or doesn't find it
+          exec(`tasklist /NH /FI "IMAGENAME eq ${appName}"`, (err2, stdout2) => {
+            resolve(stdout2 && stdout2.toLowerCase().includes(appName.toLowerCase()));
+          });
+        }
+      });
+    } else {
+      const cmd = "ps -ax";
+      exec(cmd, { maxBuffer: 1024 * 1024 }, (err, stdout) => {
+        if (err) {
+          console.error(`[execution] Error checking app "${appName}":`, err.message);
+          resolve(false);
+          return;
+        }
+        resolve(stdout.toLowerCase().includes(appName.toLowerCase()));
+      });
+    }
   });
 }
 
@@ -588,4 +724,5 @@ module.exports = {
   takeScreenshot,
   takeScreenshotRegion,
   setSignalMap,
+  getFocusedApp,
 };

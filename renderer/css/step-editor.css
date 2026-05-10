@@ -169,6 +169,12 @@
   background: var(--surface3);
 }
 
+.dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
 .dropdown-item.active {
   color: var(--green);
   background: var(--green-bg);

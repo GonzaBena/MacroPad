@@ -1,12 +1,15 @@
 export const state = {
   connected: false,
   signals: {},
+  folders: [],
   selectedSig: null,
   logAll: [],
   stats: { sig: 0, act: 0, err: 0 },
   dragSrcPath: null,
+  dragSrcWorkflow: null,
   capturingPath: null,
   selectingRegionPath: null,
+  runningApps: [],
   config: {
     theme: "dark",
     closeBehavior: "close",
@@ -15,6 +18,7 @@ export const state = {
     startupMode: "none",
     enableZoom: true,
     zoomLevel: 1.0,
+    workflowSort: "original",
   },
 };
 
@@ -117,6 +121,7 @@ export function saveSignals() {
   // Save to file via main process
   window.arduino.saveData({
     signals: state.signals,
+    folders: state.folders,
     config: state.config,
   });
   // Also keep localStorage as quick fallback
@@ -178,6 +183,7 @@ export async function saveConfig() {
   // Also save to file
   await window.arduino.saveData({
     signals: state.signals,
+    folders: state.folders,
     config: state.config,
   });
   await applyConfig();
@@ -221,10 +227,19 @@ export async function loadSignalsData() {
       Object.keys(fileData.signals).length > 0
     ) {
       state.signals = fileData.signals;
+      state.folders = fileData.folders || [];
       if (fileData.config) {
         state.config = { ...state.config, ...fileData.config };
         applyConfig();
       }
+      
+      // Ensure folderId, createdAt, and assignedApp exist for all signals
+      Object.values(state.signals).forEach(sig => {
+        if (sig.folderId === undefined) sig.folderId = null;
+        if (sig.createdAt === undefined) sig.createdAt = 0;
+        if (sig.assignedApp === undefined) sig.assignedApp = null;
+      });
+
       console.log("[state] Loaded data from file persistence");
       pushSignals();
       return;
@@ -270,9 +285,13 @@ export async function loadSignalsData() {
                     return [val.assignedToButton];
                   return [];
                 })(),
+            folderId: null,
+            createdAt: 0,
           };
         } else {
           state.signals[sig] = val;
+          if (state.signals[sig].folderId === undefined) state.signals[sig].folderId = null;
+          if (state.signals[sig].createdAt === undefined) state.signals[sig].createdAt = 0;
         }
       });
 
@@ -280,6 +299,7 @@ export async function loadSignalsData() {
       console.log("[state] Migrating localStorage data to file persistence");
       window.arduino.saveData({
         signals: state.signals,
+        folders: state.folders,
         config: state.config,
       });
     }

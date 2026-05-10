@@ -1,0 +1,103 @@
+<div class="modal-overlay d-none" id="app-assign-modal">
+  <div class="modal-content max-w-600">
+    <div class="modal-header">Vincular workflow a aplicación</div>
+    <div class="modal-body">
+      <div class="param-row">
+        <div class="d-flex justify-between align-center">
+          <label class="param-label mb-0">Aplicaciones actualmente abiertas</label>
+          <button class="btn-header-small" id="btn-refresh-apps-list" title="Refrescar lista" style="padding: 2px 6px;">🔄 Actualizar</button>
+        </div>
+        <div class="app-list-container" id="running-apps-list">
+          <!-- Dinámico -->
+          <div class="loading-apps">Buscando procesos activos...</div>
+        </div>
+      </div>
+
+      <div class="modal-divider"></div>
+
+      <div class="param-row">
+        <label class="param-label">Otras opciones</label>
+        <div class="param-input-row">
+          <select class="param-select flex-1" id="common-apps-select">
+            <option value="">-- Seleccionar aplicación común --</option>
+            <option value="chrome.exe">Google Chrome</option>
+            <option value="firefox.exe">Firefox</option>
+            <option value="Spotify.exe">Spotify</option>
+            <option value="Discord.exe">Discord</option>
+            <option value="Code.exe">VS Code</option>
+            <option value="Photoshop.exe">Photoshop</option>
+            <option value="Premiere.exe">Premiere Pro</option>
+            <option value="steam.exe">Steam</option>
+          </select>
+          <button class="btn btn-header-small" id="btn-browse-app-exe" title="Seleccionar ejecutable manualmente">📂 Explorar...</button>
+        </div>
+      </div>
+
+      <div class="param-row mt-20">
+        <label class="param-label">Nombre del proceso vinculado</label>
+        <input type="text" class="param-input" id="assigned-app-input" placeholder="ej: chrome.exe o Spotify" />
+        <div class="param-hint">El workflow solo se activará si el proceso con este nombre está corriendo.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-header-small" id="btn-clear-app-assign">Desvincular</button>
+      <div class="flex-1"></div>
+      <button class="btn-header-small" id="btn-cancel-app-assign">Cancelar</button>
+      <button class="btn-header-small btn-save-config" id="btn-confirm-app-assign" style="padding: 6px 16px; margin-top: 0;">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.app-list-container {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  height: 150px;
+  overflow-y: auto;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-item {
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-item:last-child {
+  border-bottom: none;
+}
+
+.app-item:hover {
+  background: var(--surface3);
+  color: var(--amber);
+}
+
+.app-item.selected {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.loading-apps {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.modal-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+</style>

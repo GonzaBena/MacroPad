@@ -1,6 +1,56 @@
 const { ipcMain } = require("electron");
 const { exec, execFile } = require("child_process");
+const { keyboard, Key } = require("@nut-tree-fork/nut-js");
 const { getWindow } = require("./window");
+
+const NUT_KEY_MAP = {
+  enter: Key.Enter,
+  return: Key.Enter,
+  tab: Key.Tab,
+  space: Key.Space,
+  escape: Key.Escape,
+  esc: Key.Escape,
+  backspace: Key.Backspace,
+  delete: Key.Delete,
+  up: Key.Up,
+  down: Key.Down,
+  left: Key.Left,
+  right: Key.Right,
+  home: Key.Home,
+  end: Key.End,
+  pageup: Key.PageUp,
+  pagedown: Key.PageDown,
+  f1: Key.F1, f2: Key.F2, f3: Key.F3, f4: Key.F4, f5: Key.F5, f6: Key.F6,
+  f7: Key.F7, f8: Key.F8, f9: Key.F9, f10: Key.F10, f11: Key.F11, f12: Key.F12,
+  ins: Key.Insert,
+  insert: Key.Insert,
+  prtsc: Key.Print,
+  scrolllock: Key.ScrollLock,
+  pause: Key.Pause,
+};
+
+const NUT_MOD_MAP = {
+  cmd: Key.LeftSuper,
+  command: Key.LeftSuper,
+  ctrl: Key.LeftControl,
+  control: Key.LeftControl,
+  alt: Key.LeftAlt,
+  option: Key.LeftAlt,
+  shift: Key.LeftShift,
+};
+
+function getNutKey(k) {
+  const lower = k.toLowerCase();
+  if (NUT_KEY_MAP[lower]) return NUT_KEY_MAP[lower];
+  
+  // Alphanumeric
+  if (k.length === 1) {
+    const char = k.toUpperCase();
+    if (char >= "A" && char <= "Z") return Key[char];
+    if (char >= "0" && char <= "9") return Key["Num" + char];
+  }
+  return null;
+}
 
 const KEY_CODES_MAC = {
   enter: 33, return: 36, tab: 48, space: 49, escape: 53, esc: 53,
@@ -60,27 +110,42 @@ function escapePowerShell(str) {
   return str.replace(/[^a-zA-Z0-9+\-_ ]/g, "");
 }
 
-function simulateKey(combo) {
-  return new Promise((resolve) => {
-    if (!combo) return resolve();
-    const win = getWindow();
-    const parts = combo.toLowerCase().replace(/"/g, "").split("+").map((s) => s.trim());
-    const key = parts[parts.length - 1];
-    const mods = parts.slice(0, -1);
+async function simulateKey(combo) {
+  if (!combo) return;
+  const win = getWindow();
+  const parts = combo.toLowerCase().replace(/"/g, "").split("+").map((s) => s.trim());
+  const keyPart = parts[parts.length - 1];
+  const mods = parts.slice(0, -1);
 
-    // Validate key parts — only allow alphanumeric and known key names
-    const validKeyPattern = /^[a-z0-9]+$/;
-    if (!validKeyPattern.test(key)) {
-      if (win) win.webContents.send("serial-error", `Tecla inválida: "${key}"`);
-      return resolve();
-    }
-    for (const mod of mods) {
-      if (!["cmd", "command", "ctrl", "control", "alt", "option", "shift"].includes(mod)) {
-        if (win) win.webContents.send("serial-error", `Modificador inválido: "${mod}"`);
-        return resolve();
+  // Use nut-js for native speed on Windows and Mac
+  if (process.platform === "win32" || process.platform === "darwin") {
+    try {
+      const nutKeys = [];
+      for (const mod of mods) {
+        if (NUT_MOD_MAP[mod]) nutKeys.push(NUT_MOD_MAP[mod]);
       }
+      const mainKey = getNutKey(keyPart);
+      if (mainKey) {
+        nutKeys.push(mainKey);
+        // Timeout protected nut-js call
+        await Promise.race([
+          (async () => {
+            await keyboard.pressKey(...nutKeys);
+            await keyboard.releaseKey(...nutKeys);
+          })(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("NutJS Timeout")), 2000))
+        ]);
+        return;
+      }
+    } catch (err) {
+      console.error("[keyboard] nut-js error:", err.message);
+      // Fallback to legacy methods if nut-js fails or times out
     }
+  }
 
+  // Legacy fallback or Linux (xdotool)
+  if (process.platform === "darwin") {
+    const code = KEY_CODES_MAC[keyPart];
     const modMap = {
       cmd: "command down", command: "command down",
       ctrl: "control down", control: "control down",
@@ -88,38 +153,68 @@ function simulateKey(combo) {
       shift: "shift down",
     };
     const modStr = mods.map((m) => modMap[m]).filter(Boolean).join(", ");
-
-    if (process.platform === "darwin") {
-      const code = KEY_CODES_MAC[key];
-      const using = modStr ? ` using {${modStr}}` : "";
-      const script = code != null
-          ? `tell application "System Events" to key code ${code}${using}`
-          : `tell application "System Events" to keystroke "${key}"${using}`;
-      exec(`osascript -e '${script}'`, (err) => {
-        if (err && win)
-          win.webContents.send("serial-error", "Teclas: necesitás dar permiso de Accesibilidad a la app");
-        resolve();
-      });
-    } else if (process.platform === "win32") {
-      const safeKey = escapePowerShell(key);
-      const modPre = mods.map((m) => ({ cmd: "", ctrl: "^", alt: "%", shift: "+" })[m] || "").join("");
-      const sendKeysArg = `${modPre}${safeKey}`;
-
-      // Use execFile with arguments to prevent shell injection
-      const psScript = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${sendKeysArg}')`;
-      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], (err) => {
-        if (err && win) win.webContents.send("serial-error", `Teclas: ${err.message}`);
-        resolve();
-      });
-    } else {
-      const safeCombo = escapePowerShell(combo).replace(/cmd/g, "super");
-      execFile("xdotool", ["key", safeCombo], () => resolve());
-    }
-  });
+    const using = modStr ? ` using {${modStr}}` : "";
+    const script = code != null
+        ? `tell application "System Events" to key code ${code}${using}`
+        : `tell application "System Events" to keystroke "${keyPart}"${using}`;
+    exec(`osascript -e '${script}'`, (err) => {
+      if (err && win)
+        win.webContents.send("serial-error", "Teclas: necesitás dar permiso de Accesibilidad a la app");
+    });
+  } else if (process.platform === "win32") {
+    const safeKey = escapePowerShell(keyPart);
+    const modPre = mods.map((m) => ({ cmd: "", ctrl: "^", alt: "%", shift: "+" })[m] || "").join("");
+    const sendKeysArg = `${modPre}${safeKey}`;
+    const psScript = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${sendKeysArg}')`;
+    execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], (err) => {
+      if (err && win) win.webContents.send("serial-error", `Teclas: ${err.message}`);
+    });
+  } else {
+    const safeCombo = escapePowerShell(combo).replace(/cmd/g, "super");
+    execFile("xdotool", ["key", safeCombo]);
+  }
 }
 
 module.exports = {
   setupKeyboard,
   simulateKey,
   escapePowerShell,
+  listRunningApps,
 };
+
+function listRunningApps() {
+  return new Promise((resolve) => {
+    const plat = process.platform;
+    if (plat === "win32") {
+      // Windows: tasklist with CSV format (no verbose for speed)
+      exec("tasklist /fo csv /nh", (err, stdout) => {
+        if (err) return resolve([]);
+        const apps = new Set();
+        stdout.split("\r\n").forEach(line => {
+          const parts = line.split('","');
+          if (parts.length > 0) {
+            let name = parts[0].replace(/"/g, "");
+            // Filter common system processes
+            if (!["System Idle Process", "System", "svchost.exe", "conhost.exe", "taskhostw.exe"].includes(name)) {
+              apps.add(name);
+            }
+          }
+        });
+        resolve(Array.from(apps).sort());
+      });
+    } else {
+      // Unix: ps -ax
+      exec("ps -ax -o comm", (err, stdout) => {
+        if (err) return resolve([]);
+        const apps = new Set();
+        stdout.split("\n").forEach(line => {
+          let name = line.trim().split("/").pop();
+          if (name && !name.startsWith("-") && name.length > 2) {
+            apps.add(name);
+          }
+        });
+        resolve(Array.from(apps).sort());
+      });
+    }
+  });
+}

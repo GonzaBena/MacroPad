@@ -8,6 +8,8 @@ import {
   updateParam,
   initFlowDelegation,
   addSignal,
+  addFolder,
+  changeSort,
   deleteCurrentSignal,
   updateSignalLabel,
   toggleAssignMenu,
@@ -25,6 +27,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadView("tab-monitor", "views/monitor.html");
   await loadView("tab-workflows", "views/workflows.html");
   await loadView("cmd-modal-overlay", "views/cmd-modal.html");
+  await loadView("app-modal-container", "views/app-modal.html");
 
   // 2. Cablear event listeners de index.html (sin onclick inline — requerido por CSP)
   document.getElementById("wbtn-min")?.addEventListener("click", () => window.arduino.minimize());
@@ -76,6 +79,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Enter") addSignal();
   });
   document.getElementById("btn-add-signal")?.addEventListener("click", addSignal);
+  document.getElementById("btn-add-folder")?.addEventListener("click", addFolder);
+  
+  const sortSel = document.getElementById("sort-workflows");
+  if (sortSel) {
+    sortSel.value = state.config.workflowSort || "original";
+    sortSel.addEventListener("change", (e) => changeSort(e.target.value));
+  }
+
   document.getElementById("btn-import-workflow")?.addEventListener("click", (e) => {
     e.stopPropagation();
     importWorkflow(e);
@@ -127,6 +138,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   renderSignalList();
   initAssignDropdown();
+  refreshRunningApps(); // Pre-fetch apps list
   
   // Sincronizar estado de conexión al iniciar
   const initStatus = await window.arduino.getConnectionStatus();

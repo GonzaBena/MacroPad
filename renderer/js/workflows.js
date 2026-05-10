@@ -341,33 +341,191 @@ export function renderSignalList() {
   const list = document.getElementById("signal-list");
   if (!list) return;
   list.innerHTML = "";
-  Object.entries(state.signals).forEach(([sig, entry]) => {
-    const div = document.createElement("div");
-    div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
-    div.dataset.sig = sig;
-    let badge = "";
-    if (entry.assignedToButton?.length) {
-      const label = entry.assignedToButton
-        .map((s) => (s === "RAPIDA" ? "RÁP" : s === "MEDIA" ? "MED" : "LEN"))
-        .join("+");
-      badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.join(", ").toLowerCase()}">🔌 ${label}</span>`;
-    }
-    div.innerHTML = `
-      <div class="sig-card-top">
-        <span class="sig-color-dot"></span>
-        <span class="sig-name">${escHtml(sig)}${badge}</span>
-        <span class="sig-pulse"></span>
-      </div>
-      ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
-      <div class="sig-steps-count">${countSteps(entry.steps)} paso${countSteps(entry.steps) === 1 ? "" : "s"}</div>`;
 
-    div.addEventListener("click", () => selectSignal(sig));
-    div.addEventListener("contextmenu", (e) => showSignalContextMenu(e, sig));
+  // 1. Get sorted signal keys
+  const criteria = state.config.workflowSort || "original";
+  let sigKeys = Object.keys(state.signals);
 
-    list.appendChild(div);
-    const dot = div.querySelector(".sig-color-dot");
-    if (dot) dot.style.background = entry.color;
+  if (criteria === "name") {
+    sigKeys.sort((a, b) => a.localeCompare(b));
+  } else if (criteria === "active") {
+    sigKeys.sort((a, b) => {
+      const aAct = (state.signals[a].assignedToButton?.length || 0) > 0;
+      const bAct = (state.signals[b].assignedToButton?.length || 0) > 0;
+      if (aAct === bAct) return a.localeCompare(b);
+      return aAct ? -1 : 1;
+    });
+  } else if (criteria === "created") {
+    sigKeys.sort((a, b) => (state.signals[b].createdAt || 0) - (state.signals[a].createdAt || 0));
+  } else if (criteria === "steps") {
+    sigKeys.sort((a, b) => countSteps(state.signals[b].steps) - countSteps(state.signals[a].steps));
+  }
+
+  // 2. Map signals to folders and root
+  const rootKeys = sigKeys.filter(k => {
+    const fId = state.signals[k].folderId;
+    return !fId || !state.folders.find(f => f.id === fId);
   });
+
+  // 3. Render items with bars
+  // Start bar for root
+  list.appendChild(makeWorkflowInsertionBar(null, state.folders[0]?.id || rootKeys[0]));
+
+  state.folders.forEach((folder, i) => {
+    const fDiv = document.createElement("div");
+    fDiv.className = "sig-folder" + (folder.expanded ? " expanded" : "");
+    fDiv.dataset.id = folder.id;
+
+    const fHeader = document.createElement("div");
+    fHeader.className = "sig-folder-header";
+    fHeader.innerHTML = `
+      <span class="sig-folder-chevron">▶</span>
+      <span class="sig-folder-icon">📂</span>
+      <span class="sig-folder-name">${escHtml(folder.name)}</span>
+    `;
+    fHeader.onclick = () => toggleFolder(folder.id);
+    fHeader.oncontextmenu = (e) => showFolderContextMenu(e, folder.id);
+
+    // Folder Drag & Drop target (whole folder header)
+    fHeader.addEventListener("dragover", (e) => {
+      if (state.dragSrcWorkflow) {
+        e.preventDefault();
+        fDiv.classList.add("drag-over");
+      }
+    });
+    fHeader.addEventListener("dragleave", () => fDiv.classList.remove("drag-over"));
+    fHeader.addEventListener("drop", (e) => {
+      e.preventDefault();
+      fDiv.classList.remove("drag-over");
+      if (state.dragSrcWorkflow) {
+        moveWorkflow(state.dragSrcWorkflow, folder.id);
+        state.dragSrcWorkflow = null;
+      }
+    });
+
+    const fContent = document.createElement("div");
+    fContent.className = "sig-folder-content";
+    
+    // Internal bars for folder content
+    const folderKeys = sigKeys.filter(k => state.signals[k].folderId === folder.id);
+    fContent.appendChild(makeWorkflowInsertionBar(folder.id, folderKeys[0]));
+    folderKeys.forEach((sig, j) => {
+      fContent.appendChild(makeSignalCard(sig, state.signals[sig]));
+      fContent.appendChild(makeWorkflowInsertionBar(folder.id, folderKeys[j + 1]));
+    });
+
+    fDiv.appendChild(fHeader);
+    fDiv.appendChild(fContent);
+    list.appendChild(fDiv);
+
+    // Bar after folder
+    const nextItem = state.folders[i + 1]?.id || rootKeys[0];
+    list.appendChild(makeWorkflowInsertionBar(null, nextItem));
+  });
+
+  rootKeys.forEach((sig, i) => {
+    list.appendChild(makeSignalCard(sig, state.signals[sig]));
+    // Bar after root signal
+    list.appendChild(makeWorkflowInsertionBar(null, rootKeys[i + 1]));
+  });
+}
+
+function makeWorkflowInsertionBar(folderId, targetSig = null) {
+  const bar = document.createElement("div");
+  bar.className = "sig-insertion-bar";
+  bar.innerHTML = '<div class="sig-insertion-line"></div>';
+  
+  bar.addEventListener("dragover", (e) => {
+    if (state.dragSrcWorkflow) {
+      e.preventDefault();
+      bar.classList.add("drag-over");
+    }
+  });
+  bar.addEventListener("dragleave", () => bar.classList.remove("drag-over"));
+  bar.addEventListener("drop", (e) => {
+    e.preventDefault();
+    bar.classList.remove("drag-over");
+    if (state.dragSrcWorkflow) {
+      moveWorkflow(state.dragSrcWorkflow, folderId, targetSig);
+      state.dragSrcWorkflow = null;
+    }
+  });
+  return bar;
+}
+
+function moveWorkflow(sigName, folderId, targetSig = null) {
+  if (sigName === targetSig) return;
+  const sig = state.signals[sigName];
+  if (!sig) return;
+
+  pushUndo();
+  sig.folderId = folderId;
+
+  // Manual reordering logic (only if "original")
+  if (state.config.workflowSort === "original") {
+    const keys = Object.keys(state.signals).filter(k => k !== sigName);
+    if (targetSig) {
+      const idx = keys.indexOf(targetSig);
+      if (idx !== -1) {
+        keys.splice(idx, 0, sigName);
+      } else {
+        keys.push(sigName);
+      }
+    } else {
+      keys.push(sigName);
+    }
+    
+    const newSignals = {};
+    keys.forEach(k => newSignals[k] = state.signals[k]);
+    state.signals = newSignals;
+  }
+
+  saveSignals();
+  renderSignalList();
+}
+
+function makeSignalCard(sig, entry) {
+  const div = document.createElement("div");
+  div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
+  div.dataset.sig = sig;
+  div.draggable = true;
+
+  let badge = "";
+  if (entry.assignedToButton?.length) {
+    const label = entry.assignedToButton
+      .map((s) => (s === "RAPIDA" ? "RÁP" : s === "MEDIA" ? "MED" : "LEN"))
+      .join("+");
+    badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.join(", ").toLowerCase()}">🔌 ${label}</span>`;
+  }
+  
+  div.innerHTML = `
+    <div class="sig-card-top">
+      <span class="sig-color-dot" style="background: ${entry.color}"></span>
+      <span class="sig-name">${escHtml(sig)}${badge}</span>
+      <span class="sig-pulse"></span>
+    </div>
+    ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
+    <div class="sig-steps-count">${countSteps(entry.steps)} paso${countSteps(entry.steps) === 1 ? "" : "s"}</div>`;
+
+  div.addEventListener("click", () => selectSignal(sig));
+  div.addEventListener("contextmenu", (e) => showSignalContextMenu(e, sig));
+
+  // Drag & Drop for workflows
+  div.addEventListener("dragstart", (e) => {
+    state.dragSrcWorkflow = sig;
+    div.classList.add("dragging");
+    document.getElementById("signal-list")?.classList.add("is-dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+  div.addEventListener("dragend", () => {
+    div.classList.remove("dragging");
+    state.dragSrcWorkflow = null;
+    document.getElementById("signal-list")?.classList.remove("is-dragging");
+    // Clear any leftover drag-over classes
+    document.querySelectorAll(".sig-insertion-bar, .sig-folder").forEach(el => el.classList.remove("drag-over"));
+  });
+
+  return div;
 }
 
 function countSteps(steps) {
@@ -378,6 +536,91 @@ function countSteps(steps) {
   });
   return count;
 }
+
+export function addFolder() {
+  showPrompt("Nombre de la nueva carpeta", "", (name) => {
+    if (!name) return;
+    const folder = {
+      id: uid(),
+      name: name.trim(),
+      expanded: true
+    };
+    state.folders.push(folder);
+    saveSignals();
+    renderSignalList();
+  });
+}
+window.addFolder = addFolder;
+
+function toggleFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (folder) {
+    folder.expanded = !folder.expanded;
+    saveSignals();
+    renderSignalList();
+  }
+}
+
+function showFolderContextMenu(e, id) {
+  e.preventDefault();
+  closeContextMenu();
+
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+
+  const options = [
+    { label: "Renombrar", ico: "✏️", action: () => renameFolder(id) },
+    { label: "Eliminar", ico: "✕", action: () => deleteFolder(id) },
+  ];
+
+  renderContextMenuOptions(menu, options);
+  document.body.appendChild(menu);
+  positionContextMenu(e, menu);
+  activeContextMenu = menu;
+}
+
+function renameFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+
+  showPrompt("Renombrar carpeta", folder.name, (newName) => {
+    if (!newName) return;
+    folder.name = newName.trim();
+    saveSignals();
+    renderSignalList();
+  });
+}
+
+function deleteFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+
+  // Move all workflows in this folder back to root
+  Object.values(state.signals).forEach(sig => {
+    if (sig.folderId === id) sig.folderId = null;
+  });
+
+  state.folders = state.folders.filter(f => f.id !== id);
+  saveSignals();
+  renderSignalList();
+  showToast("Carpeta eliminada", "Los workflows se movieron a la raíz");
+}
+
+function moveWorkflowToFolder(sigName, folderId) {
+  const sig = state.signals[sigName];
+  if (sig) {
+    sig.folderId = folderId;
+    saveSignals();
+    renderSignalList();
+  }
+}
+
+export function changeSort(criteria) {
+  state.config.workflowSort = criteria;
+  saveSignals(); // Also saves config
+  renderSignalList();
+}
+window.changeSort = changeSort;
 
 export function addSignal() {
   const input = document.getElementById("new-sig-cfg");
@@ -390,7 +633,14 @@ export function addSignal() {
   pushUndo();
   const color =
     SIG_COLORS[Object.keys(state.signals).length % SIG_COLORS.length];
-  state.signals[sig] = { label: "", color, steps: [], assignedToButton: [] };
+  state.signals[sig] = { 
+    label: "", 
+    color, 
+    steps: [], 
+    assignedToButton: [],
+    folderId: null,
+    createdAt: Date.now()
+  };
   input.value = "";
   saveSignals();
   renderSignalList();
@@ -612,6 +862,23 @@ export function updateSignalLabel(val) {
 }
 window.updateSignalLabel = updateSignalLabel;
 
+let isRefreshingApps = false;
+export async function refreshRunningApps() {
+  if (isRefreshingApps) return state.runningApps;
+  isRefreshingApps = true;
+  try {
+    const apps = await window.arduino.listRunningApps();
+    state.runningApps = apps;
+    return apps;
+  } catch (err) {
+    console.error("Error refreshing apps:", err);
+    return [];
+  } finally {
+    isRefreshingApps = false;
+  }
+}
+window.refreshRunningApps = refreshRunningApps;
+
 export function selectSignal(sig) {
   state.selectedSig = sig;
   document
@@ -624,6 +891,9 @@ export function selectSignal(sig) {
     state.signals[sig]?.label || "";
   updateAssignButtonUI();
   renderFlow();
+
+  // Background refresh of apps list when selecting a workflow
+  refreshRunningApps();
 }
 window.selectSignal = selectSignal;
 
@@ -641,12 +911,119 @@ export function initAssignDropdown() {
   document
     .querySelectorAll("#assign-dropdown .dropdown-item")
     .forEach((item) => {
-      item.addEventListener("click", () => assignSpeed(item.dataset.speed));
+      if (item.id === "item-assign-app") {
+        item.onclick = (e) => {
+          e.stopPropagation();
+          assignApp();
+        };
+      } else {
+        item.onclick = (e) => {
+          e.stopPropagation();
+          assignSpeed(item.dataset.speed);
+        };
+      }
     });
 }
 
-export function assignSpeed(speed) {
+export async function assignApp() {
   if (!state.selectedSig) return;
+  const sig = state.signals[state.selectedSig];
+  const modal = document.getElementById("app-assign-modal");
+  const input = document.getElementById("assigned-app-input");
+  const runningList = document.getElementById("running-apps-list");
+  const commonSelect = document.getElementById("common-apps-select");
+  
+  if (!modal || !input || !runningList) return;
+
+  // Reset and Show
+  input.value = sig.assignedApp || "";
+  commonSelect.value = "";
+  modal.classList.remove("d-none");
+
+  // Use cached apps or fetch if empty
+  let apps = state.runningApps;
+  if (!apps || apps.length === 0) {
+    runningList.innerHTML = '<div class="loading-apps">Buscando procesos activos...</div>';
+    apps = await refreshRunningApps();
+  }
+  
+  renderAppList(apps, sig.assignedApp);
+
+  // Wire up inner modal buttons
+  document.getElementById("btn-confirm-app-assign").onclick = () => {
+    pushUndo();
+    sig.assignedApp = input.value.trim() || null;
+    saveSignals();
+    updateAssignButtonUI();
+    renderSignalList();
+    modal.classList.add("d-none");
+  };
+
+  document.getElementById("btn-clear-app-assign").onclick = () => {
+    pushUndo();
+    sig.assignedApp = null;
+    saveSignals();
+    updateAssignButtonUI();
+    renderSignalList();
+    modal.classList.add("d-none");
+  };
+
+  document.getElementById("btn-cancel-app-assign").onclick = () => {
+    modal.classList.add("d-none");
+  };
+
+  document.getElementById("btn-browse-app-exe").onclick = async () => {
+    const filePath = await window.arduino.selectFile();
+    if (filePath) {
+      const fileName = filePath.split(/[\\/]/).pop();
+      input.value = fileName;
+    }
+  };
+
+  commonSelect.onchange = (e) => {
+    if (e.target.value) input.value = e.target.value;
+  };
+
+  document.getElementById("btn-refresh-apps-list").onclick = async () => {
+    const btn = document.getElementById("btn-refresh-apps-list");
+    btn.disabled = true;
+    btn.textContent = "⌛ Buscando...";
+    runningList.innerHTML = '<div class="loading-apps">Buscando procesos activos...</div>';
+    const newApps = await refreshRunningApps();
+    renderAppList(newApps, input.value);
+    btn.disabled = false;
+    btn.textContent = "🔄 Actualizar";
+  };
+}
+
+function renderAppList(apps, selectedApp) {
+  const runningList = document.getElementById("running-apps-list");
+  const input = document.getElementById("assigned-app-input");
+  if (!runningList) return;
+
+  runningList.innerHTML = "";
+  if (!apps || apps.length === 0) {
+    runningList.innerHTML = '<div class="loading-apps">No se encontraron procesos.</div>';
+    return;
+  }
+
+  apps.forEach(appName => {
+    const item = document.createElement("div");
+    item.className = "app-item";
+    if (appName === selectedApp) item.classList.add("selected");
+    item.innerHTML = `<span>📂</span> ${escHtml(appName)}`;
+    item.onclick = () => {
+      document.querySelectorAll(".app-item").forEach(i => i.classList.remove("selected"));
+      item.classList.add("selected");
+      input.value = appName;
+    };
+    runningList.appendChild(item);
+  });
+}
+window.assignApp = assignApp;
+
+export function assignSpeed(speed) {
+  if (!speed || !state.selectedSig) return;
   pushUndo();
 
   let speeds = state.signals[state.selectedSig].assignedToButton;
@@ -669,30 +1046,45 @@ export function updateAssignButtonUI() {
   const btn = document.getElementById("btn-assign");
   if (!btn) return;
 
-  const assigned = state.signals[state.selectedSig].assignedToButton;
+  const sig = state.signals[state.selectedSig];
+  const assigned = sig.assignedToButton;
   const speeds = Array.isArray(assigned)
     ? assigned
     : assigned
       ? [assigned]
       : [];
 
-  if (speeds.length) {
+  const app = sig.assignedApp;
+
+  if (speeds.length || app) {
     btn.classList.add("assigned");
-    const label = speeds
-      .map((s) =>
-        s === "RAPIDA" ? "Rápida" : s === "MEDIA" ? "Media" : "Lenta",
-      )
-      .join(" + ");
+    let label = "";
+    if (speeds.length) {
+      label = speeds
+        .map((s) =>
+          s === "RAPIDA" ? "Rápida" : s === "MEDIA" ? "Media" : "Lenta",
+        )
+        .join("+");
+    }
+    if (app) {
+      label = (label ? label + " | " : "") + app;
+    }
     btn.textContent = `✅ ${label}`;
+    btn.title = `Asignado a: ${label}`;
   } else {
     btn.classList.remove("assigned");
     btn.textContent = "🔌 Asignar";
+    btn.title = "Asignar al botón físico del Arduino o a una aplicación";
   }
 
   document
     .querySelectorAll("#assign-dropdown .dropdown-item")
     .forEach((item) => {
-      item.classList.toggle("active", speeds.includes(item.dataset.speed));
+      if (item.dataset.speed) {
+        item.classList.toggle("active", speeds.includes(item.dataset.speed));
+      } else if (item.id === "item-assign-app") {
+        item.classList.toggle("active", !!app);
+      }
     });
 }
 

@@ -9,7 +9,7 @@ const {
 } = require("./main-process/window");
 const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
-const { setupKeyboard } = require("./main-process/keyboard");
+const { setupKeyboard, listRunningApps } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
 const { setupPersistence } = require("./main-process/persistence");
 const { setupTray } = require("./main-process/tray");
@@ -107,6 +107,8 @@ if (!gotTheLock) {
     ipcMain.handle("get-app-version", () => {
       return app.getVersion();
     });
+
+    ipcMain.handle("list-running-apps", () => listRunningApps());
 
     ipcMain.handle("get-themes", () => getThemeList());
     ipcMain.handle("get-theme-data", (event, themeId) => getThemeData(themeId));

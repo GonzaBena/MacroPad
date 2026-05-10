@@ -20,11 +20,13 @@ function getBackupPath() {
 function validateData(raw) {
   const data = {
     signals: {},
+    folders: [],
     config: {
       theme: "dark",
       closeBehavior: "close",
       accentColor: "#f5a623",
       initialTab: "monitor",
+      workflowSort: "original",
     },
   };
 
@@ -36,9 +38,17 @@ function validateData(raw) {
     if (typeof raw.config.closeBehavior === "string") data.config.closeBehavior = raw.config.closeBehavior;
     if (typeof raw.config.initialTab === "string") data.config.initialTab = raw.config.initialTab;
     if (typeof raw.config.startupMode === "string") data.config.startupMode = raw.config.startupMode;
+    if (typeof raw.config.workflowSort === "string") data.config.workflowSort = raw.config.workflowSort;
     if (typeof raw.config.accentColor === "string" && /^#[0-9A-Fa-f]{6}$/.test(raw.config.accentColor)) {
       data.config.accentColor = raw.config.accentColor;
     }
+  }
+
+  // Validate folders
+  if (Array.isArray(raw.folders)) {
+    data.folders = raw.folders.filter(f => 
+      f && typeof f === "object" && typeof f.id === "string" && typeof f.name === "string"
+    );
   }
 
   // Validate signals
@@ -49,6 +59,9 @@ function validateData(raw) {
       data.signals[key] = {
         label: typeof val.label === "string" ? val.label : "",
         color: typeof val.color === "string" ? val.color : "#f5a623",
+        folderId: typeof val.folderId === "string" ? val.folderId : null,
+        assignedApp: typeof val.assignedApp === "string" ? val.assignedApp : null,
+        createdAt: typeof val.createdAt === "number" ? val.createdAt : 0,
         assignedToButton: Array.isArray(val.assignedToButton)
           ? val.assignedToButton.filter(s => ["RAPIDA", "MEDIA", "LENTA"].includes(s))
           : (function() {

@@ -18,11 +18,172 @@
     padding: 14px 14px 10px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.slp-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.slp-header-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-header-small {
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.btn-header-small:hover {
+    background: var(--surface3);
+    border-color: var(--border2);
+}
+
+.slp-sort select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-size: 10px;
+    padding: 4px;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.slp-sort select:focus {
+    border-color: var(--amber);
+    color: var(--text);
 }
 
 .slp-add {
     display: flex;
     gap: 6px;
+}
+
+/* Folder styles */
+.sig-folder {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 4px;
+}
+
+.sig-folder-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.sig-folder-header:hover {
+    background: var(--surface2);
+}
+
+.sig-folder-chevron {
+    font-size: 8px;
+    color: var(--muted2);
+    transition: transform 0.2s;
+    width: 10px;
+    text-align: center;
+}
+
+.sig-folder.expanded .sig-folder-chevron {
+    transform: rotate(90deg);
+}
+
+.sig-folder-icon {
+    font-size: 12px;
+}
+
+.sig-folder-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sig-folder-content {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 18px;
+    margin-top: 4px;
+}
+
+.sig-folder.expanded .sig-folder-content {
+    display: flex;
+}
+
+.sig-folder.drag-over {
+    background: var(--amber-bg);
+    border: 1px dashed var(--amber);
+    border-radius: 8px;
+}
+
+.sig-insertion-bar {
+    height: 12px;
+    margin: -6px 0;
+    position: relative;
+    z-index: 10;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.sig-insertion-line {
+    height: 2px;
+    width: 100%;
+    background: var(--border);
+    opacity: 0;
+    transition: all 0.2s;
+    border-radius: 1px;
+}
+
+.sig-insertion-bar:hover .sig-insertion-line,
+.sig-insertion-bar.drag-over .sig-insertion-line {
+    opacity: 1;
+    background: var(--amber);
+}
+
+.sig-insertion-bar.drag-over {
+    height: 24px;
+    margin: -12px 0;
+}
+
+.sig-insertion-bar.drag-over .sig-insertion-line {
+    height: 4px;
+    box-shadow: 0 0 8px var(--amber);
+}
+
+.sig-card.dragging {
+    opacity: 0.4;
+    border-style: dashed;
+    background: var(--surface);
+    transform: scale(0.98);
+}
+
+.signal-list.is-dragging .sig-insertion-line {
+    opacity: 0.4;
+    background: var(--border2);
 }
 
 .slp-add input {

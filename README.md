@@ -1,6 +1,19 @@
-# Arduino Controller
+<div align="center">
+  <img src="assets/logo.png" alt="PokePad Logo" width="120" />
+  <h1>PokePad</h1>
+  <p>App para capturar señales seriales de un Macroball y ejecutar acciones configurables.</p>
+  <p>Creado por Programadores, Para Programadores</p>
+</div>
 
-App de escritorio (Electron) para capturar señales seriales de un Arduino y ejecutar acciones configurables.
+<div align="center">
+  <img src="assets/Mockup.png" alt="PokePad Screenshot" width="800" />
+</div>
+
+<div align="center">
+  <img src="assets/Mockup2.png" alt="PokePad Screenshot" width="800" />
+</div>
+
+---
 
 ## Instalación
 
@@ -17,13 +30,61 @@ npm start
 2. **Agregar señal** → clic en "+ AGREGAR", escribí la señal que manda tu Arduino (ej: `BUTTON_1`) y elegí qué hace.
 3. **Listo** → cada vez que el Arduino envíe esa señal, la acción se ejecuta automáticamente.
 
-## Tipos de acción
+## Tipos de acción (Bloques de Workflow)
 
-| Tipo             | Descripción                      | Ejemplo de valor                    |
-| ---------------- | -------------------------------- | ----------------------------------- |
-| Abrir URL        | Abre el navegador predeterminado | `https://youtube.com`               |
-| Ejecutar comando | Corre un comando del sistema     | `notepad.exe` / `open -a "Spotify"` |
-| Notificación     | Muestra un mensaje en la app     | `¡Botón presionado!`                |
+### Entrada y sistema
+
+| Bloque | Icono | Descripción | Parámetros |
+| ------ | ----- | ----------- | ---------- |
+| **Simular tecla** | ⌨ | Simula una combinación de teclas | `combo`: combinación (ej: `ctrl+c`, `win+d`) |
+| **Esperar** | ◷ | Pausa la ejecución | `ms`: milisegundos a esperar |
+| **Copiar texto** | ⎘ | Escribe texto en el portapapeles | `text`: texto a copiar (soporta variables) |
+| **Media** | ▶ | Controla la reproducción multimedia | `action`: `play_pause` / `next` / `prev` / `vol_up` / `vol_down` / `mute` |
+
+### Lanzar y ejecutar
+
+| Bloque | Icono | Descripción | Parámetros |
+| ------ | ----- | ----------- | ---------- |
+| **Abrir URL** | ↗ | Abre una URL en el navegador predeterminado | `url`: dirección web (ej: `https://youtube.com`) |
+| **Ejecutar cmd** | $ | Ejecuta un comando del sistema | `cmd`: comando (ej: `notepad.exe`) |
+| **Abrir archivo** | ⌂ | Abre un archivo con su aplicación predeterminada | `path`: ruta al archivo |
+| **Abrir aplicación** | 🚀 | Lanza una aplicación por su ruta | `path`: ruta al ejecutable o app |
+| **Ejecutar script** | `{ }` | Ejecuta código Python o JavaScript | `lang`: `python` / `javascript` · `code`: código a ejecutar |
+
+### Variables
+
+| Bloque | Icono | Descripción | Parámetros |
+| ------ | ----- | ----------- | ---------- |
+| **Definir variable** | 📦 | Crea o sobreescribe una variable | `name`: nombre · `value`: valor · `type`: `string` / `int` / `list` |
+| **Modificar variable** | ⚙ | Opera sobre una variable existente | `name`: nombre · `op`: `add` / `sub` / `set` / `concat` · `value`: valor |
+| **Operación de lista** | ▤ | Modifica una variable de tipo lista | `name`: nombre · `op`: `append` / `pop` / `clear` / `remove_at` · `value`: valor |
+
+### Control de flujo
+
+| Bloque | Icono | Descripción | Parámetros |
+| ------ | ----- | ----------- | ---------- |
+| **Bucle (Repetir)** | 🔄 | Repite un conjunto de pasos | Modo `fixed`: `iterations` (número) · Modo `foreach`: `list_name` + `var_name` |
+| **Condicional (Si...)** | ❓ | Ejecuta pasos según una condición | `type`: `prev_step_success` / `clipboard_match` / `app_running` / `var_cmp` |
+
+Tipos de condición disponibles para el bloque **Condicional**:
+
+| Condición | Descripción |
+| --------- | ----------- |
+| `prev_step_success` | ¿El paso anterior se ejecutó sin errores? |
+| `clipboard_match` | ¿El portapapeles contiene el texto indicado? |
+| `app_running` | ¿Una aplicación determinada está abierta? |
+| `var_cmp` | Compara dos variables (`==`, `!=`, `>`, `<`, `contains`) |
+
+### Interfaz y utilidades
+
+| Bloque | Icono | Descripción | Parámetros |
+| ------ | ----- | ----------- | ---------- |
+| **Notificación** | ◉ | Muestra una notificación del sistema | `title`: título · `body`: mensaje |
+| **Captura de pantalla** | 📸 | Captura toda la pantalla como PNG | `filename`: nombre del archivo (opcional) |
+| **Captura de región** | ✂️ | Captura una región seleccionada interactivamente | `filename`: nombre del archivo (opcional) |
+| **Nota / Comentario** | 📝 | Texto informativo sin efecto en la ejecución | _(sin parámetros)_ |
+
+> Las capturas se guardan en `~/Pictures/MacroPad/`. Los parámetros de tipo texto soportan interpolación de variables con `$nombre_variable`.
 
 ## Arduino
 
@@ -40,6 +101,26 @@ if (buttonPressed) {
 
 La señal debe coincidir **exactamente** (case sensitive).
 
+## Temas
+
+PokePad soporta temas personalizados. Los temas se definen como archivos `.json` en la carpeta `assets/themes/`. Vienen incluidos `dark-default.json` y `light-default.json`.
+
+Para crear un tema propio:
+
+1. Copiá `assets/themes/template-example.json` con un nombre nuevo (ej: `mi-tema.json`).
+2. Modificá los campos `id`, `name`, `type` (`dark` o `light`) y los colores.
+3. Reiniciá PokePad o abrí la configuración para aplicarlo.
+
+Variables de color principales:
+
+| Variable    | Descripción                          |
+| ----------- | ------------------------------------ |
+| `--bg`      | Color de fondo principal             |
+| `--surface` | Color de tarjetas y paneles          |
+| `--text`    | Color del texto principal            |
+| `--amber`   | Color de acento (botones y activos)  |
+| `--border`  | Color de los bordes sutiles          |
+
 ## Empaquetar como ejecutable
 
 ```bash
@@ -49,27 +130,12 @@ npm run build
 
 Genera el instalador en la carpeta `dist/`.
 
-## Estructura
-
-```
-arduino-controller/
-├── main.js               # Proceso principal: serial + acciones
-├── preload.js            # Bridge Node ↔ renderer
-├── renderer/
-│   ├── index.html        # Estructura base de la UI
-│   ├── style.css         # Estilos globales
-│   ├── views/            # Componentes y pestañas HTML individuales
-│   └── js/               # Módulos de lógica de la interfaz
-├── arduino_example/
-│   └── arduino_example.ino
-└── package.json
-```
-
 ## Agregar nuevos bloques a los Workflows
 
 Para agregar un nuevo tipo de bloque (paso) que se pueda usar en los flujos de trabajo, seguí estos pasos:
 
 ### 1. Definir el tipo en el Frontend
+
 En `renderer/js/state.js`, agregá el nuevo tipo al objeto `STEP_TYPES`:
 
 ```javascript
@@ -84,6 +150,7 @@ export const STEP_TYPES = {
 ```
 
 ### 2. Crear la interfaz del bloque
+
 En `renderer/js/workflows.js`, dentro de la función `buildStepParams(container, step, path)`, agregá un nuevo `case` para tu tipo:
 
 ```javascript
@@ -104,6 +171,7 @@ case "mi_nuevo_bloque": {
 ```
 
 ### 3. Implementar la ejecución en el Backend
+
 En `main-process/execution.js`, dentro de la función `executeStep(step, context)`, agregá la lógica de ejecución:
 
 ```javascript
@@ -118,11 +186,13 @@ case "mi_nuevo_bloque": {
 ```
 
 ### 4. Estilos (Opcional)
+
 Si definiste una clase CSS en el paso 1 (ej: `t-mi-clase-css`), podés agregar estilos para el borde o el icono en `renderer/css/workflows.css`.
 
 ---
 
 ## Agregar nuevos tipos de acción (Legado)
+
 Esta sección aplica a la lógica antigua. Para el sistema de Workflows actual, seguí los pasos de la sección anterior.
 
 ## Agregar nuevas Pestañas y Ventanas
@@ -167,6 +237,7 @@ La aplicación utiliza un sistema modular para su interfaz. Todo el HTML de los 
 La barra de título contiene un menú personalizado. Podés agregar nuevos menús o submenús siguiendo esta estructura en `index.html`:
 
 #### Agregar un Menú Principal
+
 Agregá un bloque `.menu-wrapper` dentro de `<div class="tb-menu">`:
 ```html
 <div class="menu-wrapper">
@@ -180,6 +251,7 @@ Agregá un bloque `.menu-wrapper` dentro de `<div class="tb-menu">`:
 ```
 
 #### Agregar un Submenú
+
 Para que un item tenga un submenú, agregá la clase `.has-submenu` al `.dd-item` e inyectá un `.dd-submenu` dentro:
 ```html
 <div class="dd-item has-submenu">
@@ -192,6 +264,7 @@ Para que un item tenga un submenú, agregá la clase `.has-submenu` al `.dd-item
 ```
 
 #### Manejar clics
+
 En `js/main.js` o un módulo dedicado, agregá el listener usando el ID que definiste:
 ```javascript
 document.getElementById('menu-accion-1').addEventListener('click', () => {

@@ -26,7 +26,29 @@ function setupMedia() {
   });
 }
 
-function mediaControl(action) {
+async function mediaControl(action) {
+  if (process.platform === "win32") {
+    const nutMap = {
+      play_pause: Key.AudioPlay,
+      next: Key.AudioNext,
+      prev: Key.AudioPrev,
+      vol_up: Key.AudioVolUp,
+      vol_down: Key.AudioVolDown,
+      mute: Key.AudioMute,
+    };
+    if (nutMap[action]) {
+      try {
+        await Promise.race([
+          keyboard.type(nutMap[action]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("NutJS Timeout")), 2000))
+        ]);
+        return;
+      } catch (err) {
+        console.error("[media] nut-js error:", err.message);
+      }
+    }
+  }
+
   return new Promise((resolve) => {
     if (process.platform === "darwin") {
       _mediaControlMac(action, resolve);

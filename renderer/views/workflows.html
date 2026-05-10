@@ -3,11 +3,23 @@
     <div class="slp-header">
       <div class="slp-header-top">
         <div class="s-label">Señales</div>
-        <button class="btn-import-small" id="btn-import-workflow" title="Importar Workflow (JSON o Portapapeles)">📥</button>
+        <div class="slp-header-actions">
+          <button class="btn-header-small" id="btn-add-folder" title="Nueva Carpeta">📂+</button>
+          <button class="btn-header-small" id="btn-import-workflow" title="Importar Workflow">📥</button>
+        </div>
+      </div>
+      <div class="slp-sort">
+        <select id="sort-workflows" title="Ordenar por...">
+          <option value="original">Orden original</option>
+          <option value="name">Nombre</option>
+          <option value="active">Activos primero</option>
+          <option value="created">Último creado</option>
+          <option value="steps">Cantidad de pasos</option>
+        </select>
       </div>
       <div class="slp-add">
         <input type="text" id="new-sig-cfg" placeholder="NUEVA_SEÑAL" maxlength="40" />
-        <button id="btn-add-signal">+</button>
+        <button id="btn-add-signal" title="Nueva Señal">+</button>
       </div>
     </div>
     <div class="signal-list" id="signal-list"></div>
@@ -33,6 +45,8 @@
             <div class="dropdown-item" data-speed="RAPIDA">Rápida</div>
             <div class="dropdown-item" data-speed="MEDIA">Media</div>
             <div class="dropdown-item" data-speed="LENTA">Lenta</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" id="item-assign-app">📂 Vincular a aplicación</div>
           </div>
         </div>
         <button class="btn-test" id="btn-test">
