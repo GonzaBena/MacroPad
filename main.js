@@ -144,25 +144,41 @@ if (!gotTheLock) {
 
     // Watch for theme file changes to trigger real-time updates
     let themeWatchTimeout = null;
-    const watchThemes = (dir) => {
-      if (!fs.existsSync(dir)) return;
-      fs.watch(dir, (eventType, filename) => {
-        if (filename && filename.endsWith('.json')) {
-          if (themeWatchTimeout) clearTimeout(themeWatchTimeout);
-          themeWatchTimeout = setTimeout(() => {
-            console.log(`[main] Theme directory changed (${eventType}: ${filename}), notifying windows.`);
-            BrowserWindow.getAllWindows().forEach((win) => {
-              win.webContents.send("apply-theme");
-            });
-          }, 200);
+    const watchThemes = (dir, name) => {
+      try {
+        if (!fs.existsSync(dir)) return;
+        
+        // Don't watch ASAR paths as fs.watch doesn't support them and throws
+        if (dir.includes('.asar')) {
+          console.log(`[main] Skipping watch for ${name} (ASAR path)`);
+          return;
         }
-      });
+
+        fs.watch(dir, (eventType, filename) => {
+          if (filename && filename.endsWith('.json')) {
+            if (themeWatchTimeout) clearTimeout(themeWatchTimeout);
+            themeWatchTimeout = setTimeout(() => {
+              console.log(`[main] Theme directory changed (${name}): ${filename}, notifying windows.`);
+              BrowserWindow.getAllWindows().forEach((win) => {
+                win.webContents.send("apply-theme");
+              });
+            }, 200);
+          }
+        });
+        console.log(`[main] Watching ${name} for changes: ${dir}`);
+      } catch (e) {
+        console.warn(`[main] Failed to watch ${name}:`, e.message);
+      }
     };
 
     const BUILTIN_THEMES_DIR = path.join(__dirname, "assets", "themes");
     const USER_THEMES_DIR = path.join(app.getPath("userData"), "themes");
-    watchThemes(BUILTIN_THEMES_DIR);
-    watchThemes(USER_THEMES_DIR);
+    
+    // Only watch builtin themes in development
+    if (!app.isPackaged) {
+      watchThemes(BUILTIN_THEMES_DIR, "builtin themes");
+    }
+    watchThemes(USER_THEMES_DIR, "user themes");
 
     ipcMain.on("win-minimize", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
