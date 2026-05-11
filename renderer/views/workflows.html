@@ -4,6 +4,7 @@
       <div class="slp-header-top">
         <div class="s-label">Señales</div>
         <div class="slp-header-actions">
+          <span class="save-indicator" id="save-indicator">✓ Guardado</span>
           <button class="btn-header-small" id="btn-add-folder" title="Nueva Carpeta">📂+</button>
           <button class="btn-header-small" id="btn-import-workflow" title="Importar Workflow">📥</button>
         </div>
@@ -16,6 +17,10 @@
           <option value="created">Último creado</option>
           <option value="steps">Cantidad de pasos</option>
         </select>
+      </div>
+      <div class="slp-search">
+        <input type="text" id="sig-search" placeholder="Buscar workflows..." autocomplete="off" spellcheck="false" />
+        <button id="btn-clear-search" class="btn-clear-search" title="Limpiar búsqueda">✕</button>
       </div>
       <div class="slp-add">
         <input type="text" id="new-sig-cfg" placeholder="NUEVA_SEÑAL" maxlength="40" />

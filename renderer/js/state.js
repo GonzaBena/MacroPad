@@ -118,15 +118,15 @@ export function pushSignals() {
 }
 
 export function saveSignals() {
-  // Save to file via main process
   window.arduino.saveData({
     signals: state.signals,
     folders: state.folders,
     config: state.config,
   });
-  // Also keep localStorage as quick fallback
   localStorage.setItem("ac-signals", JSON.stringify(state.signals));
+  localStorage.setItem("ac-folders", JSON.stringify(state.folders));
   pushSignals();
+  document.dispatchEvent(new CustomEvent("data-saved"));
 }
 
 export async function applyConfig() {
@@ -218,9 +218,11 @@ export function uid() {
  * Load signals: try file-based persistence first, fall back to localStorage.
  */
 export async function loadSignalsData() {
+  let fileData = null;
+
   try {
     // Try loading from file first
-    const fileData = await window.arduino.loadData();
+    fileData = await window.arduino.loadData();
     if (
       fileData &&
       fileData.signals &&
@@ -232,7 +234,7 @@ export async function loadSignalsData() {
         state.config = { ...state.config, ...fileData.config };
         applyConfig();
       }
-      
+
       // Ensure folderId, createdAt, and assignedApp exist for all signals
       Object.values(state.signals).forEach(sig => {
         if (sig.folderId === undefined) sig.folderId = null;
@@ -249,6 +251,20 @@ export async function loadSignalsData() {
       "[state] File persistence not available, falling back to localStorage",
       e,
     );
+  }
+
+  // Preserve folders from file even if signals were empty
+  if (fileData?.folders?.length > 0) {
+    state.folders = fileData.folders;
+  } else {
+    // Try to recover folders from localStorage backup
+    try {
+      const localFolders = localStorage.getItem("ac-folders");
+      if (localFolders) {
+        const parsed = JSON.parse(localFolders);
+        if (Array.isArray(parsed) && parsed.length > 0) state.folders = parsed;
+      }
+    } catch (_) {}
   }
 
   // Fallback to localStorage (migration path)

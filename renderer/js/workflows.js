@@ -7,7 +7,7 @@ import {
   STEP_TYPES,
   MEDIA_OPTIONS,
 } from "./state.js";
-import { escHtml, escAttr, showToast, showPrompt } from "./ui.js";
+import { escHtml, escAttr, showToast, showPrompt, showConfirm } from "./ui.js";
 
 // ── Event delegation para el flow-container ──
 export function initFlowDelegation() {
@@ -91,6 +91,46 @@ export function initFlowDelegation() {
   });
 }
 
+// ── Save indicator ──
+function showSaveIndicator() {
+  const el = document.getElementById("save-indicator");
+  if (!el) return;
+  el.classList.add("visible");
+  clearTimeout(el._saveTimer);
+  el._saveTimer = setTimeout(() => el.classList.remove("visible"), 1800);
+}
+document.addEventListener("data-saved", showSaveIndicator);
+
+// ── Keyboard shortcuts (workflow-level) ──
+document.addEventListener("keydown", (e) => {
+  const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
+
+  if (e.key === "Escape" && e.target.id === "sig-search") {
+    const input = document.getElementById("sig-search");
+    if (input?.value) { input.value = ""; renderSignalList(); }
+    e.preventDefault();
+    return;
+  }
+
+  if (inInput) return;
+
+  if (e.key === "Delete" && state.selectedSig) {
+    e.preventDefault();
+    deleteCurrentSignal();
+    return;
+  }
+  if (e.key === "F2" && state.selectedSig) {
+    e.preventDefault();
+    renameSignal(state.selectedSig);
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === "d" && state.selectedSig) {
+    e.preventDefault();
+    duplicateSignal(state.selectedSig);
+    return;
+  }
+});
+
 // ── Context Menu Logic ──
 let activeContextMenu = null;
 let stepClipboard = null;
@@ -102,12 +142,22 @@ function closeContextMenu() {
   }
 }
 
-document.addEventListener("click", closeContextMenu);
+document.addEventListener("click", (e) => {
+  closeContextMenu();
+  if (e.target.id === "btn-clear-search") {
+    const input = document.getElementById("sig-search");
+    if (input) { input.value = ""; renderSignalList(); }
+  }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "sig-search") renderSignalList();
+});
 document.addEventListener("contextmenu", (e) => {
   if (
     !e.target.closest(".sig-card") &&
     !e.target.closest(".context-menu") &&
-    !e.target.closest(".step-card")
+    !e.target.closest(".step-card") &&
+    !e.target.closest(".sig-folder-header")
   ) {
     closeContextMenu();
   }
@@ -123,6 +173,7 @@ function showSignalContextMenu(e, sig) {
   const options = [
     { label: "Duplicar", ico: "👯", action: () => duplicateSignal(sig) },
     { label: "Cambiar nombre", ico: "✏️", action: () => renameSignal(sig) },
+    { type: "colorPicker", current: state.signals[sig]?.color, action: (color) => setSignalColor(sig, color) },
     {
       label: "Copiar JSON",
       ico: "📋",
@@ -224,6 +275,26 @@ function renderContextMenuOptions(menu, options) {
       const div = document.createElement("div");
       div.className = "context-menu-divider";
       menu.appendChild(div);
+      return;
+    }
+    if (opt.type === "colorPicker") {
+      const row = document.createElement("div");
+      row.className = "context-menu-color-row";
+      SIG_COLORS.forEach(color => {
+        const swatch = document.createElement("button");
+        swatch.className = "color-swatch" + (opt.current === color ? " active" : "");
+        swatch.style.background = color;
+        swatch.title = color;
+        swatch.onclick = () => { opt.action(color); closeContextMenu(); };
+        row.appendChild(swatch);
+      });
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "color-swatch color-swatch-clear";
+      clearBtn.title = "Sin color";
+      clearBtn.textContent = "×";
+      clearBtn.onclick = () => { opt.action(null); closeContextMenu(); };
+      row.appendChild(clearBtn);
+      menu.appendChild(row);
       return;
     }
     const item = document.createElement("div");
@@ -361,27 +432,52 @@ export function renderSignalList() {
     sigKeys.sort((a, b) => countSteps(state.signals[b].steps) - countSteps(state.signals[a].steps));
   }
 
-  // 2. Map signals to folders and root
+  // 2. Apply search filter
+  const searchTerm = (document.getElementById("sig-search")?.value || "").trim().toLowerCase();
+  const isSearching = searchTerm.length > 0;
+  if (isSearching) {
+    sigKeys = sigKeys.filter(k =>
+      k.toLowerCase().includes(searchTerm) ||
+      (state.signals[k].label || "").toLowerCase().includes(searchTerm)
+    );
+  }
+
+  // 3. Map signals to folders and root
   const rootKeys = sigKeys.filter(k => {
     const fId = state.signals[k].folderId;
     return !fId || !state.folders.find(f => f.id === fId);
   });
 
-  // 3. Render items with bars
-  // Start bar for root
+  // 4. Render items with bars
   list.appendChild(makeWorkflowInsertionBar(null, state.folders[0]?.id || rootKeys[0]));
 
+  let renderedCount = rootKeys.length;
+
   state.folders.forEach((folder, i) => {
+    const folderKeys = sigKeys.filter(k => state.signals[k].folderId === folder.id);
+
+    // When searching, skip folders with no matching children
+    if (isSearching && folderKeys.length === 0) return;
+
+    renderedCount += folderKeys.length;
+    const isExpanded = isSearching ? true : folder.expanded;
+
     const fDiv = document.createElement("div");
-    fDiv.className = "sig-folder" + (folder.expanded ? " expanded" : "");
+    fDiv.className = "sig-folder" + (isExpanded ? " expanded" : "");
     fDiv.dataset.id = folder.id;
 
     const fHeader = document.createElement("div");
     fHeader.className = "sig-folder-header";
+    if (folder.color) {
+      fHeader.style.background = folder.color + "22";
+      fHeader.style.borderLeft = `3px solid ${folder.color}`;
+      fHeader.style.paddingLeft = "5px";
+      fHeader.style.borderRadius = "6px";
+    }
     fHeader.innerHTML = `
       <span class="sig-folder-chevron">▶</span>
-      <span class="sig-folder-icon">📂</span>
       <span class="sig-folder-name">${escHtml(folder.name)}</span>
+      <span class="sig-folder-count">${folderKeys.length}</span>
     `;
     fHeader.onclick = () => toggleFolder(folder.id);
     fHeader.oncontextmenu = (e) => showFolderContextMenu(e, folder.id);
@@ -405,9 +501,7 @@ export function renderSignalList() {
 
     const fContent = document.createElement("div");
     fContent.className = "sig-folder-content";
-    
-    // Internal bars for folder content
-    const folderKeys = sigKeys.filter(k => state.signals[k].folderId === folder.id);
+
     fContent.appendChild(makeWorkflowInsertionBar(folder.id, folderKeys[0]));
     folderKeys.forEach((sig, j) => {
       fContent.appendChild(makeSignalCard(sig, state.signals[sig]));
@@ -425,9 +519,29 @@ export function renderSignalList() {
 
   rootKeys.forEach((sig, i) => {
     list.appendChild(makeSignalCard(sig, state.signals[sig]));
-    // Bar after root signal
     list.appendChild(makeWorkflowInsertionBar(null, rootKeys[i + 1]));
   });
+
+  // Empty search state
+  if (isSearching && renderedCount === 0) {
+    const empty = document.createElement("div");
+    empty.className = "sig-search-empty";
+    empty.innerHTML = `Sin resultados para "<strong>${escHtml(searchTerm)}</strong>"`;
+    list.appendChild(empty);
+    return;
+  }
+
+  // Empty list state (no workflows at all)
+  if (!isSearching && Object.keys(state.signals).length === 0 && state.folders.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "sig-list-empty";
+    empty.innerHTML = `
+      <div class="sig-list-empty-icon">⚡</div>
+      <div>Sin workflows todavía</div>
+      <button class="btn-list-create" onclick="document.getElementById('new-sig-cfg').focus()">Crear el primero →</button>
+    `;
+    list.appendChild(empty);
+  }
 }
 
 function makeWorkflowInsertionBar(folderId, targetSig = null) {
@@ -490,6 +604,11 @@ function makeSignalCard(sig, entry) {
   div.dataset.sig = sig;
   div.draggable = true;
 
+  if (entry.color) {
+    div.style.borderLeftColor = entry.color;
+    div.style.borderLeftWidth = "3px";
+  }
+
   let badge = "";
   if (entry.assignedToButton?.length) {
     const label = entry.assignedToButton
@@ -497,10 +616,9 @@ function makeSignalCard(sig, entry) {
       .join("+");
     badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.join(", ").toLowerCase()}">🔌 ${label}</span>`;
   }
-  
+
   div.innerHTML = `
     <div class="sig-card-top">
-      <span class="sig-color-dot" style="background: ${entry.color}"></span>
       <span class="sig-name">${escHtml(sig)}${badge}</span>
       <span class="sig-pulse"></span>
     </div>
@@ -543,7 +661,8 @@ export function addFolder() {
     const folder = {
       id: uid(),
       name: name.trim(),
-      expanded: true
+      expanded: true,
+      color: null
     };
     state.folders.push(folder);
     saveSignals();
@@ -563,17 +682,28 @@ function toggleFolder(id) {
 
 function showFolderContextMenu(e, id) {
   e.preventDefault();
+  e.stopPropagation();
   closeContextMenu();
 
   const menu = document.createElement("div");
   menu.className = "context-menu";
 
+  const folder = state.folders.find(f => f.id === id);
   const options = [
+    { label: "Clonar carpeta", ico: "👯", action: () => cloneFolder(id) },
+    { label: "Copiar JSON", ico: "📋", action: () => copyFolderToClipboard(id) },
+    { label: "Exportar archivo", ico: "📦", action: () => exportFolder(id) },
+    { type: "divider" },
+    { label: "Color", ico: "🎨", type: "colorPicker", current: folder?.color, action: (color) => setFolderColor(id, color) },
+    { type: "divider" },
     { label: "Renombrar", ico: "✏️", action: () => renameFolder(id) },
-    { label: "Eliminar", ico: "✕", action: () => deleteFolder(id) },
+    { type: "divider" },
+    { label: "Eliminar carpeta", ico: "🗂️", action: () => deleteFolder(id) },
+    { label: "Eliminar carpeta y workflows", ico: "✕", action: () => deleteFolderWithContents(id) },
   ];
 
   renderContextMenuOptions(menu, options);
+  menu.onclick = (ev) => ev.stopPropagation();
   document.body.appendChild(menu);
   positionContextMenu(e, menu);
   activeContextMenu = menu;
@@ -595,7 +725,6 @@ function deleteFolder(id) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
-  // Move all workflows in this folder back to root
   Object.values(state.signals).forEach(sig => {
     if (sig.folderId === id) sig.folderId = null;
   });
@@ -604,6 +733,155 @@ function deleteFolder(id) {
   saveSignals();
   renderSignalList();
   showToast("Carpeta eliminada", "Los workflows se movieron a la raíz");
+}
+
+function deleteFolderWithContents(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+
+  const folderKeys = Object.keys(state.signals).filter(k => state.signals[k].folderId === id);
+  if (folderKeys.length === 0) {
+    deleteFolder(id);
+    return;
+  }
+
+  const confirmed = window.confirm(`¿Eliminar la carpeta "${folder.name}" y sus ${folderKeys.length} workflow(s)? Esta acción no se puede deshacer.`);
+  if (!confirmed) return;
+
+  pushUndo();
+  folderKeys.forEach(k => delete state.signals[k]);
+  state.folders = state.folders.filter(f => f.id !== id);
+
+  if (folderKeys.includes(state.selectedSig)) {
+    state.selectedSig = null;
+    document.getElementById("se-empty")?.classList.remove("d-none");
+    document.getElementById("se-content")?.classList.add("d-none");
+  }
+
+  saveSignals();
+  renderSignalList();
+  showToast("Carpeta eliminada", `Se eliminaron ${folderKeys.length} workflow(s)`);
+}
+
+function cloneFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+
+  pushUndo();
+
+  const newFolderId = uid();
+  let newName = folder.name + " (Copia)";
+  let i = 1;
+  while (state.folders.find(f => f.name === newName)) {
+    newName = `${folder.name} (Copia ${i})`;
+    i++;
+  }
+
+  const newFolder = { id: newFolderId, name: newName, expanded: true };
+  const folderIdx = state.folders.findIndex(f => f.id === id);
+  state.folders.splice(folderIdx + 1, 0, newFolder);
+
+  const folderKeys = Object.keys(state.signals).filter(k => state.signals[k].folderId === id);
+  const insertAfterKey = folderKeys[folderKeys.length - 1] || null;
+
+  const baseCount = Object.keys(state.signals).length;
+  const clonedKeys = folderKeys.map((k, mapIdx) => {
+    const original = state.signals[k];
+    let newKey = k + "_COPY";
+    let j = 1;
+    while (state.signals[newKey]) {
+      newKey = `${k}_COPY_${j}`;
+      j++;
+    }
+
+    const cloned = JSON.parse(JSON.stringify(original));
+    cloned.folderId = newFolderId;
+    cloned.assignedToButton = [];
+    cloned.assignedApp = null;
+    cloned.createdAt = Date.now();
+    cloned.color = SIG_COLORS[(baseCount + mapIdx) % SIG_COLORS.length];
+    if (cloned.label) cloned.label += " (Copia)";
+    return { newKey, cloned };
+  });
+
+  if (insertAfterKey) {
+    const allKeys = Object.keys(state.signals);
+    const insertIdx = allKeys.indexOf(insertAfterKey) + 1;
+    const newSignals = {};
+    allKeys.forEach((k, idx) => {
+      newSignals[k] = state.signals[k];
+      if (idx === insertIdx - 1) {
+        clonedKeys.forEach(({ newKey, cloned }) => { newSignals[newKey] = cloned; });
+      }
+    });
+    state.signals = newSignals;
+  } else {
+    clonedKeys.forEach(({ newKey, cloned }) => { state.signals[newKey] = cloned; });
+  }
+
+  saveSignals();
+  renderSignalList();
+  showToast("Carpeta clonada", `"${newName}" creada con ${clonedKeys.length} workflow(s)`);
+}
+
+async function copyFolderToClipboard(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+
+  const workflows = {};
+  Object.entries(state.signals).forEach(([k, v]) => {
+    if (v.folderId === id) workflows[k] = v;
+  });
+
+  const payload = JSON.stringify(
+    { version: "1.0", type: "folder", name: folder.name, workflows },
+    null,
+    2,
+  );
+  try {
+    await navigator.clipboard.writeText(payload);
+    showToast("Copiado", `JSON de la carpeta "${folder.name}" copiado al portapapeles`);
+  } catch {
+    showToast("Error", "No se pudo copiar al portapapeles");
+  }
+}
+
+async function exportFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+
+  const workflows = {};
+  Object.entries(state.signals).forEach(([k, v]) => {
+    if (v.folderId === id) workflows[k] = v;
+  });
+
+  const result = await window.arduino.exportFolder(folder.name, workflows);
+  if (result.ok) {
+    showToast("Exportado", `Carpeta guardada en:\n${result.path}`);
+  } else if (result.error !== "Cancelled") {
+    showToast("Error", `No se pudo exportar: ${result.error}`);
+  }
+}
+
+function setSignalColor(sig, color) {
+  const signal = state.signals[sig];
+  if (!signal) return;
+  if (color) {
+    signal.color = color;
+  } else {
+    const idx = Object.keys(state.signals).indexOf(sig);
+    signal.color = SIG_COLORS[Math.max(0, idx) % SIG_COLORS.length];
+  }
+  saveSignals();
+  renderSignalList();
+}
+
+function setFolderColor(id, color) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+  folder.color = color;
+  saveSignals();
+  renderSignalList();
 }
 
 function moveWorkflowToFolder(sigName, folderId) {
@@ -645,6 +923,10 @@ export function addSignal() {
   saveSignals();
   renderSignalList();
   selectSignal(sig);
+  setTimeout(() => {
+    document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, 50);
 }
 window.addSignal = addSignal;
 
@@ -709,6 +991,7 @@ export function duplicateSignal(sig) {
   pushUndo();
   state.signals[newName] = JSON.parse(JSON.stringify(original));
   state.signals[newName].assignedToButton = [];
+  state.signals[newName].color = SIG_COLORS[Object.keys(state.signals).length % SIG_COLORS.length];
   if (state.signals[newName].label) {
     state.signals[newName].label += " (Copia)";
   }
@@ -836,15 +1119,22 @@ function addImportedWorkflow(name, data) {
 
 export function deleteCurrentSignal() {
   if (!state.selectedSig) return;
-  pushUndo();
-  delete state.signals[state.selectedSig];
-  const deleted = state.selectedSig;
-  state.selectedSig = null;
-  saveSignals();
-  renderSignalList();
-  document.getElementById("se-empty").classList.remove("d-none");
-  document.getElementById("se-content").classList.add("d-none");
-  showToast("Eliminado", `Workflow "${deleted}" eliminado.`);
+  const sigName = state.selectedSig;
+  showConfirm(
+    "Eliminar workflow",
+    `¿Eliminás "${sigName}"? Podés deshacer con Ctrl+Z.`,
+    () => {
+      pushUndo();
+      delete state.signals[sigName];
+      state.selectedSig = null;
+      saveSignals();
+      renderSignalList();
+      document.getElementById("se-empty").classList.remove("d-none");
+      document.getElementById("se-content").classList.add("d-none");
+      showToast("Eliminado", `Workflow "${sigName}" eliminado.`);
+    },
+    "Eliminar"
+  );
 }
 window.deleteCurrentSignal = deleteCurrentSignal;
 
@@ -1024,21 +1314,60 @@ window.assignApp = assignApp;
 
 export function assignSpeed(speed) {
   if (!speed || !state.selectedSig) return;
-  pushUndo();
 
-  let speeds = state.signals[state.selectedSig].assignedToButton;
-  if (!Array.isArray(speeds)) speeds = speeds ? [speeds] : [];
+  const currentSig = state.signals[state.selectedSig];
+  let speeds = Array.isArray(currentSig.assignedToButton)
+    ? [...currentSig.assignedToButton]
+    : currentSig.assignedToButton ? [currentSig.assignedToButton] : [];
 
   if (speeds.includes(speed)) {
-    speeds = speeds.filter((s) => s !== speed);
-  } else {
-    speeds.push(speed);
+    // Removing — no conflict possible
+    pushUndo();
+    currentSig.assignedToButton = speeds.filter((s) => s !== speed);
+    saveSignals();
+    updateAssignButtonUI();
+    renderSignalList();
+    return;
   }
 
-  state.signals[state.selectedSig].assignedToButton = speeds;
-  saveSignals();
-  updateAssignButtonUI();
-  renderSignalList();
+  // Check for conflicts: another workflow with same speed and same assignedApp
+  const currentApp = currentSig.assignedApp ?? null;
+  const conflicts = Object.entries(state.signals).filter(([key, sig]) => {
+    if (key === state.selectedSig) return false;
+    const sigSpeeds = Array.isArray(sig.assignedToButton)
+      ? sig.assignedToButton
+      : sig.assignedToButton ? [sig.assignedToButton] : [];
+    if (!sigSpeeds.includes(speed)) return false;
+    return (sig.assignedApp ?? null) === currentApp;
+  });
+
+  const doAssign = () => {
+    pushUndo();
+    // Remove this speed from all conflicting workflows
+    conflicts.forEach(([key, sig]) => {
+      sig.assignedToButton = (Array.isArray(sig.assignedToButton) ? sig.assignedToButton : [sig.assignedToButton])
+        .filter((s) => s !== speed);
+    });
+    speeds.push(speed);
+    currentSig.assignedToButton = speeds;
+    saveSignals();
+    updateAssignButtonUI();
+    renderSignalList();
+  };
+
+  if (conflicts.length === 0) {
+    doAssign();
+    return;
+  }
+
+  const conflictNames = conflicts.map(([key]) => `"${key}"`).join(", ");
+  const appLabel = currentApp ? `app "${currentApp}"` : "sin app asignada";
+  showConfirm(
+    "Conflicto de asignación",
+    `La pulsación <strong>${speed}</strong> ya está asignada a ${conflictNames} con ${appLabel}. Al asignar, se les quitará esa pulsación.`,
+    doAssign,
+    "Asignar"
+  );
 }
 
 export function updateAssignButtonUI() {
@@ -1215,11 +1544,43 @@ function toggleStepMenuAt(x, y) {
   menu.classList.add("open");
 }
 
+function getStepSummary(step) {
+  const p = step.params || {};
+  switch (step.type) {
+    case "keypress": return p.combo || "–";
+    case "wait": return `${p.ms ?? 500} ms`;
+    case "clipboard": return p.text ? `"${String(p.text).slice(0, 28)}"` : "–";
+    case "open_url": return p.url || "–";
+    case "run_cmd": return p.cmd || "–";
+    case "open_file":
+    case "open_app": return p.path ? p.path.split(/[\\/]/).pop() : "–";
+    case "notify": return [p.title, p.body].filter(Boolean).join(" · ").slice(0, 36) || "–";
+    case "run_script": {
+      const lines = (p.code || "").split("\n").filter(l => l.trim()).length;
+      return `${p.lang || "python"} · ${lines} línea${lines !== 1 ? "s" : ""}`;
+    }
+    case "loop":
+      return p.mode === "foreach"
+        ? `foreach $${p.list_name || "?"}  as $${p.var_name || "item"}`
+        : `× ${p.iterations ?? 5}`;
+    case "condition": return (p.type || "").replace(/_/g, " ");
+    case "set_variable": return `$${p.name || "?"} = ${p.value ?? ""}`;
+    case "modify_variable": return `$${p.name || "?"} ${p.op || "="} ${p.value ?? ""}`;
+    case "list_operation": return `${p.op || "append"} → $${p.name || "?"}`;
+    case "media": return (p.action || "").replace(/_/g, " ");
+    case "screenshot": return p.filename || "auto";
+    case "screenshot_region": return p.filename || "selección";
+    case "note": return (p.text || "").replace(/\n/g, " ").slice(0, 40) || "–";
+    default: return "";
+  }
+}
+
 export function makeStepCard(step, idx, path) {
   const meta = STEP_TYPES[step.type] || STEP_TYPES.notify;
   const pathStr = JSON.stringify(path);
   const card = document.createElement("div");
   card.className = "step-card";
+  if (step.collapsed) card.classList.add("collapsed");
   if (meta.isContainer) card.classList.add("step-card-container");
   if (step.type === "note") card.classList.add("step-card-note");
   card.draggable = true;
@@ -1228,6 +1589,11 @@ export function makeStepCard(step, idx, path) {
   // Header
   const header = document.createElement("div");
   header.className = "step-header";
+  header.style.cursor = "pointer";
+  header.onclick = (e) => {
+    if (e.target.closest("button, select, .drag-handle")) return;
+    toggleStepCollapse(path);
+  };
 
   const dragHandle = document.createElement("span");
   dragHandle.className = "drag-handle";
@@ -1259,6 +1625,21 @@ export function makeStepCard(step, idx, path) {
   stepNum.className = "step-num";
   stepNum.textContent = `#${idx + 1}`;
   header.appendChild(stepNum);
+
+  const preview = document.createElement("span");
+  preview.className = "step-collapsed-preview";
+  preview.textContent = getStepSummary(step);
+  header.appendChild(preview);
+
+  const collapseBtn = document.createElement("button");
+  collapseBtn.className = "btn-collapse-step";
+  collapseBtn.title = step.collapsed ? "Expandir paso" : "Colapsar paso";
+  collapseBtn.textContent = step.collapsed ? "▶" : "▼";
+  collapseBtn.onclick = (e) => {
+    e.stopPropagation();
+    toggleStepCollapse(path);
+  };
+  header.appendChild(collapseBtn);
 
   const delBtn = document.createElement("button");
   delBtn.className = "btn-del-step";
@@ -2050,6 +2431,15 @@ export function deleteStep(path) {
   renderFlow();
 }
 window.deleteStep = deleteStep;
+
+export function toggleStepCollapse(path) {
+  const step = getStepByPath(path);
+  if (!step) return;
+  step.collapsed = !step.collapsed;
+  saveSignals();
+  renderFlow();
+}
+window.toggleStepCollapse = toggleStepCollapse;
 
 export function addStep(type, containerPath = null, index = -1) {
   if (!state.selectedSig) return;

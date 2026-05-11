@@ -8,7 +8,14 @@ const fs = require('fs');
 describe('validateData', () => {
   const defaults = {
     signals: {},
-    config: { theme: 'dark', closeBehavior: 'close', accentColor: '#f5a623', initialTab: 'monitor' },
+    folders: [],
+    config: {
+      theme: 'dark',
+      closeBehavior: 'close',
+      accentColor: '#f5a623',
+      initialTab: 'monitor',
+      workflowSort: 'original'
+    },
   };
 
   it('returns defaults for null input', () => {

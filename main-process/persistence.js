@@ -46,9 +46,14 @@ function validateData(raw) {
 
   // Validate folders
   if (Array.isArray(raw.folders)) {
-    data.folders = raw.folders.filter(f => 
-      f && typeof f === "object" && typeof f.id === "string" && typeof f.name === "string"
-    );
+    data.folders = raw.folders
+      .filter(f => f && typeof f === "object" && typeof f.id === "string" && typeof f.name === "string")
+      .map(f => ({
+        id: f.id,
+        name: f.name,
+        expanded: f.expanded !== false,
+        color: typeof f.color === "string" && /^#[0-9A-Fa-f]{6}$/.test(f.color) ? f.color : null,
+      }));
   }
 
   // Validate signals
@@ -241,6 +246,53 @@ function setupPersistence() {
         throw new Error("Formato de workflow inválido");
       }
       return { ok: true, name: raw.name, data: raw.data };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("export-folder", async (_, { folderName, workflows }) => {
+    const { getWindow } = require("./window");
+    const win = getWindow();
+    if (!win) return { ok: false, error: "No window" };
+
+    const safeName = folderName.toLowerCase().replace(/\s+/g, "-");
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: `Exportar carpeta: ${folderName}`,
+      defaultPath: `folder-${safeName}.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+
+    if (canceled || !filePath) return { ok: false, error: "Cancelled" };
+
+    try {
+      const payload = { version: "1.0", type: "folder", name: folderName, workflows };
+      fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), "utf-8");
+      return { ok: true, path: filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("import-folder", async () => {
+    const { getWindow } = require("./window");
+    const win = getWindow();
+    if (!win) return { ok: false, error: "No window" };
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: "Importar carpeta",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+
+    if (canceled || !filePaths.length) return { ok: false, error: "Cancelled" };
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(filePaths[0], "utf-8"));
+      if (raw.type !== "folder" || !raw.name || !raw.workflows) {
+        throw new Error("Formato de carpeta inválido");
+      }
+      return { ok: true, name: raw.name, workflows: raw.workflows };
     } catch (err) {
       return { ok: false, error: err.message };
     }

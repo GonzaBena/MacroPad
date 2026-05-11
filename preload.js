@@ -56,11 +56,14 @@ contextBridge.exposeInMainWorld("arduino", {
   importData: () => ipcRenderer.invoke("import-data"),
   exportSingleWorkflow: (name, data) => ipcRenderer.invoke("export-single-workflow", { name, data }),
   importSingleWorkflow: () => ipcRenderer.invoke("import-single-workflow"),
+  exportFolder: (folderName, workflows) => ipcRenderer.invoke("export-folder", { folderName, workflows }),
+  importFolder: () => ipcRenderer.invoke("import-folder"),
 
   // Themes
   getThemes: () => ipcRenderer.invoke("get-themes"),
   getThemeData: (id) => ipcRenderer.invoke("get-theme-data", id),
   openThemesFolder: () => ipcRenderer.send("open-themes-folder"),
+  importExternalTheme: () => ipcRenderer.invoke("import-external-theme"),
   notifyThemeChanged: () => ipcRenderer.send("theme-changed"),
   onApplyTheme: (cb) => safeOn("apply-theme", cb),
 

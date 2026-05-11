@@ -259,3 +259,83 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Danger button */
+.btn-danger {
+  background: var(--red-bg);
+  border: 1px solid var(--red);
+  color: var(--red);
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-danger:hover {
+  background: var(--red);
+  color: #0c0e14;
+}
+
+/* Confirm modal message */
+.confirm-message {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Save indicator */
+.save-indicator {
+  font-size: 10px;
+  color: var(--green);
+  font-family: var(--mono);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+}
+.save-indicator.visible {
+  opacity: 1;
+}
+
+/* Context menu color picker row */
+.context-menu-color-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+.color-swatch:hover {
+  transform: scale(1.25);
+  border-color: var(--text);
+}
+.color-swatch.active {
+  border-color: white;
+  transform: scale(1.15);
+}
+.color-swatch-clear {
+  background: var(--surface3);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.color-swatch-clear:hover {
+  background: var(--border2);
+  color: var(--text);
+}
+

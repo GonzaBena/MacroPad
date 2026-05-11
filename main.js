@@ -13,7 +13,7 @@ const { setupKeyboard, listRunningApps } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
 const { setupPersistence } = require("./main-process/persistence");
 const { setupTray } = require("./main-process/tray");
-const { getThemeList, getThemeData, openThemesFolder } = require("./main-process/themes");
+const { getThemeList, getThemeData, openThemesFolder, importExternalTheme } = require("./main-process/themes");
 const { setupUpdater } = require("./main-process/updater");
 const path = require("path");
 
@@ -112,6 +112,7 @@ if (!gotTheLock) {
 
     ipcMain.handle("get-themes", () => getThemeList());
     ipcMain.handle("get-theme-data", (event, themeId) => getThemeData(themeId));
+    ipcMain.handle("import-external-theme", () => importExternalTheme());
     ipcMain.on("open-themes-folder", () => openThemesFolder());
 
     ipcMain.on("theme-changed", () => {

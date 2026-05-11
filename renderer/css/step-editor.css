@@ -349,6 +349,53 @@
   color: var(--red);
 }
 
+.btn-collapse-step {
+  background: none;
+  border: none;
+  color: var(--muted2);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 5px;
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.btn-collapse-step:hover {
+  color: var(--text);
+}
+
+.step-card.collapsed .step-params,
+.step-card.collapsed .step-note-content,
+.step-card.collapsed .step-children {
+  display: none !important;
+}
+
+.step-card.collapsed .step-header {
+  padding-bottom: 12px;
+}
+
+.step-collapsed-preview {
+  display: none;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+  opacity: 0.75;
+  padding-right: 4px;
+}
+
+.step-card.collapsed .step-num {
+  display: none;
+}
+
+.step-card.collapsed .step-collapsed-preview {
+  display: block;
+}
+
 .step-params {
   padding: 0 14px 14px 44px;
   display: flex;

@@ -41,6 +41,39 @@ export function showCmdModal() {
   document.getElementById("cmd-modal-overlay").classList.remove("d-none");
 }
 
+let confirmCallback = null;
+
+export function showConfirm(title, message, onConfirm, confirmLabel = "Confirmar") {
+  const modal = document.getElementById("confirm-modal");
+  const titleEl = document.getElementById("confirm-title");
+  const msgEl = document.getElementById("confirm-message");
+  const okBtn = document.getElementById("confirm-ok");
+  if (!modal || !titleEl || !msgEl) return;
+  titleEl.textContent = title;
+  msgEl.innerHTML = message;
+  if (okBtn) okBtn.textContent = confirmLabel;
+  confirmCallback = onConfirm;
+  modal.classList.remove("d-none");
+  document.getElementById("confirm-ok")?.focus();
+}
+
+function handleConfirmOk() {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+}
+
+function closeConfirm() {
+  document.getElementById("confirm-modal")?.classList.add("d-none");
+  confirmCallback = null;
+}
+
+document.getElementById("confirm-ok")?.addEventListener("click", handleConfirmOk);
+document.getElementById("confirm-cancel")?.addEventListener("click", closeConfirm);
+document.getElementById("confirm-modal")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") handleConfirmOk();
+  if (e.key === "Escape") closeConfirm();
+});
+
 let promptCallback = null;
 
 export function showPrompt(title, defaultValue, callback) {

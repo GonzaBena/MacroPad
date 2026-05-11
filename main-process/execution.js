@@ -436,11 +436,32 @@ async function evaluateCondition(params, context) {
 }
 
 async function getFocusedApp() {
+  const plat = process.platform;
+
+  // On Windows, use PowerShell to get the process name of the foreground window.
+  // nut-js returns the window title (e.g. "~/projects ~ warp") which doesn't
+  // match the process name the user configured as assignedApp (e.g. "warp.exe").
+  if (plat === "win32") {
+    return new Promise((resolve) => {
+      // Use -MemberDefinition (single-line safe) instead of heredoc -TypeDefinition
+      const psScript = [
+        "if (-not ([System.Management.Automation.PSTypeName]'PokepadFocus.Win32').Type) {",
+        "  Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow(); [DllImport(\"user32.dll\")] public static extern int GetWindowThreadProcessId(IntPtr h, out int p);' -Name Win32 -Namespace PokepadFocus",
+        "}",
+        "$hwnd = [PokepadFocus.Win32]::GetForegroundWindow();",
+        "$p = 0;",
+        "[PokepadFocus.Win32]::GetWindowThreadProcessId($hwnd, [ref]$p) | Out-Null;",
+        "if ($p -gt 0) { (Get-Process -Id $p -ErrorAction SilentlyContinue).Name }",
+      ].join(" ");
+      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], { timeout: 3000 }, (err, stdout) => {
+        resolve(stdout ? stdout.trim().toLowerCase() : null);
+      });
+    });
+  }
+
+  // On macOS/Linux use nut-js (window title works well for app matching there)
   const { getActiveWindow } = require("@nut-tree-fork/nut-js");
-  
-  // Fast path using nut-js (Window Title)
   try {
-    // Timeout-protected nut-js call (2 seconds max)
     const activeWin = await Promise.race([
       getActiveWindow(),
       new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000))
@@ -451,44 +472,22 @@ async function getFocusedApp() {
     console.warn("[execution] nut-js focus detection failed or timed out:", e.message);
   }
 
-  // Fallback to PowerShell (Process Name) - slow but robust
-  return new Promise((resolve) => {
-    const plat = process.platform;
-    if (plat === "win32") {
-      const psScript = `
-        Add-Type -TypeDefinition @'
-        using System;
-        using System.Runtime.InteropServices;
-        public class Win32 {
-          [DllImport("user32.dll")]
-          public static extern IntPtr GetForegroundWindow();
-          [DllImport("user32.dll")]
-          public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
-        }
-'@
-        $hwnd = [Win32]::GetForegroundWindow()
-        $pid = 0
-        [Win32]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null
-        if ($pid -gt 0) {
-          (Get-Process -Id $pid).Name
-        }
-      `.replace(/\n/g, " ");
-      execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", psScript], (err, stdout) => {
-        resolve(stdout ? stdout.trim().toLowerCase() : null);
-      });
-    } else if (plat === "darwin") {
+  if (plat === "darwin") {
+    return new Promise((resolve) => {
       exec("osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'", (err, stdout) => {
         resolve(stdout ? stdout.trim().toLowerCase() : null);
       });
-    } else {
-      // Linux fallback (requires xdotool)
-      exec("xdotool getactivewindow getwindowpid", (err, pid) => {
-        if (err || !pid) return resolve(null);
-        exec(`ps -p ${pid.trim()} -o comm=`, (err2, stdout2) => {
-          resolve(stdout2 ? stdout2.trim().toLowerCase() : null);
-        });
+    });
+  }
+
+  // Linux fallback (requires xdotool)
+  return new Promise((resolve) => {
+    exec("xdotool getactivewindow getwindowpid", (err, pid) => {
+      if (err || !pid) return resolve(null);
+      exec(`ps -p ${pid.trim()} -o comm=`, (err2, stdout2) => {
+        resolve(stdout2 ? stdout2.trim().toLowerCase() : null);
       });
-    }
+    });
   });
 }
 

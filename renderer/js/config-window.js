@@ -54,6 +54,29 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("btn-open-themes")?.addEventListener("click", () => window.arduino.openThemesFolder());
     document.getElementById("btn-theme-preview")?.addEventListener("click", () => window.arduino.openThemePreview());
+
+    document.getElementById("btn-import-external-theme")?.addEventListener("click", async () => {
+      const result = await window.arduino.importExternalTheme();
+      if (!result.ok) {
+        if (result.error !== "Cancelled") alert("Error al importar tema: " + result.error);
+        return;
+      }
+      // Refresh theme list and select the new theme
+      const themes = await window.arduino.getThemes();
+      if (themeEl) {
+        themeEl.innerHTML = "";
+        themes.forEach(t => {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = t.name + (t.isUserTheme ? " (Usuario)" : "");
+          themeEl.appendChild(opt);
+        });
+        themeEl.value = result.theme.id;
+        state.config.theme = result.theme.id;
+        saveConfig();
+        window.arduino.notifyThemeChanged();
+      }
+    });
     document.getElementById("wbtn-close")?.addEventListener("click", () => window.arduino.close());
     document.getElementById("btn-back-config")?.remove(); // No necesitamos botón volver en ventana separada
     
