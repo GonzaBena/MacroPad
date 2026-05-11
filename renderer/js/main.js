@@ -166,13 +166,29 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   window.arduino.onSequenceStart((signal) => {
+    console.log(`Sequence start: ${signal}, Selected: ${state.selectedSig}`);
     const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(signal)}"]`);
     if (card) card.classList.add("running");
+    if (signal === state.selectedSig) {
+      const btn = document.getElementById("btn-test");
+      if (btn) {
+        btn.classList.add("running");
+        btn.innerHTML = "<span>⏳ Ejecutando...</span>";
+      }
+    }
   });
 
   window.arduino.onSequenceEnd((signal) => {
+    console.log(`Sequence end: ${signal}`);
     const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(signal)}"]`);
     if (card) card.classList.remove("running");
+    if (signal === state.selectedSig) {
+      const btn = document.getElementById("btn-test");
+      if (btn) {
+        btn.classList.remove("running");
+        btn.innerHTML = "<span>▶ Probar</span>";
+      }
+    }
   });
 
   window.arduino.onError((msg) => {

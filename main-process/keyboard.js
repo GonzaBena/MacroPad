@@ -238,33 +238,97 @@ async function simulateKey(combo) {
   }
 }
 
+async function listInstalledApps() {
+  return new Promise((resolve) => {
+    if (process.platform === "win32") {
+      const cmd = `powershell -NoProfile -Command "Get-StartApps | Select-Object Name, AppID | ConvertTo-Json -Compress"`;
+      exec(cmd, { timeout: 10000 }, (err, stdout) => {
+        if (err || !stdout) {
+          resolve([]);
+          return;
+        }
+        try {
+          const raw = JSON.parse(stdout);
+          const list = Array.isArray(raw) ? raw : [raw];
+          const apps = list
+            .filter(a => a.Name && a.AppID)
+            .map(a => ({
+              name: a.Name,
+              path: a.AppID.includes("\\") ? a.AppID : `shell:AppsFolder\\${a.AppID}`
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+          resolve(apps);
+        } catch (e) {
+          resolve([]);
+        }
+      });
+    } else if (process.platform === "darwin") {
+      const fs = require("fs");
+      const path = require("path");
+      const dirs = ["/Applications", path.join(process.env.HOME, "Applications")];
+      const apps = [];
+      dirs.forEach(dir => {
+        if (fs.existsSync(dir)) {
+          fs.readdirSync(dir).forEach(file => {
+            if (file.endsWith(".app")) {
+              const name = file.replace(".app", "");
+              apps.push({ name, path: path.join(dir, file) });
+            }
+          });
+        }
+      });
+      resolve(apps.sort((a, b) => a.name.localeCompare(b.name)));
+    } else {
+      resolve([]);
+    }
+  });
+}
+
 module.exports = {
   setupKeyboard,
   simulateKey,
   escapePowerShell,
   listRunningApps,
+  listInstalledApps,
 };
 
 async function listRunningApps() {
   return new Promise((resolve) => {
     if (process.platform === "win32") {
-      // Solo procesos con ventana principal visible
-      const cmd = `powershell -NoProfile -Command "Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | Sort-Object ProcessName -Unique | Select-Object -ExpandProperty ProcessName"`;
+      // Solo procesos con ventana principal visible, obteniendo Nombre y Ruta
+      const cmd = `powershell -NoProfile -Command "Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | Select-Object -Property ProcessName, Path | ConvertTo-Json -Compress"`;
 
-      exec(cmd, { timeout: 5000 }, (err, stdout) => {
-        if (err) {
+      exec(cmd, { timeout: 7000 }, (err, stdout) => {
+        if (err || !stdout) {
           resolve([]);
           return;
         }
 
-        const apps = stdout
-          .split("\n")
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0)
-          .map((name) => (name.endsWith(".exe") ? name : name + ".exe"))
-          .sort();
+        try {
+          const raw = JSON.parse(stdout);
+          const list = Array.isArray(raw) ? raw : [raw];
 
-        resolve(apps);
+          const apps = list
+            .filter(p => p.ProcessName && p.Path)
+            .map(p => ({
+              name: p.ProcessName.endsWith(".exe") ? p.ProcessName : p.ProcessName + ".exe",
+              path: p.Path
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+          // Eliminar duplicados por ruta
+          const seen = new Set();
+          const unique = apps.filter(a => {
+            if (seen.has(a.path)) return false;
+            seen.add(a.path);
+            return true;
+          });
+
+          resolve(unique);
+        } catch (e) {
+          console.error("[keyboard] Error parsing running apps JSON:", e.message);
+          resolve([]);
+        }
       });
     } else if (process.platform === "darwin") {
       // Solo apps de primer plano (no servicios ni daemons)
@@ -281,7 +345,8 @@ async function listRunningApps() {
           .split(",")
           .map((l) => l.trim())
           .filter((l) => l.length > 0)
-          .sort();
+          .map(name => ({ name, path: name })) // En Mac solemos usar el nombre para open -a
+          .sort((a, b) => a.name.localeCompare(b.name));
 
         resolve(apps);
       });

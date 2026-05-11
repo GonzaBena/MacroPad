@@ -36,6 +36,11 @@ export function initFlowDelegation() {
       startRegionSelection(JSON.parse(regionBtn.dataset.path));
       return;
     }
+    const quickAppBtn = target.closest(".btn-quick-app");
+    if (quickAppBtn) {
+      openStepAppSelector(JSON.parse(quickAppBtn.dataset.path));
+      return;
+    }
   });
 
   panel.addEventListener("change", (e) => {
@@ -1297,7 +1302,8 @@ function renderAppList(apps, selectedApp) {
     return;
   }
 
-  apps.forEach(appName => {
+  apps.forEach(app => {
+    const appName = typeof app === "string" ? app : app.name;
     const item = document.createElement("div");
     item.className = "app-item";
     if (appName === selectedApp) item.classList.add("selected");
@@ -1311,6 +1317,114 @@ function renderAppList(apps, selectedApp) {
   });
 }
 window.assignApp = assignApp;
+
+export async function openStepAppSelector(stepPath) {
+  const modal = document.getElementById("step-app-selector-modal");
+  const runningList = document.getElementById("step-running-apps-list");
+  const closeBtn = document.getElementById("btn-close-step-app-selector");
+  const refreshBtn = document.getElementById("btn-refresh-step-apps");
+  const searchInp = document.getElementById("step-app-search");
+  const tabRunning = document.getElementById("tab-step-running");
+  const tabInstalled = document.getElementById("tab-step-installed");
+  const titleLbl = document.getElementById("step-app-list-title");
+
+  if (!modal || !runningList) return;
+
+  let currentTab = "running"; // "running" | "installed"
+  let installedApps = [];
+  let filterText = "";
+
+  modal.classList.remove("d-none");
+  searchInp.value = "";
+  searchInp.focus();
+
+  const updateUI = () => {
+    const apps = currentTab === "running" ? (state.runningApps || []) : installedApps;
+    const filtered = apps.filter(a => a.name.toLowerCase().includes(filterText.toLowerCase()));
+    
+    titleLbl.textContent = currentTab === "running" 
+      ? "Apps abiertas actualmente" 
+      : "Aplicaciones instaladas";
+    
+    renderStepAppList(filtered, stepPath);
+  };
+
+  const refresh = async () => {
+    runningList.innerHTML = `<div class="loading-apps">Buscando ${currentTab === "running" ? "procesos activos" : "apps instaladas"}...</div>`;
+    if (currentTab === "running") {
+      await refreshRunningApps();
+    } else {
+      installedApps = await window.arduino.listInstalledApps();
+    }
+    updateUI();
+  };
+
+  tabRunning.onclick = () => {
+    currentTab = "running";
+    tabRunning.classList.add("active");
+    tabInstalled.classList.remove("active");
+    updateUI();
+  };
+
+  tabInstalled.onclick = async () => {
+    currentTab = "installed";
+    tabInstalled.classList.add("active");
+    tabRunning.classList.remove("active");
+    if (installedApps.length === 0) {
+      await refresh();
+    } else {
+      updateUI();
+    }
+  };
+
+  searchInp.oninput = (e) => {
+    filterText = e.target.value;
+    updateUI();
+  };
+
+  closeBtn.onclick = () => modal.classList.add("d-none");
+  refreshBtn.onclick = refresh;
+
+  // Initial load
+  if (currentTab === "running" && (!state.runningApps || state.runningApps.length === 0)) {
+    refresh();
+  } else {
+    updateUI();
+  }
+}
+
+function renderStepAppList(apps, stepPath) {
+  const runningList = document.getElementById("step-running-apps-list");
+  const modal = document.getElementById("step-app-selector-modal");
+  if (!runningList) return;
+
+  runningList.innerHTML = "";
+  if (!apps || apps.length === 0) {
+    runningList.innerHTML = '<div class="loading-apps">No se encontraron procesos.</div>';
+    return;
+  }
+
+  apps.forEach(app => {
+    const item = document.createElement("div");
+    item.className = "app-item";
+    item.innerHTML = `
+      <div class="d-flex flex-column">
+        <div style="font-weight: 600;">🚀 ${escHtml(app.name)}</div>
+      </div>
+    `;
+    item.onclick = () => {
+      updateParam(stepPath, "path", app.path);
+      const input = document.getElementById(`path-${JSON.stringify(stepPath)}`);
+      if (input) {
+        input.value = app.name;
+        input.title = app.path;
+      }
+      modal.classList.add("d-none");
+      showToast("App seleccionada", `Se vinculó ${app.name}`);
+    };
+    runningList.appendChild(item);
+  });
+}
 
 export function assignSpeed(speed) {
   if (!speed || !state.selectedSig) return;
@@ -2013,6 +2127,8 @@ function buildStepParams(container, step, path) {
       wrap.className = "param-input-row";
       const inp = makeInput("text", p.text || "", "Texto o $variable", "text");
       inp.className = "param-input flex-1";
+      inp.title = p.text || "";
+      inp.addEventListener("input", (e) => { e.target.title = e.target.value; });
       wrap.appendChild(inp);
       wrap.appendChild(makeVarLink("text"));
       row.appendChild(wrap);
@@ -2043,6 +2159,8 @@ function buildStepParams(container, step, path) {
         "url",
       );
       inp.className = "param-input flex-1";
+      inp.title = p.url || "";
+      inp.addEventListener("input", (e) => { e.target.title = e.target.value; });
       wrap.appendChild(inp);
       wrap.appendChild(makeVarLink("url"));
       row.appendChild(wrap);
@@ -2055,6 +2173,8 @@ function buildStepParams(container, step, path) {
       wrap.className = "param-input-row";
       const inp = makeInput("text", p.cmd || "", "Comando o $variable", "cmd");
       inp.className = "param-input flex-1";
+      inp.title = p.cmd || "";
+      inp.addEventListener("input", (e) => { e.target.title = e.target.value; });
       wrap.appendChild(inp);
       wrap.appendChild(makeVarLink("cmd"));
       row.appendChild(wrap);
@@ -2064,24 +2184,70 @@ function buildStepParams(container, step, path) {
     case "open_file":
     case "open_app": {
       const isApp = step.type === "open_app";
-      const row = makeRow(isApp ? "Aplicación (Ruta)" : "Ruta");
+      const row = makeRow(isApp ? "Aplicación" : "Ruta");
       const wrap = document.createElement("div");
       wrap.className = "param-input-row";
+      
+      const displayValue = (isApp && p.path) ? p.path.split(/[\\/]/).pop() : (p.path || "");
+
       const inp = makeInput(
         "text",
-        p.path || "",
-        isApp ? "C:\\Ruta\\a\\App.exe" : "/Users/vos/archivo.pdf",
-        "path",
+        displayValue,
+        isApp ? "Seleccioná aplicación..." : "/Users/vos/archivo.pdf",
+        isApp ? "path-display" : "path",
       );
       inp.id = `path-${pathStr}`;
       inp.className = "param-input flex-1";
+      
+      const warn = document.createElement("span");
+      warn.className = "path-warning d-none";
+      warn.title = "La ruta no parece existir";
+      warn.textContent = "⚠️";
+      warn.style.marginLeft = "4px";
+      warn.style.cursor = "help";
+
+      const checkPath = async (val) => {
+        const cleanVal = (val || "").trim();
+        if (!cleanVal || cleanVal.startsWith("$")) {
+          warn.classList.add("d-none");
+          return;
+        }
+        const exists = await window.arduino.fileExists(cleanVal);
+        console.log(`[checkPath] "${cleanVal}" exists: ${exists}`);
+        warn.classList.toggle("d-none", !!exists);
+      };
+
+      if (isApp) {
+        inp.readOnly = true;
+        inp.title = p.path || "";
+        inp.style.cursor = "pointer";
+        inp.onclick = () => {
+           if (isApp) openStepAppSelector(path);
+        };
+        checkPath(p.path);
+      } else {
+        inp.addEventListener("input", (e) => checkPath(e.target.value));
+        checkPath(p.path);
+      }
+
       const btn = document.createElement("button");
       btn.className = "btn btn-ghost btn-browse-file";
       btn.title = isApp ? "Seleccionar aplicación" : "Seleccionar archivo";
       btn.textContent = "📂";
       btn.dataset.path = pathStr;
+      
+      const btnQuick = document.createElement("button");
+      if (isApp) {
+        btnQuick.className = "btn btn-ghost btn-quick-app";
+        btnQuick.title = "Seleccionar de apps abiertas o instaladas";
+        btnQuick.textContent = "🚀";
+        btnQuick.dataset.path = pathStr;
+      }
+
       wrap.appendChild(inp);
+      wrap.appendChild(warn);
       wrap.appendChild(makeVarLink("path"));
+      if (isApp) wrap.appendChild(btnQuick);
       wrap.appendChild(btn);
       row.appendChild(wrap);
       container.appendChild(row);
@@ -2400,7 +2566,7 @@ export function updateParam(path, key, value) {
   saveSignals();
 
   // Re-render only if structural change or specific logic depends on it
-  if (["type", "mode", "op"].includes(key)) renderFlow();
+  if (["type", "mode", "op", "path"].includes(key)) renderFlow();
 }
 window.updateParam = updateParam;
 
@@ -2574,7 +2740,12 @@ export async function browseFile(path) {
   const filePath = await window.arduino.selectFile();
   if (filePath) {
     const input = document.getElementById(`path-${JSON.stringify(path)}`);
-    if (input) input.value = filePath;
+    const step = getStepByPath(path);
+    const isApp = step && step.type === "open_app";
+    if (input) {
+      input.value = isApp ? filePath.split(/[\\/]/).pop() : filePath;
+      input.title = filePath;
+    }
     updateParam(path, "path", filePath);
   }
 }

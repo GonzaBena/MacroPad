@@ -17,19 +17,26 @@ window.addEventListener("DOMContentLoaded", async () => {
     const accentEl = document.getElementById("cfg-accent");
     const pickerEl = document.getElementById("cfg-accent-picker");
 
-    // Populate themes
-    const themes = await window.arduino.getThemes();
-    if (themeEl) {
+    const populateThemes = async () => {
+        if (!themeEl) return;
+        const themes = await window.arduino.getThemes();
+        const currentVal = themeEl.value || state.config.theme || "dark-default";
         themeEl.innerHTML = "";
         themes.forEach(t => {
             const opt = document.createElement("option");
             opt.value = t.id;
-            opt.textContent = t.name + (t.isUserTheme ? " (Usuario)" : "");
+            opt.textContent = t.name;
             themeEl.appendChild(opt);
         });
-        // IMPORTANTE: Asignar el valor después de poblar las opciones
-        themeEl.value = state.config.theme || "dark-default";
-    }
+        themeEl.value = currentVal;
+        // Si el valor actual no está en la lista (se borró), poner el que diga el state (que ya tendrá el fallback)
+        if (themeEl.selectedIndex === -1) {
+            themeEl.value = state.config.theme || "dark-default";
+        }
+    };
+
+    // Populate themes initially
+    await populateThemes();
 
     if (closeEl) closeEl.value = state.config.closeBehavior;
     if (initialTabEl) initialTabEl.value = state.config.initialTab || "monitor";
@@ -62,15 +69,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         return;
       }
       // Refresh theme list and select the new theme
-      const themes = await window.arduino.getThemes();
+      await populateThemes();
       if (themeEl) {
-        themeEl.innerHTML = "";
-        themes.forEach(t => {
-          const opt = document.createElement("option");
-          opt.value = t.id;
-          opt.textContent = t.name + (t.isUserTheme ? " (Usuario)" : "");
-          themeEl.appendChild(opt);
-        });
         themeEl.value = result.theme.id;
         state.config.theme = result.theme.id;
         saveConfig();
@@ -87,10 +87,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("btn-export")?.addEventListener("click", exportConfig);
     document.getElementById("btn-import")?.addEventListener("click", importConfig);
 
-    // Listen for theme changes from other windows (like the preview window)
+    // Listen for theme changes from other windows (like the preview window or file watcher)
     window.arduino.onApplyTheme(async () => {
         const oldTheme = state.config.theme;
         await loadConfig();
+        await populateThemes();
         if (themeEl && state.config.theme !== oldTheme) {
             themeEl.value = state.config.theme;
         }

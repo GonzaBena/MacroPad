@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             div.className = "theme-item" + (t.id === selectedThemeId ? " active" : "");
             div.innerHTML = `
                 <div class="theme-item-name">${t.name}</div>
-                <div class="theme-item-type">${t.type.toUpperCase()} ${t.isUserTheme ? "• USUARIO" : ""}</div>
+                <div class="theme-item-type">${t.type.toUpperCase()}</div>
             `;
             div.addEventListener("click", () => selectTheme(t.id));
             listEl.appendChild(div);
@@ -65,4 +65,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderList();
     if (selectedThemeId) selectTheme(selectedThemeId);
+
+    // Listen for external theme changes (like file deletions)
+    window.arduino.onApplyTheme(async () => {
+        currentThemes = await window.arduino.getThemes();
+        renderList();
+        
+        // If current selected theme was deleted, fall back in the preview too
+        const themeStillExists = currentThemes.some(t => t.id === selectedThemeId);
+        if (!themeStillExists) {
+            const data = await window.arduino.loadData();
+            if (data.config.theme) selectTheme(data.config.theme);
+        }
+    });
 });

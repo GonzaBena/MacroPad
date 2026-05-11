@@ -143,8 +143,28 @@ export async function applyConfig() {
   );
 
   // Apply theme
-  const themeId = state.config.theme || "dark-default";
-  const themeData = await window.arduino.getThemeData(themeId);
+  let themeId = state.config.theme || "dark-default";
+  let themeData = await window.arduino.getThemeData(themeId);
+
+  // Fallback if theme not found (e.g. file deleted)
+  if (!themeData) {
+    console.warn(`[state] Theme "${themeId}" not found, falling back to system preference.`);
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const fallbackId = prefersDark ? "dark-default" : "light-default";
+    themeData = await window.arduino.getThemeData(fallbackId);
+    
+    if (themeData) {
+      console.log(`[state] Fallback theme applied: ${fallbackId}`);
+      state.config.theme = fallbackId;
+      // Persist the fallback so we don't warn every time
+      window.arduino.saveData({
+        signals: state.signals,
+        folders: state.folders,
+        config: state.config,
+      });
+    }
+  }
+
   if (themeData && themeData.colors) {
     for (const [key, value] of Object.entries(themeData.colors)) {
       root.style.setProperty(key, value);

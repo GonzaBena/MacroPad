@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("arduino", {
   updateSignals: (map) => ipcRenderer.send("update-signal-map", map),
   testSequence: (signal) => ipcRenderer.send("test-sequence", signal),
   selectFile: () => ipcRenderer.invoke("select-file"),
+  fileExists: (path) => ipcRenderer.invoke("file-exists", path),
 
   // Key capture
   startKeyCapture: () => ipcRenderer.send("start-key-capture"),
@@ -46,6 +47,7 @@ contextBridge.exposeInMainWorld("arduino", {
   openThemePreview: () => ipcRenderer.send("open-theme-preview"),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   listRunningApps: () => ipcRenderer.invoke("list-running-apps"),
+  listInstalledApps: () => ipcRenderer.invoke("list-installed-apps"),
   checkForUpdates: () => ipcRenderer.send("check-for-updates"),
   onUpdateMessage: (cb) => safeOn("update-message", cb),
 

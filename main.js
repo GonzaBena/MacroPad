@@ -9,13 +9,14 @@ const {
 } = require("./main-process/window");
 const { setupSerial } = require("./main-process/serial");
 const { setupMedia } = require("./main-process/media");
-const { setupKeyboard, listRunningApps } = require("./main-process/keyboard");
+const { setupKeyboard, listRunningApps, listInstalledApps } = require("./main-process/keyboard");
 const { setupExecution } = require("./main-process/execution");
 const { setupPersistence } = require("./main-process/persistence");
 const { setupTray } = require("./main-process/tray");
 const { getThemeList, getThemeData, openThemesFolder, importExternalTheme } = require("./main-process/themes");
 const { setupUpdater } = require("./main-process/updater");
 const path = require("path");
+const fs = require("fs");
 
 // Forzar el nombre correcto en notificaciones de Windows
 app.setAppUserModelId("PokePad");
@@ -109,6 +110,26 @@ if (!gotTheLock) {
     });
 
     ipcMain.handle("list-running-apps", () => listRunningApps());
+    ipcMain.handle("list-installed-apps", () => listInstalledApps());
+    ipcMain.handle("file-exists", (event, filePath) => {
+      if (!filePath || typeof filePath !== 'string') return false;
+      try {
+        const cleanPath = filePath.trim().replace(/^["']|["']$/g, '');
+        
+        // Si empieza con un protocolo conocido de Windows/MacOS que no es filesystem directo
+        if (/^(shell:|mailto:|http:|https:|file:)/i.test(cleanPath)) {
+          return true;
+        }
+
+        const normalized = path.normalize(cleanPath);
+        const exists = fs.existsSync(normalized);
+        console.log(`[file-exists] Path: "${normalized}" -> ${exists}`);
+        return exists;
+      } catch (e) {
+        console.error(`[file-exists] Error checking "${filePath}":`, e);
+        return false;
+      }
+    });
 
     ipcMain.handle("get-themes", () => getThemeList());
     ipcMain.handle("get-theme-data", (event, themeId) => getThemeData(themeId));
@@ -120,6 +141,28 @@ if (!gotTheLock) {
         win.webContents.send("apply-theme");
       });
     });
+
+    // Watch for theme file changes to trigger real-time updates
+    let themeWatchTimeout = null;
+    const watchThemes = (dir) => {
+      if (!fs.existsSync(dir)) return;
+      fs.watch(dir, (eventType, filename) => {
+        if (filename && filename.endsWith('.json')) {
+          if (themeWatchTimeout) clearTimeout(themeWatchTimeout);
+          themeWatchTimeout = setTimeout(() => {
+            console.log(`[main] Theme directory changed (${eventType}: ${filename}), notifying windows.`);
+            BrowserWindow.getAllWindows().forEach((win) => {
+              win.webContents.send("apply-theme");
+            });
+          }, 200);
+        }
+      });
+    };
+
+    const BUILTIN_THEMES_DIR = path.join(__dirname, "assets", "themes");
+    const USER_THEMES_DIR = path.join(app.getPath("userData"), "themes");
+    watchThemes(BUILTIN_THEMES_DIR);
+    watchThemes(USER_THEMES_DIR);
 
     ipcMain.on("win-minimize", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);

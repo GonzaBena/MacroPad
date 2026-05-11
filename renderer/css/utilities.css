@@ -87,8 +87,8 @@
 /* Step param helpers */
 .param-input-row  { display: flex; gap: 8px; }
 .param-select-row { display: flex; align-items: center; gap: 8px; }
-.btn-key-capture  { padding: 0 10px; border: 1px solid rgba(255,255,255,0.2); }
-.btn-browse-file  { padding: 0 10px; border: 1px solid rgba(255,255,255,0.2); max-width: 32px; }
+.btn-key-capture  { }
+.btn-browse-file  { }
 
 /* Script beta badge */
 .script-beta-badge {
