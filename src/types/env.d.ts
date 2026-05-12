@@ -57,6 +57,11 @@ declare global {
     sendSerial: () => void;
     marked: any;
   }
+
+  interface HTMLElement {
+    _saveTimer?: any;
+    _searchInput?: HTMLInputElement;
+  }
 }
 
 export {};

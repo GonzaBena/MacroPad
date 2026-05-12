@@ -8,44 +8,45 @@ import {
   MEDIA_OPTIONS,
 } from "./state.js";
 import { escHtml, escAttr, showToast, showPrompt, showConfirm } from "./ui.js";
-import { Step, StepType } from "../../src/types/pokepad";
+import { Step, StepType, SignalEntry } from "../../src/types/pokepad";
 
 declare global {
   interface HTMLElement {
     _saveTimer?: any;
+    _searchInput?: HTMLInputElement;
   }
 }
 
 // ── Event delegation para el flow-container ──
 export function initFlowDelegation() {
-  const panel = document.querySelector(".panel");
+  const panel = document.querySelector(".panel") as HTMLElement | null;
   if (!panel) return;
 
   panel.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
-    const delBtn = target.closest(".btn-del-step");
+    const delBtn = target.closest(".btn-del-step") as HTMLElement | null;
     if (delBtn) {
-      deleteStep(JSON.parse((delBtn as HTMLElement).dataset.path!));
+      deleteStep(JSON.parse(delBtn.dataset.path!));
       return;
     }
-    const keyBtn = target.closest(".btn-key-capture");
+    const keyBtn = target.closest(".btn-key-capture") as HTMLElement | null;
     if (keyBtn) {
-      startKeyCapture(JSON.parse(keyBtn.dataset.path));
+      startKeyCapture(JSON.parse(keyBtn.dataset.path!));
       return;
     }
-    const browseBtn = target.closest(".btn-browse-file");
+    const browseBtn = target.closest(".btn-browse-file") as HTMLElement | null;
     if (browseBtn) {
-      browseFile(JSON.parse(browseBtn.dataset.path));
+      browseFile(JSON.parse(browseBtn.dataset.path!));
       return;
     }
-    const regionBtn = target.closest(".btn-region-capture");
+    const regionBtn = target.closest(".btn-region-capture") as HTMLElement | null;
     if (regionBtn) {
-      startRegionSelection(JSON.parse(regionBtn.dataset.path));
+      startRegionSelection(JSON.parse(regionBtn.dataset.path!));
       return;
     }
-    const quickAppBtn = target.closest(".btn-quick-app");
+    const quickAppBtn = target.closest(".btn-quick-app") as HTMLElement | null;
     if (quickAppBtn) {
-      openStepAppSelector(JSON.parse(quickAppBtn.dataset.path));
+      openStepAppSelector(JSON.parse(quickAppBtn.dataset.path!));
       return;
     }
   });
@@ -117,10 +118,11 @@ document.addEventListener("data-saved", showSaveIndicator);
 
 // ── Keyboard shortcuts (workflow-level) ──
 document.addEventListener("keydown", (e) => {
-  const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
+  const target = e.target as HTMLElement;
+  const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 
-  if (e.key === "Escape" && e.target.id === "sig-search") {
-    const input = document.getElementById("sig-search");
+  if (e.key === "Escape" && target.id === "sig-search") {
+    const input = document.getElementById("sig-search") as HTMLInputElement | null;
     if (input?.value) { input.value = ""; renderSignalList(); }
     e.preventDefault();
     return;
@@ -146,8 +148,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Context Menu Logic ──
-let activeContextMenu = null;
-let stepClipboard = null;
+let activeContextMenu: HTMLElement | null = null;
+let stepClipboard: Step | null = null;
 
 function closeContextMenu() {
   if (activeContextMenu) {
@@ -158,26 +160,29 @@ function closeContextMenu() {
 
 document.addEventListener("click", (e) => {
   closeContextMenu();
-  if (e.target.id === "btn-clear-search") {
-    const input = document.getElementById("sig-search");
+  const target = e.target as HTMLElement;
+  if (target.id === "btn-clear-search") {
+    const input = document.getElementById("sig-search") as HTMLInputElement | null;
     if (input) { input.value = ""; renderSignalList(); }
   }
 });
 document.addEventListener("input", (e) => {
-  if (e.target.id === "sig-search") renderSignalList();
+  const target = e.target as HTMLElement;
+  if (target.id === "sig-search") renderSignalList();
 });
 document.addEventListener("contextmenu", (e) => {
+  const target = e.target as HTMLElement;
   if (
-    !e.target.closest(".sig-card") &&
-    !e.target.closest(".context-menu") &&
-    !e.target.closest(".step-card") &&
-    !e.target.closest(".sig-folder-header")
+    !target.closest(".sig-card") &&
+    !target.closest(".context-menu") &&
+    !target.closest(".step-card") &&
+    !target.closest(".sig-folder-header")
   ) {
     closeContextMenu();
   }
 });
 
-function showSignalContextMenu(e, sig) {
+function showSignalContextMenu(e: MouseEvent, sig: string) {
   e.preventDefault();
   closeContextMenu();
 
@@ -187,7 +192,7 @@ function showSignalContextMenu(e, sig) {
   const options = [
     { label: "Duplicar", ico: "👯", action: () => duplicateSignal(sig) },
     { label: "Cambiar nombre", ico: "✏️", action: () => renameSignal(sig) },
-    { type: "colorPicker", current: state.signals[sig]?.color, action: (color) => setSignalColor(sig, color) },
+    { type: "colorPicker", current: state.signals[sig]?.color, action: (color: string | null) => setSignalColor(sig, color) },
     {
       label: "Copiar JSON",
       ico: "📋",
@@ -211,14 +216,14 @@ function showSignalContextMenu(e, sig) {
 
   renderContextMenuOptions(menu, options);
 
-  menu.onclick = (e) => e.stopPropagation();
+  menu.onclick = (ev) => ev.stopPropagation();
   document.body.appendChild(menu);
 
   positionContextMenu(e, menu);
   activeContextMenu = menu;
 }
 
-function showStepContextMenu(e, path, onEdit = null) {
+function showStepContextMenu(e: MouseEvent, path: number[], onEdit: (() => void) | null = null) {
   e.preventDefault();
   e.stopPropagation();
   closeContextMenu();
@@ -226,10 +231,10 @@ function showStepContextMenu(e, path, onEdit = null) {
   const menu = document.createElement("div");
   menu.className = "context-menu";
 
-  const options = [];
+  const options: any[] = [];
 
   // If there's selected text, add a copy option
-  const selectedText = window.getSelection().toString();
+  const selectedText = window.getSelection()?.toString();
   if (selectedText) {
     options.push({
       label: "Copiar texto seleccionado",
@@ -276,14 +281,14 @@ function showStepContextMenu(e, path, onEdit = null) {
 
   renderContextMenuOptions(menu, options);
 
-  menu.onclick = (e) => e.stopPropagation();
+  menu.onclick = (ev) => ev.stopPropagation();
   document.body.appendChild(menu);
 
   positionContextMenu(e, menu);
   activeContextMenu = menu;
 }
 
-function renderContextMenuOptions(menu, options) {
+function renderContextMenuOptions(menu: HTMLElement, options: any[]) {
   options.forEach((opt) => {
     if (opt.type === "divider") {
       const div = document.createElement("div");
@@ -322,7 +327,7 @@ function renderContextMenuOptions(menu, options) {
   });
 }
 
-function positionContextMenu(e, menu) {
+function positionContextMenu(e: MouseEvent, menu: HTMLElement) {
   const menuWidth = 180;
   const menuHeight = menu.offsetHeight || 200; // Estimate if not yet in DOM
   let x = e.clientX;
@@ -337,7 +342,7 @@ function positionContextMenu(e, menu) {
 
 // ── Step Clipboard Actions ──
 
-export function copyStep(path) {
+export function copyStep(path: number[]) {
   const step = getStepByPath(path);
   if (step) {
     stepClipboard = JSON.parse(JSON.stringify(step));
@@ -348,7 +353,7 @@ export function copyStep(path) {
   }
 }
 
-export function pasteStep(path, after = true) {
+export function pasteStep(path: number[], after = true) {
   if (!stepClipboard) {
     showToast("Error", "No hay nada para pegar");
     return;
@@ -362,9 +367,9 @@ export function pasteStep(path, after = true) {
   const stepCopy = JSON.parse(JSON.stringify(stepClipboard));
   stepCopy.id = uid();
 
-  const updateIds = (s) => {
+  const updateIds = (s: any) => {
     if (s.params?.steps) {
-      s.params.steps.forEach((sub) => {
+      s.params.steps.forEach((sub: any) => {
         sub.id = uid();
         updateIds(sub);
       });
@@ -372,12 +377,12 @@ export function pasteStep(path, after = true) {
   };
   updateIds(stepCopy);
 
-  let targetSteps;
+  let targetSteps: Step[];
   if (parentPath.length === 0) {
-    targetSteps = state.signals[state.selectedSig].steps;
+    targetSteps = state.signals[state.selectedSig!].steps;
   } else {
     const parent = getStepByPath(parentPath);
-    targetSteps = parent.params.steps;
+    targetSteps = parent!.params.steps;
   }
 
   targetSteps.splice(newIndex, 0, stepCopy);
@@ -386,7 +391,7 @@ export function pasteStep(path, after = true) {
   showToast("Pegado", "Paso insertado correctamente");
 }
 
-export function duplicateStep(path) {
+export function duplicateStep(path: number[]) {
   const step = getStepByPath(path);
   if (!step) return;
 
@@ -396,9 +401,9 @@ export function duplicateStep(path) {
 
   const stepCopy = JSON.parse(JSON.stringify(step));
   stepCopy.id = uid();
-  const updateIds = (s) => {
+  const updateIds = (s: any) => {
     if (s.params?.steps) {
-      s.params.steps.forEach((sub) => {
+      s.params.steps.forEach((sub: any) => {
         sub.id = uid();
         updateIds(sub);
       });
@@ -406,12 +411,12 @@ export function duplicateStep(path) {
   };
   updateIds(stepCopy);
 
-  let targetSteps;
+  let targetSteps: Step[];
   if (parentPath.length === 0) {
-    targetSteps = state.signals[state.selectedSig].steps;
+    targetSteps = state.signals[state.selectedSig!].steps;
   } else {
     const parent = getStepByPath(parentPath);
-    targetSteps = parent.params.steps;
+    targetSteps = parent!.params.steps;
   }
 
   targetSteps.splice(index + 1, 0, stepCopy);
@@ -435,8 +440,10 @@ export function renderSignalList() {
     sigKeys.sort((a, b) => a.localeCompare(b));
   } else if (criteria === "active") {
     sigKeys.sort((a, b) => {
-      const aAct = (state.signals[a].assignedToButton?.length || 0) > 0;
-      const bAct = (state.signals[b].assignedToButton?.length || 0) > 0;
+      const aAssigned = state.signals[a].assignedToButton;
+      const bAssigned = state.signals[b].assignedToButton;
+      const aAct = (Array.isArray(aAssigned) ? aAssigned.length : aAssigned ? 1 : 0) > 0;
+      const bAct = (Array.isArray(bAssigned) ? bAssigned.length : bAssigned ? 1 : 0) > 0;
       if (aAct === bAct) return a.localeCompare(b);
       return aAct ? -1 : 1;
     });
@@ -447,7 +454,8 @@ export function renderSignalList() {
   }
 
   // 2. Apply search filter
-  const searchTerm = (document.getElementById("sig-search")?.value || "").trim().toLowerCase();
+  const searchInput = document.getElementById("sig-search") as HTMLInputElement | null;
+  const searchTerm = (searchInput?.value || "").trim().toLowerCase();
   const isSearching = searchTerm.length > 0;
   if (isSearching) {
     sigKeys = sigKeys.filter(k =>
@@ -463,7 +471,7 @@ export function renderSignalList() {
   });
 
   // 4. Render items with bars
-  list.appendChild(makeWorkflowInsertionBar(null, state.folders[0]?.id || rootKeys[0], 0));
+  list.appendChild(makeWorkflowInsertionBar(null, state.folders[0]?.id || rootKeys[0]));
 
   let renderedCount = rootKeys.length;
 
@@ -503,7 +511,8 @@ export function renderSignalList() {
     fHeader.insertBefore(dragHandle, fHeader.firstChild);
 
     fHeader.onclick = (e) => {
-      if (!e.target.closest(".sig-folder-drag-handle")) toggleFolder(folder.id);
+      const target = e.target as HTMLElement;
+      if (!target.closest(".sig-folder-drag-handle")) toggleFolder(folder.id);
     };
     fHeader.oncontextmenu = (e) => showFolderContextMenu(e, folder.id);
 
@@ -512,7 +521,7 @@ export function renderSignalList() {
       state.dragSrcFolder = folder.id;
       fDiv.classList.add("dragging");
       document.getElementById("signal-list")?.classList.add("is-dragging");
-      e.dataTransfer.effectAllowed = "move";
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
       e.stopPropagation();
     });
     dragHandle.addEventListener("dragend", () => {
@@ -586,7 +595,7 @@ export function renderSignalList() {
   }
 }
 
-function makeWorkflowInsertionBar(folderId, targetSig = null, targetFolderIdx = null) {
+function makeWorkflowInsertionBar(folderId: string | null, targetSig: string | null = null, targetFolderIdx: number | null = null) {
   const bar = document.createElement("div");
   bar.className = "sig-insertion-bar";
   bar.innerHTML = '<div class="sig-insertion-line"></div>';
@@ -612,7 +621,7 @@ function makeWorkflowInsertionBar(folderId, targetSig = null, targetFolderIdx = 
   return bar;
 }
 
-function moveWorkflow(sigName, folderId, targetSig = null) {
+function moveWorkflow(sigName: string, folderId: string | null, targetSig: string | null = null) {
   if (sigName === targetSig) return;
   const sig = state.signals[sigName];
   if (!sig) return;
@@ -634,7 +643,7 @@ function moveWorkflow(sigName, folderId, targetSig = null) {
       keys.push(sigName);
     }
     
-    const newSignals = {};
+    const newSignals: any = {};
     keys.forEach(k => newSignals[k] = state.signals[k]);
     state.signals = newSignals;
   }
@@ -643,7 +652,7 @@ function moveWorkflow(sigName, folderId, targetSig = null) {
   renderSignalList();
 }
 
-function moveFolderItem(srcFolderId, targetIdx) {
+function moveFolderItem(srcFolderId: string, targetIdx: number) {
   const srcIdx = state.folders.findIndex(f => f.id === srcFolderId);
   if (srcIdx === -1 || srcIdx === targetIdx) return;
 
@@ -657,7 +666,7 @@ function moveFolderItem(srcFolderId, targetIdx) {
   // Switch to manual order so drag result is preserved
   if (state.config.workflowSort !== "original") {
     state.config.workflowSort = "original";
-    const sortSel = document.getElementById("sort-workflows");
+    const sortSel = document.getElementById("sort-workflows") as HTMLSelectElement | null;
     if (sortSel) sortSel.value = "original";
   }
 
@@ -665,7 +674,7 @@ function moveFolderItem(srcFolderId, targetIdx) {
   renderSignalList();
 }
 
-function makeSignalCard(sig, entry) {
+function makeSignalCard(sig: string, entry: SignalEntry) {
   const div = document.createElement("div");
   div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
   div.dataset.sig = sig;
@@ -677,11 +686,13 @@ function makeSignalCard(sig, entry) {
   }
 
   let badge = "";
-  if (entry.assignedToButton?.length) {
-    const label = entry.assignedToButton
+  const assigned = entry.assignedToButton;
+  if (assigned && (Array.isArray(assigned) ? assigned.length : true)) {
+    const speeds = Array.isArray(assigned) ? assigned : [assigned as string];
+    const label = speeds
       .map((s) => (s === "RAPIDA" ? "RÁP" : s === "MEDIA" ? "MED" : "LEN"))
       .join("+");
-    badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.join(", ").toLowerCase()}">🔌 ${label}</span>`;
+    badge = `<span class="sig-assigned-badge" title="Asignado a toque ${speeds.join(", ").toLowerCase()}">🔌 ${label}</span>`;
   }
 
   const steps = countSteps(entry.steps);
@@ -708,7 +719,7 @@ function makeSignalCard(sig, entry) {
     state.dragSrcWorkflow = sig;
     div.classList.add("dragging");
     document.getElementById("signal-list")?.classList.add("is-dragging");
-    e.dataTransfer.effectAllowed = "move";
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
   });
   div.addEventListener("dragend", () => {
     div.classList.remove("dragging");
@@ -721,7 +732,7 @@ function makeSignalCard(sig, entry) {
   return div;
 }
 
-function countSteps(steps) {
+function countSteps(steps: Step[] | undefined): number {
   if (!steps) return 0;
   let count = steps.length;
   steps.forEach((s) => {
@@ -731,8 +742,8 @@ function countSteps(steps) {
 }
 
 // Update only the meta row of a card without re-rendering the whole list
-export function updateCardMeta(sig, entry) {
-  const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`);
+export function updateCardMeta(sig: string, entry: SignalEntry) {
+  const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`) as HTMLElement | null;
   if (!card) return;
 
   const steps = countSteps(entry.steps);
@@ -747,9 +758,9 @@ export function updateCardMeta(sig, entry) {
   }
 
   // Update app badge in the top row
-  const top = card.querySelector(".sig-card-top");
+  const top = card.querySelector(".sig-card-top") as HTMLElement | null;
   if (top) {
-    let appBadge = top.querySelector(".sig-app-badge");
+    let appBadge = top.querySelector(".sig-app-badge") as HTMLElement | null;
     if (appName) {
       if (!appBadge) {
         appBadge = document.createElement("span");
@@ -766,7 +777,7 @@ export function updateCardMeta(sig, entry) {
 
 // ── Global Variables — Type System ──
 
-const GV_TYPES = {
+const GV_TYPES: Record<string, { label: string, cls: string }> = {
   string: { label: "str",   cls: "gvt-string" },
   int:    { label: "int",   cls: "gvt-int"    },
   float:  { label: "float", cls: "gvt-float"  },
@@ -775,7 +786,7 @@ const GV_TYPES = {
   json:   { label: "json",  cls: "gvt-json"   },
 };
 
-function inferType(val) {
+function inferType(val: any): string {
   if (typeof val === "boolean") return "bool";
   if (Array.isArray(val)) return "list";
   if (val !== null && typeof val === "object") return "json";
@@ -790,7 +801,7 @@ function inferType(val) {
   return "string";
 }
 
-function coerceToType(raw, type) {
+function coerceToType(raw: any, type: string): any {
   const s = String(raw).trim();
   switch (type) {
     case "int":   { const n = parseInt(s, 10);   return isNaN(n) ? 0 : n; }
@@ -808,15 +819,9 @@ function coerceToType(raw, type) {
   }
 }
 
-function valueForEdit(val) {
+function valueForEdit(val: any): string {
   if (Array.isArray(val) || (val !== null && typeof val === "object")) return JSON.stringify(val);
   return String(val ?? "");
-}
-
-function makeTypeOptions(selected) {
-  return Object.entries(GV_TYPES)
-    .map(([t, m]) => `<option value="${t}"${t === selected ? " selected" : ""}>${m.label}</option>`)
-    .join("");
 }
 
 // ── Global Variables Panel ──
@@ -826,9 +831,9 @@ export function openGlobalVarsModal() {
   if (!modal) return;
   modal.classList.remove("d-none");
 
-  const nameInp = document.getElementById("gv-new-name");
-  const valInp  = document.getElementById("gv-new-value");
-  const typeSel = document.getElementById("gv-new-type");
+  const nameInp = document.getElementById("gv-new-name") as HTMLInputElement;
+  const valInp  = document.getElementById("gv-new-value") as HTMLInputElement;
+  const typeSel = document.getElementById("gv-new-type") as HTMLSelectElement | null;
   nameInp.value = "";
   valInp.value  = "";
   if (typeSel) typeSel.value = "string";
@@ -838,8 +843,10 @@ export function openGlobalVarsModal() {
     valInp.oninput = () => { typeSel.value = inferType(valInp.value); };
   }
 
-  document.getElementById("btn-gv-close").onclick = () => modal.classList.add("d-none");
-  document.getElementById("btn-gv-add").onclick = () => addGlobalVar();
+  const closeBtn = document.getElementById("btn-gv-close");
+  if (closeBtn) closeBtn.onclick = () => modal.classList.add("d-none");
+  const addBtn = document.getElementById("btn-gv-add");
+  if (addBtn) addBtn.onclick = () => addGlobalVar();
 
   nameInp.onkeydown = valInp.onkeydown = (e) => {
     if (e.key === "Enter") addGlobalVar();
@@ -848,9 +855,9 @@ export function openGlobalVarsModal() {
 }
 
 function addGlobalVar() {
-  const nameInp = document.getElementById("gv-new-name");
-  const valInp  = document.getElementById("gv-new-value");
-  const typeSel = document.getElementById("gv-new-type");
+  const nameInp = document.getElementById("gv-new-name") as HTMLInputElement;
+  const valInp  = document.getElementById("gv-new-value") as HTMLInputElement;
+  const typeSel = document.getElementById("gv-new-type") as HTMLSelectElement | null;
   const name = nameInp.value.trim().replace(/\s+/g, "_");
   if (!name) { nameInp.focus(); return; }
 
@@ -900,9 +907,9 @@ export function renderGlobalVarsSection() {
         <button class="btn-icon gv-del sb-gv-del" title="Eliminar">✕</button>
       </div>`;
 
-    row.querySelector(".sb-gv-edit").addEventListener("click", () => openGvEditModal(name, value));
+    row.querySelector(".sb-gv-edit")?.addEventListener("click", () => openGvEditModal(name, value));
 
-    row.querySelector(".sb-gv-del").addEventListener("click", () => {
+    row.querySelector(".sb-gv-del")?.addEventListener("click", () => {
       delete state.globalVariables[name];
       saveSignals();
       renderGlobalVarsSection();
@@ -912,13 +919,13 @@ export function renderGlobalVarsSection() {
   });
 }
 
-function openGvEditModal(oldName, oldValue) {
+function openGvEditModal(oldName: string, oldValue: any) {
   const modal = document.getElementById("gv-edit-modal");
   if (!modal) return;
 
-  const nameInp = document.getElementById("gv-edit-name");
-  const valInp  = document.getElementById("gv-edit-value");
-  const typeSel = document.getElementById("gv-edit-type");
+  const nameInp = document.getElementById("gv-edit-name") as HTMLInputElement;
+  const valInp  = document.getElementById("gv-edit-value") as HTMLInputElement;
+  const typeSel = document.getElementById("gv-edit-type") as HTMLSelectElement;
 
   nameInp.value = oldName;
   valInp.value  = valueForEdit(oldValue);
@@ -940,15 +947,17 @@ function openGvEditModal(oldName, oldValue) {
     close();
   };
 
-  document.getElementById("btn-gv-edit-save").onclick = save;
-  document.getElementById("btn-gv-edit-cancel").onclick = close;
+  const saveBtn = document.getElementById("btn-gv-edit-save");
+  if (saveBtn) saveBtn.onclick = save;
+  const cancelBtn = document.getElementById("btn-gv-edit-cancel");
+  if (cancelBtn) cancelBtn.onclick = close;
   nameInp.onkeydown = valInp.onkeydown = (e) => {
     if (e.key === "Enter") save();
     if (e.key === "Escape") close();
   };
 }
 
-window.openGlobalVarsModal = openGlobalVarsModal;
+(window as any).openGlobalVarsModal = openGlobalVarsModal;
 
 export function addFolder() {
   showPrompt("Nombre de la nueva carpeta", "", (name) => {
@@ -964,9 +973,9 @@ export function addFolder() {
     renderSignalList();
   });
 }
-window.addFolder = addFolder;
+(window as any).addFolder = addFolder;
 
-function toggleFolder(id) {
+function toggleFolder(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (folder) {
     folder.expanded = !folder.expanded;
@@ -975,7 +984,7 @@ function toggleFolder(id) {
   }
 }
 
-function showFolderContextMenu(e, id) {
+function showFolderContextMenu(e: MouseEvent, id: string) {
   e.preventDefault();
   e.stopPropagation();
   closeContextMenu();
@@ -989,7 +998,7 @@ function showFolderContextMenu(e, id) {
     { label: "Copiar JSON", ico: "📋", action: () => copyFolderToClipboard(id) },
     { label: "Exportar archivo", ico: "📦", action: () => exportFolder(id) },
     { type: "divider" },
-    { label: "Color", ico: "🎨", type: "colorPicker", current: folder?.color, action: (color) => setFolderColor(id, color) },
+    { label: "Color", ico: "🎨", type: "colorPicker", current: folder?.color, action: (color: string | null) => setFolderColor(id, color) },
     { type: "divider" },
     { label: "Renombrar", ico: "✏️", action: () => renameFolder(id) },
     { type: "divider" },
@@ -1004,7 +1013,7 @@ function showFolderContextMenu(e, id) {
   activeContextMenu = menu;
 }
 
-function renameFolder(id) {
+function renameFolder(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
@@ -1016,7 +1025,7 @@ function renameFolder(id) {
   });
 }
 
-function deleteFolder(id) {
+function deleteFolder(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
@@ -1030,7 +1039,7 @@ function deleteFolder(id) {
   showToast("Carpeta eliminada", "Los workflows se movieron a la raíz");
 }
 
-function deleteFolderWithContents(id) {
+function deleteFolderWithContents(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
@@ -1047,7 +1056,7 @@ function deleteFolderWithContents(id) {
   folderKeys.forEach(k => delete state.signals[k]);
   state.folders = state.folders.filter(f => f.id !== id);
 
-  if (folderKeys.includes(state.selectedSig)) {
+  if (state.selectedSig && folderKeys.includes(state.selectedSig)) {
     state.selectedSig = null;
     document.getElementById("se-empty")?.classList.remove("d-none");
     document.getElementById("se-content")?.classList.add("d-none");
@@ -1058,7 +1067,7 @@ function deleteFolderWithContents(id) {
   showToast("Carpeta eliminada", `Se eliminaron ${folderKeys.length} workflow(s)`);
 }
 
-function cloneFolder(id) {
+function cloneFolder(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
@@ -1072,7 +1081,7 @@ function cloneFolder(id) {
     i++;
   }
 
-  const newFolder = { id: newFolderId, name: newName, expanded: true };
+  const newFolder = { id: newFolderId, name: newName, expanded: true, color: folder.color };
   const folderIdx = state.folders.findIndex(f => f.id === id);
   state.folders.splice(folderIdx + 1, 0, newFolder);
 
@@ -1102,7 +1111,7 @@ function cloneFolder(id) {
   if (insertAfterKey) {
     const allKeys = Object.keys(state.signals);
     const insertIdx = allKeys.indexOf(insertAfterKey) + 1;
-    const newSignals = {};
+    const newSignals: any = {};
     allKeys.forEach((k, idx) => {
       newSignals[k] = state.signals[k];
       if (idx === insertIdx - 1) {
@@ -1119,11 +1128,11 @@ function cloneFolder(id) {
   showToast("Carpeta clonada", `"${newName}" creada con ${clonedKeys.length} workflow(s)`);
 }
 
-async function copyFolderToClipboard(id) {
+async function copyFolderToClipboard(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
-  const workflows = {};
+  const workflows: any = {};
   Object.entries(state.signals).forEach(([k, v]) => {
     if (v.folderId === id) workflows[k] = v;
   });
@@ -1141,11 +1150,11 @@ async function copyFolderToClipboard(id) {
   }
 }
 
-async function exportFolder(id) {
+async function exportFolder(id: string) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
 
-  const workflows = {};
+  const workflows: any = {};
   Object.entries(state.signals).forEach(([k, v]) => {
     if (v.folderId === id) workflows[k] = v;
   });
@@ -1158,7 +1167,7 @@ async function exportFolder(id) {
   }
 }
 
-function setSignalColor(sig, color) {
+function setSignalColor(sig: string, color: string | null) {
   const signal = state.signals[sig];
   if (!signal) return;
   if (color) {
@@ -1171,7 +1180,7 @@ function setSignalColor(sig, color) {
   renderSignalList();
 }
 
-function setFolderColor(id, color) {
+function setFolderColor(id: string, color: string | null) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
   folder.color = color;
@@ -1179,21 +1188,12 @@ function setFolderColor(id, color) {
   renderSignalList();
 }
 
-function moveWorkflowToFolder(sigName, folderId) {
-  const sig = state.signals[sigName];
-  if (sig) {
-    sig.folderId = folderId;
-    saveSignals();
-    renderSignalList();
-  }
-}
-
-export function changeSort(criteria) {
-  state.config.workflowSort = criteria;
+export function changeSort(criteria: string) {
+  state.config.workflowSort = criteria as any;
   saveSignals(); // Also saves config
   renderSignalList();
 }
-window.changeSort = changeSort;
+(window as any).changeSort = changeSort;
 
 export function addSignal() {
   showPrompt("Nuevo Workflow", "", (raw) => {
@@ -1214,19 +1214,20 @@ export function addSignal() {
       folderId: null,
       createdAt: Date.now(),
       runCount: 0,
+      assignedApp: null,
     };
     saveSignals();
     renderSignalList();
     selectSignal(sig);
     setTimeout(() => {
-      document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`);
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 50);
   });
 }
-window.addSignal = addSignal;
+(window as any).addSignal = addSignal;
 
-export function renameSignal(oldName) {
+export function renameSignal(oldName: string) {
   const originalData = state.signals[oldName];
   if (!originalData) return;
 
@@ -1249,7 +1250,7 @@ export function renameSignal(oldName) {
 
     pushUndo();
 
-    const newSignals = {};
+    const newSignals: any = {};
     Object.keys(state.signals).forEach((key) => {
       if (key === oldName) {
         newSignals[newName] = originalData;
@@ -1271,9 +1272,9 @@ export function renameSignal(oldName) {
     showToast("Renombrado", `"${oldName}" ahora se llama "${newName}"`);
   });
 }
-window.renameSignal = renameSignal;
+(window as any).renameSignal = renameSignal;
 
-export function duplicateSignal(sig) {
+export function duplicateSignal(sig: string) {
   const original = state.signals[sig];
   if (!original) return;
 
@@ -1296,9 +1297,9 @@ export function duplicateSignal(sig) {
   renderSignalList();
   showToast("Duplicado", `Workflow "${sig}" duplicado como "${newName}"`);
 }
-window.duplicateSignal = duplicateSignal;
+(window as any).duplicateSignal = duplicateSignal;
 
-export async function copySignalToClipboard(sig) {
+export async function copySignalToClipboard(sig: string) {
   const data = state.signals[sig];
   if (!data) return;
 
@@ -1314,9 +1315,9 @@ export async function copySignalToClipboard(sig) {
     showToast("Error", "No se pudo copiar al portapapeles");
   }
 }
-window.copySignalToClipboard = copySignalToClipboard;
+(window as any).copySignalToClipboard = copySignalToClipboard;
 
-export async function exportSingleWorkflow(sig) {
+export async function exportSingleWorkflow(sig: string) {
   const data = state.signals[sig];
   if (!data) return;
 
@@ -1327,9 +1328,9 @@ export async function exportSingleWorkflow(sig) {
     showToast("Error", `No se pudo exportar: ${result.error}`);
   }
 }
-window.exportSingleWorkflow = exportSingleWorkflow;
+(window as any).exportSingleWorkflow = exportSingleWorkflow;
 
-export async function importWorkflow(e) {
+export async function importWorkflow(e: MouseEvent) {
   // Present a choice menu at the click position
   closeContextMenu();
 
@@ -1352,7 +1353,7 @@ export async function importWorkflow(e) {
     menu.appendChild(item);
   });
 
-  menu.onclick = (e) => e.stopPropagation();
+  menu.onclick = (ev) => ev.stopPropagation();
   document.body.appendChild(menu);
 
   // Position near the event (if available) or center
@@ -1364,7 +1365,7 @@ export async function importWorkflow(e) {
   menu.style.top = `${y}px`;
   activeContextMenu = menu;
 }
-window.importWorkflow = importWorkflow;
+(window as any).importWorkflow = importWorkflow;
 
 async function importFromFile() {
   const result = await window.arduino.importSingleWorkflow();
@@ -1396,7 +1397,7 @@ async function importFromClipboard() {
   }
 }
 
-function addImportedWorkflow(name, data) {
+function addImportedWorkflow(name: string, data: any) {
   let finalName = name.toUpperCase().replace(/\s+/g, "_");
   if (state.signals[finalName]) {
     let i = 1;
@@ -1406,7 +1407,7 @@ function addImportedWorkflow(name, data) {
 
   pushUndo();
   state.signals[finalName] = data;
-  state.signals[finalName].assignedToButton = false;
+  state.signals[finalName].assignedToButton = [];
   saveSignals();
   renderSignalList();
   selectSignal(finalName);
@@ -1425,31 +1426,31 @@ export function deleteCurrentSignal() {
       state.selectedSig = null;
       saveSignals();
       renderSignalList();
-      document.getElementById("se-empty").classList.remove("d-none");
-      document.getElementById("se-content").classList.add("d-none");
+      const empty = document.getElementById("se-empty");
+      const content = document.getElementById("se-content");
+      if (empty) empty.classList.remove("d-none");
+      if (content) content.classList.add("d-none");
       showToast("Eliminado", `Workflow "${sigName}" eliminado.`);
     },
     "Eliminar"
   );
 }
-window.deleteCurrentSignal = deleteCurrentSignal;
+(window as any).deleteCurrentSignal = deleteCurrentSignal;
 
-export function updateSignalLabel(val) {
+export function updateSignalLabel(val: string) {
   if (!state.selectedSig) return;
   state.signals[state.selectedSig].label = val;
   saveSignals();
-  const card = document.querySelector(
-    `.sig-card[data-sig="${CSS.escape(state.selectedSig)}"]`,
-  );
+  const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(state.selectedSig)}"]`);
   if (card) {
     const lbl = card.querySelector(".sig-label");
     if (lbl) lbl.textContent = val;
   }
 }
-window.updateSignalLabel = updateSignalLabel;
+(window as any).updateSignalLabel = updateSignalLabel;
 
 let isRefreshingApps = false;
-export async function refreshRunningApps() {
+export async function refreshRunningApps(): Promise<string[]> {
   if (isRefreshingApps) return state.runningApps;
   isRefreshingApps = true;
   try {
@@ -1463,27 +1464,33 @@ export async function refreshRunningApps() {
     isRefreshingApps = false;
   }
 }
-window.refreshRunningApps = refreshRunningApps;
+(window as any).refreshRunningApps = refreshRunningApps;
 
-export function selectSignal(sig) {
+export function selectSignal(sig: string) {
   state.selectedSig = sig;
   document
     .querySelectorAll(".sig-card")
-    .forEach((c) => c.classList.toggle("active", c.dataset.sig === sig));
-  document.getElementById("se-empty").classList.add("d-none");
-  document.getElementById("se-content").classList.remove("d-none");
-  document.getElementById("se-signal-tag").textContent = sig;
-  document.getElementById("se-label-input").value =
-    state.signals[sig]?.label || "";
+    .forEach((c) => {
+      const card = c as HTMLElement;
+      card.classList.toggle("active", card.dataset.sig === sig);
+    });
+  const empty = document.getElementById("se-empty");
+  const content = document.getElementById("se-content");
+  if (empty) empty.classList.add("d-none");
+  if (content) content.classList.remove("d-none");
+  const tag = document.getElementById("se-signal-tag");
+  if (tag) tag.textContent = sig;
+  const labelInput = document.getElementById("se-label-input") as HTMLInputElement | null;
+  if (labelInput) labelInput.value = state.signals[sig]?.label || "";
   updateAssignButtonUI();
   renderFlow();
 
   // Background refresh of apps list when selecting a workflow
   refreshRunningApps();
 }
-window.selectSignal = selectSignal;
+(window as any).selectSignal = selectSignal;
 
-export function toggleAssignMenu(e) {
+export function toggleAssignMenu(e: MouseEvent) {
   if (e) e.stopPropagation();
   const dropdown = document.getElementById("assign-dropdown");
   if (!dropdown) return;
@@ -1491,12 +1498,13 @@ export function toggleAssignMenu(e) {
 
   document.getElementById("step-menu")?.classList.remove("open");
 }
-window.toggleAssignMenu = toggleAssignMenu;
+(window as any).toggleAssignMenu = toggleAssignMenu;
 
 export function initAssignDropdown() {
   document
     .querySelectorAll("#assign-dropdown .dropdown-item")
-    .forEach((item) => {
+    .forEach((itemEl) => {
+      const item = itemEl as HTMLElement;
       if (item.id === "item-assign-app") {
         item.onclick = (e) => {
           e.stopPropagation();
@@ -1505,7 +1513,7 @@ export function initAssignDropdown() {
       } else {
         item.onclick = (e) => {
           e.stopPropagation();
-          assignSpeed(item.dataset.speed);
+          if (item.dataset.speed) assignSpeed(item.dataset.speed);
         };
       }
     });
@@ -1517,17 +1525,17 @@ export async function assignApp() {
   const sig = state.signals[sigName];
   const modal = document.getElementById("app-assign-modal");
   const list = document.getElementById("assign-apps-list");
-  const searchInp = document.getElementById("assign-app-search");
+  const searchInp = document.getElementById("assign-app-search") as HTMLInputElement | null;
   const tabRunning = document.getElementById("tab-assign-running");
   const tabInstalled = document.getElementById("tab-assign-installed");
   const titleLbl = document.getElementById("assign-app-list-title");
-  if (!modal || !list) return;
+  if (!modal || !list || !searchInp) return;
 
   let currentTab = "running";
-  let installedApps = [];
+  let installedApps: any[] = [];
   let filterText = "";
 
-  const save = (appName) => {
+  const save = (appName: string | null) => {
     pushUndo();
     sig.assignedApp = appName || null;
     saveSignals();
@@ -1545,7 +1553,7 @@ export async function assignApp() {
       return !q || name.toLowerCase().includes(q);
     });
 
-    titleLbl.textContent = currentTab === "running" ? "Apps abiertas actualmente" : "Aplicaciones instaladas";
+    if (titleLbl) titleLbl.textContent = currentTab === "running" ? "Apps abiertas actualmente" : "Aplicaciones instaladas";
     list.innerHTML = "";
 
     if (filtered.length === 0) {
@@ -1577,42 +1585,52 @@ export async function assignApp() {
   searchInp.value = "";
   filterText = "";
   currentTab = "running";
-  tabRunning.classList.add("active");
-  tabInstalled.classList.remove("active");
+  tabRunning?.classList.add("active");
+  tabInstalled?.classList.remove("active");
   modal.classList.remove("d-none");
   setTimeout(() => searchInp.focus(), 50);
 
   // Wire events
-  searchInp.oninput = (e) => { filterText = e.target.value; renderList(); };
+  searchInp.oninput = (e: any) => { filterText = e.target.value; renderList(); };
 
-  tabRunning.onclick = () => {
-    currentTab = "running";
-    tabRunning.classList.add("active");
-    tabInstalled.classList.remove("active");
-    renderList();
-  };
+  if (tabRunning) {
+    tabRunning.onclick = () => {
+      currentTab = "running";
+      tabRunning.classList.add("active");
+      tabInstalled?.classList.remove("active");
+      renderList();
+    };
+  }
 
-  tabInstalled.onclick = async () => {
-    currentTab = "installed";
-    tabInstalled.classList.add("active");
-    tabRunning.classList.remove("active");
-    if (installedApps.length === 0) await refresh();
-    else renderList();
-  };
+  if (tabInstalled) {
+    tabInstalled.onclick = async () => {
+      currentTab = "installed";
+      tabInstalled.classList.add("active");
+      tabRunning?.classList.remove("active");
+      if (installedApps.length === 0) await refresh();
+      else renderList();
+    };
+  }
 
-  document.getElementById("btn-refresh-assign-apps").onclick = refresh;
+  const refreshBtn = document.getElementById("btn-refresh-assign-apps");
+  if (refreshBtn) refreshBtn.onclick = refresh;
 
-  document.getElementById("btn-clear-app-assign").onclick = () => save(null);
+  const clearBtn = document.getElementById("btn-clear-app-assign");
+  if (clearBtn) clearBtn.onclick = () => save(null);
 
-  document.getElementById("btn-cancel-app-assign").onclick = () => modal.classList.add("d-none");
+  const cancelBtn = document.getElementById("btn-cancel-app-assign");
+  if (cancelBtn) cancelBtn.onclick = () => modal.classList.add("d-none");
 
-  document.getElementById("btn-browse-app-exe").onclick = async () => {
-    const filePath = await window.arduino.selectFile();
-    if (filePath) {
-      const fileName = filePath.split(/[\\/]/).pop();
-      save(fileName);
-    }
-  };
+  const browseBtn = document.getElementById("btn-browse-app-exe");
+  if (browseBtn) {
+    browseBtn.onclick = async () => {
+      const filePath = await window.arduino.selectFile();
+      if (filePath) {
+        const fileName = filePath.split(/[\\/]/).pop();
+        if (fileName) save(fileName);
+      }
+    };
+  }
 
   // Initial load
   if (!state.runningApps || state.runningApps.length === 0) {
@@ -1621,22 +1639,22 @@ export async function assignApp() {
     renderList();
   }
 }
-window.assignApp = assignApp;
+(window as any).assignApp = assignApp;
 
-export async function openStepAppSelector(stepPath) {
+export async function openStepAppSelector(stepPath: number[]) {
   const modal = document.getElementById("step-app-selector-modal");
   const runningList = document.getElementById("step-running-apps-list");
   const closeBtn = document.getElementById("btn-close-step-app-selector");
   const refreshBtn = document.getElementById("btn-refresh-step-apps");
-  const searchInp = document.getElementById("step-app-search");
+  const searchInp = document.getElementById("step-app-search") as HTMLInputElement | null;
   const tabRunning = document.getElementById("tab-step-running");
   const tabInstalled = document.getElementById("tab-step-installed");
   const titleLbl = document.getElementById("step-app-list-title");
 
-  if (!modal || !runningList) return;
+  if (!modal || !runningList || !searchInp) return;
 
   let currentTab = "running"; // "running" | "installed"
-  let installedApps = [];
+  let installedApps: any[] = [];
   let filterText = "";
 
   modal.classList.remove("d-none");
@@ -1645,9 +1663,9 @@ export async function openStepAppSelector(stepPath) {
 
   const updateUI = () => {
     const apps = currentTab === "running" ? (state.runningApps || []) : installedApps;
-    const filtered = apps.filter(a => a.name.toLowerCase().includes(filterText.toLowerCase()));
+    const filtered = apps.filter((a: any) => a.name.toLowerCase().includes(filterText.toLowerCase()));
     
-    titleLbl.textContent = currentTab === "running" 
+    if (titleLbl) titleLbl.textContent = currentTab === "running" 
       ? "Apps abiertas actualmente" 
       : "Aplicaciones instaladas";
     
@@ -1664,31 +1682,35 @@ export async function openStepAppSelector(stepPath) {
     updateUI();
   };
 
-  tabRunning.onclick = () => {
-    currentTab = "running";
-    tabRunning.classList.add("active");
-    tabInstalled.classList.remove("active");
-    updateUI();
-  };
-
-  tabInstalled.onclick = async () => {
-    currentTab = "installed";
-    tabInstalled.classList.add("active");
-    tabRunning.classList.remove("active");
-    if (installedApps.length === 0) {
-      await refresh();
-    } else {
+  if (tabRunning) {
+    tabRunning.onclick = () => {
+      currentTab = "running";
+      tabRunning.classList.add("active");
+      tabInstalled?.classList.remove("active");
       updateUI();
-    }
-  };
+    };
+  }
 
-  searchInp.oninput = (e) => {
+  if (tabInstalled) {
+    tabInstalled.onclick = async () => {
+      currentTab = "installed";
+      tabInstalled.classList.add("active");
+      tabRunning?.classList.remove("active");
+      if (installedApps.length === 0) {
+        await refresh();
+      } else {
+        updateUI();
+      }
+    };
+  }
+
+  searchInp.oninput = (e: any) => {
     filterText = e.target.value;
     updateUI();
   };
 
-  closeBtn.onclick = () => modal.classList.add("d-none");
-  refreshBtn.onclick = refresh;
+  if (closeBtn) closeBtn.onclick = () => modal.classList.add("d-none");
+  if (refreshBtn) refreshBtn.onclick = refresh;
 
   // Initial load
   if (currentTab === "running" && (!state.runningApps || state.runningApps.length === 0)) {
@@ -1698,7 +1720,7 @@ export async function openStepAppSelector(stepPath) {
   }
 }
 
-function renderStepAppList(apps, stepPath) {
+function renderStepAppList(apps: any[], stepPath: number[]) {
   const runningList = document.getElementById("step-running-apps-list");
   const modal = document.getElementById("step-app-selector-modal");
   if (!runningList) return;
@@ -1726,20 +1748,20 @@ function renderStepAppList(apps, stepPath) {
         saveSignals();
         renderFlow();
       }
-      modal.classList.add("d-none");
+      if (modal) modal.classList.add("d-none");
       showToast("App seleccionada", `Se vinculó ${app.name}`);
     };
     runningList.appendChild(item);
   });
 }
 
-export function assignSpeed(speed) {
+export function assignSpeed(speed: string) {
   if (!speed || !state.selectedSig) return;
 
   const currentSig = state.signals[state.selectedSig];
-  let speeds = Array.isArray(currentSig.assignedToButton)
-    ? [...currentSig.assignedToButton]
-    : currentSig.assignedToButton ? [currentSig.assignedToButton] : [];
+  let speeds: string[] = Array.isArray(currentSig.assignedToButton)
+    ? [...(currentSig.assignedToButton as string[])]
+    : currentSig.assignedToButton ? [currentSig.assignedToButton as string] : [];
 
   if (speeds.includes(speed)) {
     // Removing — no conflict possible
@@ -1755,9 +1777,10 @@ export function assignSpeed(speed) {
   const currentApp = currentSig.assignedApp ?? null;
   const conflicts = Object.entries(state.signals).filter(([key, sig]) => {
     if (key === state.selectedSig) return false;
-    const sigSpeeds = Array.isArray(sig.assignedToButton)
-      ? sig.assignedToButton
-      : sig.assignedToButton ? [sig.assignedToButton] : [];
+    const assigned = sig.assignedToButton;
+    const sigSpeeds = Array.isArray(assigned)
+      ? assigned
+      : assigned ? [assigned as string] : [];
     if (!sigSpeeds.includes(speed)) return false;
     return (sig.assignedApp ?? null) === currentApp;
   });
@@ -1766,7 +1789,7 @@ export function assignSpeed(speed) {
     pushUndo();
     // Remove this speed from all conflicting workflows
     conflicts.forEach(([key, sig]) => {
-      sig.assignedToButton = (Array.isArray(sig.assignedToButton) ? sig.assignedToButton : [sig.assignedToButton])
+      sig.assignedToButton = (Array.isArray(sig.assignedToButton) ? sig.assignedToButton : [sig.assignedToButton as string])
         .filter((s) => s !== speed);
     });
     speeds.push(speed);
@@ -1801,7 +1824,7 @@ export function updateAssignButtonUI() {
   const speeds = Array.isArray(assigned)
     ? assigned
     : assigned
-      ? [assigned]
+      ? [assigned as string]
       : [];
 
   const app = sig.assignedApp;
@@ -1829,7 +1852,8 @@ export function updateAssignButtonUI() {
 
   document
     .querySelectorAll("#assign-dropdown .dropdown-item")
-    .forEach((item) => {
+    .forEach((itemEl) => {
+      const item = itemEl as HTMLElement;
       if (item.dataset.speed) {
         item.classList.toggle("active", speeds.includes(item.dataset.speed));
       } else if (item.id === "item-assign-app") {
@@ -1851,13 +1875,13 @@ export function renderFlow(container?: HTMLElement | null, steps?: Step[], path:
   // Initial insertion bar
   fc.appendChild(makeInsertionBar(path, 0));
 
-  if (!steps.length) {
+  if (!steps!.length) {
     const empty = document.createElement("div");
     empty.className = "flow-empty";
     empty.innerHTML = `<span class="flow-empty-icon">⋯</span><span>Sin pasos — agregá uno arriba</span>`;
     fc.appendChild(empty);
   } else {
-    steps.forEach((step, i) => {
+    steps!.forEach((step, i) => {
       const currentPath = [...path, i];
       fc.appendChild(makeStepCard(step, i, currentPath));
 
@@ -1868,18 +1892,18 @@ export function renderFlow(container?: HTMLElement | null, steps?: Step[], path:
 
   if (isRoot) {
     // Post-render script initialization
-    const findScripts = (arr, p) => {
+    const findScripts = (arr: Step[], p: number[]) => {
       arr.forEach((s, idx) => {
         const cp = [...p, idx];
         if (s.type === "run_script") handleScriptInput(cp);
         if (s.params?.steps) findScripts(s.params.steps, cp);
       });
     };
-    findScripts(steps, []);
+    findScripts(steps!, []);
   }
 }
 
-function makeInsertionBar(parentPath, index) {
+function makeInsertionBar(parentPath: number[], index: number) {
   const bar = document.createElement("div");
   bar.className = "step-insertion-bar";
 
@@ -1934,7 +1958,7 @@ function makeInsertionBar(parentPath, index) {
     bar.classList.add("drag-over");
   });
 
-  bar.addEventListener("dragleave", (e) => {
+  bar.addEventListener("dragleave", () => {
     bar.classList.remove("drag-over");
   });
 
@@ -1953,7 +1977,7 @@ function makeInsertionBar(parentPath, index) {
   return bar;
 }
 
-function toggleStepMenuAt(x, y) {
+function toggleStepMenuAt(x: number, y: number) {
   const menu = document.getElementById("step-menu");
   if (!menu) return;
   menu.style.display = "block";
@@ -1966,11 +1990,12 @@ function toggleStepMenuAt(x, y) {
   if (menu._searchInput) {
     menu._searchInput.value = "";
     menu._searchInput.dispatchEvent(new Event("input"));
-    setTimeout(() => menu._searchInput.focus(), 50);
+    const input = menu._searchInput;
+    setTimeout(() => input.focus(), 50);
   }
 }
 
-function getStepSummary(step) {
+function getStepSummary(step: Step) {
   const p = step.params || {};
   switch (step.type) {
     case "keypress": return p.combo || "–";
@@ -1982,7 +2007,7 @@ function getStepSummary(step) {
     case "open_app": return p.appDisplayName || (p.path ? p.path.split(/[\\/]/).pop() : "–");
     case "notify": return [p.title, p.body].filter(Boolean).join(" · ").slice(0, 36) || "–";
     case "run_script": {
-      const lines = (p.code || "").split("\n").filter(l => l.trim()).length;
+      const lines = (p.code || "").split("\n").filter((l: string) => l.trim()).length;
       return `${p.lang || "python"} · ${lines} línea${lines !== 1 ? "s" : ""}`;
     }
     case "loop":
@@ -2001,7 +2026,7 @@ function getStepSummary(step) {
   }
 }
 
-export function makeStepCard(step, idx, path) {
+export function makeStepCard(step: Step, idx: number, path: number[]) {
   const meta = STEP_TYPES[step.type] || STEP_TYPES.notify;
   const pathStr = JSON.stringify(path);
   const card = document.createElement("div");
@@ -2017,7 +2042,8 @@ export function makeStepCard(step, idx, path) {
   header.className = "step-header";
   header.style.cursor = "pointer";
   header.onclick = (e) => {
-    if (e.target.closest("button, select, .drag-handle")) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, select, .drag-handle")) return;
     toggleStepCollapse(path);
   };
 
@@ -2083,7 +2109,7 @@ export function makeStepCard(step, idx, path) {
 
     const render = () => {
       content.innerHTML = window.marked
-        ? marked.parse(
+        ? window.marked.parse(
             step.params?.text || "_Nota vacía (doble click para editar)_",
           )
         : step.params?.text || "";
@@ -2170,7 +2196,7 @@ export function makeStepCard(step, idx, path) {
     state.dragSrcPath = pathStr;
     card.classList.add("dragging");
     document.getElementById("flow-container")?.classList.add("is-dragging");
-    e.dataTransfer.effectAllowed = "move";
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
   });
   card.addEventListener("dragend", () => {
     card.classList.remove("dragging");
@@ -2184,11 +2210,11 @@ export function makeStepCard(step, idx, path) {
   return card;
 }
 
-function isPathEqual(p1, p2) {
+function isPathEqual(p1: number[], p2: number[]) {
   return JSON.stringify(p1) === JSON.stringify(p2);
 }
 
-function isPathParent(parent, child) {
+function isPathParent(parent: number[], child: number[]) {
   if (parent.length >= child.length) return false;
   for (let i = 0; i < parent.length; i++) {
     if (parent[i] !== child[i]) return false;
@@ -2196,7 +2222,7 @@ function isPathParent(parent, child) {
   return true;
 }
 
-function moveStep(srcPath, destPath) {
+function moveStep(srcPath: number[], destPath: number[]) {
   if (!srcPath || !destPath) return;
   if (isPathEqual(srcPath, destPath) || isPathParent(srcPath, destPath)) return;
 
@@ -2204,7 +2230,7 @@ function moveStep(srcPath, destPath) {
 
   // Clonar para operar de forma atómica y evitar que desaparezcan bloques
   const rootSteps = JSON.parse(
-    JSON.stringify(state.signals[state.selectedSig].steps),
+    JSON.stringify(state.signals[state.selectedSig!].steps),
   );
 
   // 1. Ajustar destPath si la eliminación del origen afecta los índices
@@ -2224,7 +2250,7 @@ function moveStep(srcPath, destPath) {
   }
 
   try {
-    const getAndRemove = (steps, p) => {
+    const getAndRemove = (steps: Step[], p: number[]): Step => {
       if (p.length === 1) return steps.splice(p[0], 1)[0];
       const target = steps[p[0]];
       if (!target || !target.params || !target.params.steps)
@@ -2232,7 +2258,7 @@ function moveStep(srcPath, destPath) {
       return getAndRemove(target.params.steps, p.slice(1));
     };
 
-    const insert = (steps, p, item) => {
+    const insert = (steps: Step[], p: number[], item: Step) => {
       if (p.length === 1) {
         steps.splice(p[0], 0, item);
         return;
@@ -2246,7 +2272,7 @@ function moveStep(srcPath, destPath) {
     const step = getAndRemove(rootSteps, srcPath);
     if (step) {
       insert(rootSteps, adjustedDest, step);
-      state.signals[state.selectedSig].steps = rootSteps;
+      state.signals[state.selectedSig!].steps = rootSteps;
     }
   } catch (err) {
     console.error("Error crítico al mover paso:", err);
@@ -2257,15 +2283,15 @@ function moveStep(srcPath, destPath) {
   renderFlow();
 }
 
-function discoverVariables(currentPath = null) {
-  const vars = new Set();
+function discoverVariables(currentPath: number[] | null = null) {
+  const vars = new Set<string>();
 
   // Add global variables
   Object.keys(state.globalVariables || {}).forEach(v => vars.add(v.trim()));
 
   if (!state.selectedSig) return Array.from(vars).sort();
 
-  const scan = (steps, pathPrefix = []) => {
+  const scan = (steps: Step[], pathPrefix: number[] = []) => {
     if (!steps || !Array.isArray(steps)) return;
     steps.forEach((s, i) => {
       if (!s) return;
@@ -2289,11 +2315,11 @@ function discoverVariables(currentPath = null) {
   return Array.from(vars).sort();
 }
 
-function buildStepParams(container, step, path) {
+function buildStepParams(container: HTMLElement, step: Step, path: number[]) {
   const p = step.params || {};
   const pathStr = JSON.stringify(path);
 
-  function makeRow(labelText) {
+  function makeRow(labelText: string) {
     const row = document.createElement("div");
     row.className = "param-row";
     const lbl = document.createElement("div");
@@ -2302,9 +2328,9 @@ function buildStepParams(container, step, path) {
     row.appendChild(lbl);
     return row;
   }
-  function resolveForPreview(val) {
+  function resolveForPreview(val: any) {
     if (typeof val !== "string" || !val.includes("$")) return null;
-    const vars = state.globalVariables || {};
+    const vars: any = state.globalVariables || {};
     if (/^\$[a-zA-Z0-9_]+$/.test(val)) {
       const name = val.substring(1);
       return name in vars ? String(vars[name] ?? "") : null;
@@ -2315,7 +2341,7 @@ function buildStepParams(container, step, path) {
     return result !== val ? result : null;
   }
 
-  function attachVarHint(inp) {
+  function attachVarHint(inp: HTMLInputElement) {
     const anchor = inp.closest(".param-input-row") || inp.parentElement;
     anchor?.parentElement?.querySelector(".param-var-hint")?.remove();
     const resolved = resolveForPreview(inp.value);
@@ -2327,7 +2353,7 @@ function buildStepParams(container, step, path) {
     anchor?.insertAdjacentElement("afterend", hint);
   }
 
-  function makeInput(type, value, placeholder, param) {
+  function makeInput(type: string, value: any, placeholder: string, param: string) {
     const inp = document.createElement("input");
     inp.type = type;
     inp.className = "param-input";
@@ -2339,7 +2365,7 @@ function buildStepParams(container, step, path) {
     inp.addEventListener("input", () => attachVarHint(inp));
     return inp;
   }
-  function makeSelect(options, current, param, cls = "") {
+  function makeSelect(options: any[], current: any, param: string, cls = "") {
     const sel = document.createElement("select");
     sel.className = "param-select " + cls;
     sel.dataset.path = pathStr;
@@ -2351,18 +2377,18 @@ function buildStepParams(container, step, path) {
       if (current === (o.v !== undefined ? o.v : o)) opt.selected = true;
       sel.appendChild(opt);
     });
-    sel.addEventListener("change", (e) =>
+    sel.addEventListener("change", (e: any) =>
       updateParam(path, param, e.target.value),
     );
     return sel;
   }
-  function makeHint(text) {
+  function makeHint(text: string) {
     const hint = document.createElement("div");
     hint.className = "param-hint";
     hint.textContent = text;
     return hint;
   }
-  function makeVarLink(param) {
+  function makeVarLink(param: string) {
     const btn = document.createElement("button");
     btn.className = "btn-var-link";
     btn.title = "Vincular a variable";
@@ -2471,7 +2497,7 @@ function buildStepParams(container, step, path) {
       const inp = makeInput("text", p.text || "", "Texto o $variable", "text");
       inp.className = "param-input flex-1";
       inp.title = p.text || "";
-      inp.addEventListener("input", (e) => { e.target.title = e.target.value; });
+      inp.addEventListener("input", (e: any) => { e.target.title = e.target.value; });
       wrap.appendChild(inp);
       wrap.appendChild(makeVarLink("text"));
       row.appendChild(wrap);
@@ -2503,7 +2529,7 @@ function buildStepParams(container, step, path) {
       );
       inp.className = "param-input flex-1";
       inp.title = p.url || "";
-      inp.addEventListener("input", (e) => { e.target.title = e.target.value; });
+      inp.addEventListener("input", (e: any) => { e.target.title = e.target.value; });
       wrap.appendChild(inp);
       wrap.appendChild(makeVarLink("url"));
       row.appendChild(wrap);
@@ -2517,7 +2543,7 @@ function buildStepParams(container, step, path) {
       const inp = makeInput("text", p.cmd || "", "Comando o $variable", "cmd");
       inp.className = "param-input flex-1";
       inp.title = p.cmd || "";
-      inp.addEventListener("input", (e) => { e.target.title = e.target.value; });
+      inp.addEventListener("input", (e: any) => { e.target.title = e.target.value; });
       wrap.appendChild(inp);
       wrap.appendChild(makeVarLink("cmd"));
       row.appendChild(wrap);
@@ -2551,14 +2577,13 @@ function buildStepParams(container, step, path) {
       warn.style.marginLeft = "4px";
       warn.style.cursor = "help";
 
-      const checkPath = async (val) => {
+      const checkPath = async (val: string) => {
         const cleanVal = (val || "").trim();
         if (!cleanVal || cleanVal.startsWith("$")) {
           warn.classList.add("d-none");
           return;
         }
         const exists = await window.arduino.fileExists(cleanVal);
-        console.log(`[checkPath] "${cleanVal}" exists: ${exists}`);
         warn.classList.toggle("d-none", !!exists);
       };
 
@@ -2571,7 +2596,7 @@ function buildStepParams(container, step, path) {
         };
         checkPath(p.path);
       } else {
-        inp.addEventListener("input", (e) => checkPath(e.target.value));
+        inp.addEventListener("input", (e: any) => checkPath(e.target.value));
         checkPath(p.path);
       }
 
@@ -2888,10 +2913,10 @@ function buildStepParams(container, step, path) {
   }
 }
 
-function getStepByPath(path) {
+function getStepByPath(path: number[]): Step | null {
   if (!state.selectedSig || !path || !path.length) return null;
   let steps = state.signals[state.selectedSig].steps;
-  let target = null;
+  let target: Step | null = null;
   for (let i = 0; i < path.length; i++) {
     target = steps[path[i]];
     if (i < path.length - 1) {
@@ -2903,7 +2928,7 @@ function getStepByPath(path) {
   return target;
 }
 
-export function updateParam(path, key, value) {
+export function updateParam(path: number[], key: string, value: any) {
   const step = getStepByPath(path);
   if (!step) return;
   if (!step.params) step.params = {};
@@ -2913,23 +2938,23 @@ export function updateParam(path, key, value) {
   // Re-render only if structural change or specific logic depends on it
   if (["type", "mode", "op", "path"].includes(key)) renderFlow();
 }
-window.updateParam = updateParam;
+(window as any).updateParam = updateParam;
 
-export function changeStepType(path, newType) {
+export function changeStepType(path: number[], newType: string) {
   const step = getStepByPath(path);
   if (!step) return;
   pushUndo();
-  step.type = newType;
+  step.type = newType as StepType;
   step.params = {};
   saveSignals();
   renderFlow();
 }
-window.changeStepType = changeStepType;
+(window as any).changeStepType = changeStepType;
 
-export function deleteStep(path) {
+export function deleteStep(path: number[]) {
   pushUndo();
-  const rootSteps = state.signals[state.selectedSig].steps;
-  const remove = (steps, p) => {
+  const rootSteps = state.signals[state.selectedSig!].steps;
+  const remove = (steps: Step[], p: number[]) => {
     if (p.length === 1) {
       steps.splice(p[0], 1);
       return;
@@ -2941,18 +2966,18 @@ export function deleteStep(path) {
   renderSignalList();
   renderFlow();
 }
-window.deleteStep = deleteStep;
+(window as any).deleteStep = deleteStep;
 
-export function toggleStepCollapse(path) {
+export function toggleStepCollapse(path: number[]) {
   const step = getStepByPath(path);
   if (!step) return;
   step.collapsed = !step.collapsed;
   saveSignals();
   renderFlow();
 }
-window.toggleStepCollapse = toggleStepCollapse;
+(window as any).toggleStepCollapse = toggleStepCollapse;
 
-export function addStep(type, containerPath = null, index = -1) {
+export function addStep(type: string, containerPath: number[] | null = null, index = -1) {
   if (!state.selectedSig) return;
   pushUndo();
 
@@ -2962,7 +2987,7 @@ export function addStep(type, containerPath = null, index = -1) {
   const availableVars = discoverVariables(contextPath);
   const firstVar = availableVars[0] || "";
 
-  const defaults = {
+  const defaults: Record<string, any> = {
     keypress: { combo: "" },
     wait: { ms: 500 },
     clipboard: { text: "" },
@@ -2986,13 +3011,13 @@ export function addStep(type, containerPath = null, index = -1) {
     screenshot: { filename: "" },
     screenshot_region: { filename: "" },
   };
-  const step = {
+  const step: Step = {
     id: uid(),
-    type,
+    type: type as StepType,
     params: JSON.parse(JSON.stringify(defaults[type] || {})),
   };
 
-  let targetSteps;
+  let targetSteps: Step[] | undefined;
   if (containerPath && containerPath.length > 0) {
     const container = getStepByPath(containerPath);
     if (container) {
@@ -3017,17 +3042,15 @@ export function addStep(type, containerPath = null, index = -1) {
   if (index === -1) {
     setTimeout(() => {
       const fc = document.getElementById("flow-container");
-      fc.scrollTop = fc.scrollHeight;
+      if (fc) fc.scrollTop = fc.scrollHeight;
     }, 50);
   }
 }
-window.addStep = addStep;
+(window as any).addStep = addStep;
 
 export function testCurrentSignal() {
   if (!state.selectedSig) return;
-  const card = document.querySelector(
-    `.sig-card[data-sig="${CSS.escape(state.selectedSig)}"]`,
-  );
+  const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(state.selectedSig)}"]`);
   if (card && card.classList.contains("running")) {
     showToast("En ejecución", "La secuencia ya se está ejecutando");
     return;
@@ -3038,14 +3061,14 @@ export function testCurrentSignal() {
     `${state.signals[state.selectedSig]?.steps?.length || 0} pasos`,
   );
 }
-window.testCurrentSignal = testCurrentSignal;
+(window as any).testCurrentSignal = testCurrentSignal;
 
-export function startKeyCapture(path) {
+export function startKeyCapture(path: number[]) {
   const pathStr = JSON.stringify(path);
   if (state.capturingPath !== null) {
     const prev = document.querySelector(
       `.param-input[data-path="${state.capturingPath}"][data-param="combo"]`,
-    );
+    ) as HTMLInputElement | null;
     if (prev) {
       prev.classList.remove("capturing");
       prev.readOnly = false;
@@ -3057,13 +3080,13 @@ export function startKeyCapture(path) {
   state.capturingPath = pathStr;
   const input = document.querySelector(
     `.param-input[data-path="${pathStr}"][data-param="combo"]`,
-  );
+  ) as HTMLInputElement | null;
   if (!input) return;
   input.classList.add("capturing");
   input.readOnly = true;
   input.value = "Presioná la combinación...";
   window.arduino.startKeyCapture();
-  const escHandler = (e) => {
+  const escHandler = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
     if (state.capturingPath !== pathStr) {
       document.removeEventListener("keydown", escHandler);
@@ -3079,9 +3102,9 @@ export function startKeyCapture(path) {
   };
   document.addEventListener("keydown", escHandler);
 }
-window.startKeyCapture = startKeyCapture;
+(window as any).startKeyCapture = startKeyCapture;
 
-export async function browseFile(path) {
+export async function browseFile(path: number[]) {
   const filePath = await window.arduino.selectFile();
   if (!filePath) return;
   const step = getStepByPath(path);
@@ -3095,13 +3118,13 @@ export async function browseFile(path) {
   saveSignals();
   renderFlow();
 }
-window.browseFile = browseFile;
+(window as any).browseFile = browseFile;
 
-export function startRegionSelection(path) {
+export function startRegionSelection(path: number[]) {
   state.selectingRegionPath = JSON.stringify(path);
   window.arduino.startRegionSelection();
 }
-window.startRegionSelection = startRegionSelection;
+(window as any).startRegionSelection = startRegionSelection;
 
 export function buildStepMenu() {
   const menu = document.getElementById("step-menu");
@@ -3132,7 +3155,7 @@ export function buildStepMenu() {
   const grid = document.createElement("div");
   grid.className = "step-menu-grid";
 
-  const allItems = [];
+  const allItems: any[] = [];
 
   sections.forEach((section) => {
     const col = document.createElement("div");
@@ -3145,7 +3168,7 @@ export function buildStepMenu() {
     col.appendChild(title);
 
     section.items.forEach((type) => {
-      const meta = STEP_TYPES[type];
+      const meta = STEP_TYPES[type as StepType];
       if (!meta) return;
 
       const item = document.createElement("div");
@@ -3199,15 +3222,16 @@ export function buildStepMenu() {
     const q = searchInput.value.trim().toLowerCase();
     let visibleCount = 0;
 
-    allItems.forEach(({ item, col, label, type }) => {
+    allItems.forEach(({ item, label, type }) => {
       const matches = !q || label.includes(q) || type.includes(q);
       item.style.display = matches ? "" : "none";
       if (matches) visibleCount++;
     });
 
     // Show/hide section titles based on visible children
-    grid.querySelectorAll(".step-menu-col").forEach(col => {
-      const hasVisible = [...col.querySelectorAll(".menu-item")].some(i => i.style.display !== "none");
+    grid.querySelectorAll(".step-menu-col").forEach(colEl => {
+      const col = colEl as HTMLElement;
+      const hasVisible = [...col.querySelectorAll(".menu-item")].some(i => (i as HTMLElement).style.display !== "none");
       col.style.display = hasVisible ? "" : "none";
     });
 
@@ -3236,15 +3260,17 @@ export function toggleStepMenu() {
   }
   state.insertionPoint = null;
   const menu = document.getElementById("step-menu");
+  if (!menu) return;
   const isOpening = !menu.classList.contains("open");
   menu.classList.toggle("open");
   if (isOpening && menu._searchInput) {
     menu._searchInput.value = "";
     menu._searchInput.dispatchEvent(new Event("input"));
-    setTimeout(() => menu._searchInput.focus(), 50);
+    const input = menu._searchInput;
+    setTimeout(() => input.focus(), 50);
   }
 }
-window.toggleStepMenu = toggleStepMenu;
+(window as any).toggleStepMenu = toggleStepMenu;
 
 // ── Ctrl+F to focus step menu search ──
 document.addEventListener("keydown", (e) => {
@@ -3259,15 +3285,15 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Script Editor helpers ──
-function highlightCode(code, lang) {
-  const escHtmlLocal = (s) =>
+function highlightCode(code: string, lang: string) {
+  const escHtmlLocal = (s: string) =>
     String(s)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
   let html = escHtmlLocal(code);
-  const tokens = [];
-  function hold(match, cls) {
+  const tokens: string[] = [];
+  function hold(match: string, cls: string) {
     const id = "\x00T" + tokens.length + "\x00";
     tokens.push('<span class="' + cls + '">' + match + "</span>");
     return id;
@@ -3303,15 +3329,15 @@ function highlightCode(code, lang) {
       '<span class="sh-fn">$1</span>',
     );
   }
-  for (let i = 0; i < tokens.length; i++)
-    html = html.replace("\x00T" + i + "\x00", tokens[i]);
+  for (let j = 0; j < tokens.length; j++)
+    html = html.replace("\x00T" + j + "\x00", tokens[j]);
   if (!html.endsWith("\n")) html += "\n";
   return html;
 }
 
-function updateGutter(path) {
+function updateGutter(path: number[]) {
   const pathStr = JSON.stringify(path);
-  const textarea = document.getElementById(`script-code-${pathStr}`);
+  const textarea = document.getElementById(`script-code-${pathStr}`) as HTMLTextAreaElement | null;
   const gutter = document.getElementById(`script-gutter-${pathStr}`);
   if (!textarea || !gutter) return;
   const lines = textarea.value.split("\n").length;
@@ -3321,22 +3347,22 @@ function updateGutter(path) {
   ).join("");
 }
 
-export function handleScriptInput(path) {
+export function handleScriptInput(path: number[]) {
   const pathStr = JSON.stringify(path);
-  const textarea = document.getElementById(`script-code-${pathStr}`);
+  const textarea = document.getElementById(`script-code-${pathStr}`) as HTMLTextAreaElement | null;
   if (!textarea) return;
   const lang =
-    document.getElementById(`script-lang-${pathStr}`)?.value || "python";
+    (document.getElementById(`script-lang-${pathStr}`) as HTMLSelectElement | null)?.value || "python";
   updateParam(path, "code", textarea.value);
   const highlight = document.getElementById(`script-highlight-${pathStr}`);
   if (highlight) highlight.innerHTML = highlightCode(textarea.value, lang);
   updateGutter(path);
 }
-window.handleScriptInput = handleScriptInput;
+(window as any).handleScriptInput = handleScriptInput;
 
-export function syncScriptScroll(path) {
+export function syncScriptScroll(path: number[]) {
   const pathStr = JSON.stringify(path);
-  const textarea = document.getElementById(`script-code-${pathStr}`);
+  const textarea = document.getElementById(`script-code-${pathStr}`) as HTMLTextAreaElement | null;
   const highlight = document.getElementById(`script-highlight-${pathStr}`);
   const gutter = document.getElementById(`script-gutter-${pathStr}`);
   if (textarea && highlight) {
@@ -3345,12 +3371,12 @@ export function syncScriptScroll(path) {
   }
   if (textarea && gutter) gutter.scrollTop = textarea.scrollTop;
 }
-window.syncScriptScroll = syncScriptScroll;
+(window as any).syncScriptScroll = syncScriptScroll;
 
-export function handleScriptKeydown(e, path) {
+export function handleScriptKeydown(e: KeyboardEvent, path: number[]) {
   if (e.key === "Tab") {
     e.preventDefault();
-    const ta = e.target;
+    const ta = e.target as HTMLTextAreaElement;
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
     ta.value = ta.value.substring(0, start) + "    " + ta.value.substring(end);
@@ -3358,9 +3384,9 @@ export function handleScriptKeydown(e, path) {
     handleScriptInput(path);
   }
 }
-window.handleScriptKeydown = handleScriptKeydown;
+(window as any).handleScriptKeydown = handleScriptKeydown;
 
-export function updateScriptEditor(path) {
+export function updateScriptEditor(path: number[]) {
   renderFlow();
 }
-window.updateScriptEditor = updateScriptEditor;
+(window as any).updateScriptEditor = updateScriptEditor;

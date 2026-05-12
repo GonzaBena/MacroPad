@@ -27,6 +27,7 @@ export interface Step {
   type: StepType;
   params: Record<string, any>;
   steps?: Step[]; // For container steps like 'loop' and 'condition'
+  collapsed?: boolean;
 }
 
 export interface SignalEntry {
@@ -54,7 +55,7 @@ export interface AppConfig {
   startupMode: string;
   enableZoom: boolean;
   zoomLevel: number;
-  workflowSort: 'original' | 'alphabetical';
+  workflowSort: 'original' | 'alphabetical' | 'name' | 'active' | 'created' | 'steps';
   activeSidebarSection: string;
   sidebarCollapsed?: boolean;
 }

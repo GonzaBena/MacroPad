@@ -59,12 +59,12 @@ export const SIG_COLORS = [
 ];
 
 export const state: AppState & {
-  dragSrcPath: number[] | null;
+  dragSrcPath: string | null;
   dragSrcWorkflow: string | null;
   dragSrcFolder: string | null;
-  capturingPath: number[] | null;
-  selectingRegionPath: number[] | null;
-  runningApps: string[];
+  capturingPath: string | null;
+  selectingRegionPath: string | null;
+  runningApps: any[];
   history: any[];
   insertionPoint: { path: number[]; index: number } | null;
 } = {
