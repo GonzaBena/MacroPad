@@ -16,6 +16,7 @@
 .gap-12          { gap: 12px; }
 .w-full          { width: 100%; }
 .max-w-600       { max-width: 600px; }
+.max-w-320       { max-width: 320px; }
 .mt-20           { margin-top: 20px; }
 .mb-8            { margin-bottom: 8px; }
 .p-h-10          { padding: 0 10px; }
@@ -39,29 +40,22 @@
 .log-bar-right   { display: flex; gap: 8px; }
 .log-bar-right .btn { padding: 4px 10px; font-size: 11px; }
 
-/* Config actions bar */
-.config-actions {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  max-width: 600px;
-  margin-top: 20px;
-  gap: 8px;
-}
-
+/* Config save button */
 .btn-save-config {
   background: var(--amber);
   color: var(--bg);
-  padding: 10px 24px;
+  padding: 9px 22px;
   border: none;
   border-radius: 8px;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   font-family: var(--ui);
+  font-size: 13px;
+  transition: filter 0.15s;
 }
 
 .btn-save-config:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.12);
 }
 
 /* Button assigned badge (from workflows.js dynamic HTML) */
@@ -106,32 +100,6 @@
   opacity: .2;
 }
 
-/* Export / Import section */
-.config-data-section {
-  margin-top: 12px;
-}
-
-.config-data-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.btn-export, .btn-import {
-  padding: 8px 16px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  background: rgba(255,255,255,0.05);
-  color: var(--fg);
-  font-family: var(--ui);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-export:hover, .btn-import:hover {
-  background: rgba(255,255,255,0.1);
-}
 
 /* Custom Context Menu */
 .context-menu {

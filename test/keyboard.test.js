@@ -1,5 +1,19 @@
 jest.mock('../main-process/window', () => ({ getWindow: jest.fn() }));
 jest.mock('child_process', () => ({ exec: jest.fn(), execFile: jest.fn() }));
+jest.mock('@nut-tree-fork/nut-js', () => ({
+  keyboard: {
+    pressKey: jest.fn().mockResolvedValue(undefined),
+    releaseKey: jest.fn().mockResolvedValue(undefined),
+  },
+  Key: {
+    A: 'A',
+    B: 'B',
+    LeftSuper: 'LeftSuper',
+    LeftControl: 'LeftControl',
+    LeftAlt: 'LeftAlt',
+    LeftShift: 'LeftShift',
+  }
+}), { virtual: true });
 
 const { escapePowerShell, simulateKey } = require('../main-process/keyboard');
 const { getWindow } = require('../main-process/window');

@@ -12,7 +12,11 @@
 </div>
 <div class="log-entries" id="log-entries">
   <div class="log-empty" id="log-empty">
-    <span class="ico">◎</span><span>Esperando datos del Arduino...</span>
+    <svg class="log-empty-icon" width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 22h8l3-11 8 22 5-14 4 9 3-6h9"/>
+    </svg>
+    <span class="log-empty-title">Sin actividad</span>
+    <span class="log-empty-sub">Conectá el Arduino para recibir señales</span>
   </div>
 </div>
 <div class="stats-row">
@@ -31,7 +35,7 @@
 </div>
 <div class="send-bar">
   <input type="text" id="send-input" placeholder="Enviar al Arduino (Enter)..." />
-  <button class="btn btn-ghost flex-none" id="btn-send-serial">
+  <button class="btn-send" id="btn-send-serial">
     Enviar ↗
   </button>
 </div>

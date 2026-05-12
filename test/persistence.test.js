@@ -9,6 +9,7 @@ describe('validateData', () => {
   const defaults = {
     signals: {},
     folders: [],
+    globalVariables: {},
     config: {
       theme: 'dark',
       closeBehavior: 'close',

@@ -454,7 +454,7 @@ export function renderSignalList() {
   });
 
   // 4. Render items with bars
-  list.appendChild(makeWorkflowInsertionBar(null, state.folders[0]?.id || rootKeys[0]));
+  list.appendChild(makeWorkflowInsertionBar(null, state.folders[0]?.id || rootKeys[0], 0));
 
   let renderedCount = rootKeys.length;
 
@@ -479,22 +479,50 @@ export function renderSignalList() {
       fHeader.style.paddingLeft = "5px";
       fHeader.style.borderRadius = "6px";
     }
+
+    const dragHandle = document.createElement("span");
+    dragHandle.className = "sig-folder-drag-handle";
+    dragHandle.title = "Arrastrar para reordenar carpeta";
+    dragHandle.textContent = "⠿";
+    dragHandle.draggable = true;
+
     fHeader.innerHTML = `
       <span class="sig-folder-chevron">▶</span>
       <span class="sig-folder-name">${escHtml(folder.name)}</span>
       <span class="sig-folder-count">${folderKeys.length}</span>
     `;
-    fHeader.onclick = () => toggleFolder(folder.id);
+    fHeader.insertBefore(dragHandle, fHeader.firstChild);
+
+    fHeader.onclick = (e) => {
+      if (!e.target.closest(".sig-folder-drag-handle")) toggleFolder(folder.id);
+    };
     fHeader.oncontextmenu = (e) => showFolderContextMenu(e, folder.id);
 
-    // Folder Drag & Drop target (whole folder header)
+    // Drag handle events for folder reordering
+    dragHandle.addEventListener("dragstart", (e) => {
+      state.dragSrcFolder = folder.id;
+      fDiv.classList.add("dragging");
+      document.getElementById("signal-list")?.classList.add("is-dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.stopPropagation();
+    });
+    dragHandle.addEventListener("dragend", () => {
+      fDiv.classList.remove("dragging");
+      state.dragSrcFolder = null;
+      document.getElementById("signal-list")?.classList.remove("is-dragging");
+      document.querySelectorAll(".sig-insertion-bar, .sig-folder").forEach(el => el.classList.remove("drag-over"));
+    });
+
+    // Folder Drag & Drop target (whole folder header) — accepts workflow drops only
     fHeader.addEventListener("dragover", (e) => {
       if (state.dragSrcWorkflow) {
         e.preventDefault();
         fDiv.classList.add("drag-over");
       }
     });
-    fHeader.addEventListener("dragleave", () => fDiv.classList.remove("drag-over"));
+    fHeader.addEventListener("dragleave", () => {
+      if (!state.dragSrcFolder) fDiv.classList.remove("drag-over");
+    });
     fHeader.addEventListener("drop", (e) => {
       e.preventDefault();
       fDiv.classList.remove("drag-over");
@@ -517,9 +545,9 @@ export function renderSignalList() {
     fDiv.appendChild(fContent);
     list.appendChild(fDiv);
 
-    // Bar after folder
+    // Bar after folder — also accepts folder drops (insert after this folder = index i+1)
     const nextItem = state.folders[i + 1]?.id || rootKeys[0];
-    list.appendChild(makeWorkflowInsertionBar(null, nextItem));
+    list.appendChild(makeWorkflowInsertionBar(null, nextItem, i + 1));
   });
 
   rootKeys.forEach((sig, i) => {
@@ -549,13 +577,13 @@ export function renderSignalList() {
   }
 }
 
-function makeWorkflowInsertionBar(folderId, targetSig = null) {
+function makeWorkflowInsertionBar(folderId, targetSig = null, targetFolderIdx = null) {
   const bar = document.createElement("div");
   bar.className = "sig-insertion-bar";
   bar.innerHTML = '<div class="sig-insertion-line"></div>';
-  
+
   bar.addEventListener("dragover", (e) => {
-    if (state.dragSrcWorkflow) {
+    if (state.dragSrcWorkflow || (state.dragSrcFolder && targetFolderIdx !== null)) {
       e.preventDefault();
       bar.classList.add("drag-over");
     }
@@ -564,7 +592,10 @@ function makeWorkflowInsertionBar(folderId, targetSig = null) {
   bar.addEventListener("drop", (e) => {
     e.preventDefault();
     bar.classList.remove("drag-over");
-    if (state.dragSrcWorkflow) {
+    if (state.dragSrcFolder && targetFolderIdx !== null) {
+      moveFolderItem(state.dragSrcFolder, targetFolderIdx);
+      state.dragSrcFolder = null;
+    } else if (state.dragSrcWorkflow) {
       moveWorkflow(state.dragSrcWorkflow, folderId, targetSig);
       state.dragSrcWorkflow = null;
     }
@@ -603,6 +634,28 @@ function moveWorkflow(sigName, folderId, targetSig = null) {
   renderSignalList();
 }
 
+function moveFolderItem(srcFolderId, targetIdx) {
+  const srcIdx = state.folders.findIndex(f => f.id === srcFolderId);
+  if (srcIdx === -1 || srcIdx === targetIdx) return;
+
+  const folders = [...state.folders];
+  const [folder] = folders.splice(srcIdx, 1);
+  // Adjust targetIdx if we removed from before it
+  const insertAt = targetIdx > srcIdx ? targetIdx - 1 : targetIdx;
+  folders.splice(insertAt, 0, folder);
+  state.folders = folders;
+
+  // Switch to manual order so drag result is preserved
+  if (state.config.workflowSort !== "original") {
+    state.config.workflowSort = "original";
+    const sortSel = document.getElementById("sort-workflows");
+    if (sortSel) sortSel.value = "original";
+  }
+
+  saveSignals();
+  renderSignalList();
+}
+
 function makeSignalCard(sig, entry) {
   const div = document.createElement("div");
   div.className = "sig-card" + (sig === state.selectedSig ? " active" : "");
@@ -622,13 +675,21 @@ function makeSignalCard(sig, entry) {
     badge = `<span class="sig-assigned-badge" title="Asignado a toque ${entry.assignedToButton.join(", ").toLowerCase()}">🔌 ${label}</span>`;
   }
 
+  const steps = countSteps(entry.steps);
+  const appName = entry.assignedApp ? entry.assignedApp.replace(/\.exe$/i, "") : null;
+  const runCount = entry.runCount || 0;
+
   div.innerHTML = `
     <div class="sig-card-top">
       <span class="sig-name">${escHtml(sig)}${badge}</span>
+      ${appName ? `<span class="sig-app-badge" title="Solo activo con: ${escAttr(entry.assignedApp)}">📌 ${escHtml(appName)}</span>` : ""}
       <span class="sig-pulse"></span>
     </div>
     ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
-    <div class="sig-steps-count">${countSteps(entry.steps)} paso${countSteps(entry.steps) === 1 ? "" : "s"}</div>`;
+    <div class="sig-card-meta">
+      <span class="sig-steps-count">${steps} paso${steps === 1 ? "" : "s"}</span>
+      ${runCount > 0 ? `<span class="sig-run-count" title="Veces ejecutado">▶ ${runCount}</span>` : ""}
+    </div>`;
 
   div.addEventListener("click", () => selectSignal(sig));
   div.addEventListener("contextmenu", (e) => showSignalContextMenu(e, sig));
@@ -659,6 +720,226 @@ function countSteps(steps) {
   });
   return count;
 }
+
+// Update only the meta row of a card without re-rendering the whole list
+export function updateCardMeta(sig, entry) {
+  const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`);
+  if (!card) return;
+
+  const steps = countSteps(entry.steps);
+  const appName = entry.assignedApp ? entry.assignedApp.replace(/\.exe$/i, "") : null;
+  const runCount = entry.runCount || 0;
+
+  const meta = card.querySelector(".sig-card-meta");
+  if (meta) {
+    meta.innerHTML = `
+      <span class="sig-steps-count">${steps} paso${steps === 1 ? "" : "s"}</span>
+      ${runCount > 0 ? `<span class="sig-run-count" title="Veces ejecutado">▶ ${runCount}</span>` : ""}`;
+  }
+
+  // Update app badge in the top row
+  const top = card.querySelector(".sig-card-top");
+  if (top) {
+    let appBadge = top.querySelector(".sig-app-badge");
+    if (appName) {
+      if (!appBadge) {
+        appBadge = document.createElement("span");
+        appBadge.className = "sig-app-badge";
+        top.insertBefore(appBadge, top.querySelector(".sig-pulse"));
+      }
+      appBadge.title = `Solo activo con: ${entry.assignedApp}`;
+      appBadge.textContent = `📌 ${appName}`;
+    } else if (appBadge) {
+      appBadge.remove();
+    }
+  }
+}
+
+// ── Global Variables — Type System ──
+
+const GV_TYPES = {
+  string: { label: "str",   cls: "gvt-string" },
+  int:    { label: "int",   cls: "gvt-int"    },
+  float:  { label: "float", cls: "gvt-float"  },
+  bool:   { label: "bool",  cls: "gvt-bool"   },
+  list:   { label: "list",  cls: "gvt-list"   },
+  json:   { label: "json",  cls: "gvt-json"   },
+};
+
+function inferType(val) {
+  if (typeof val === "boolean") return "bool";
+  if (Array.isArray(val)) return "list";
+  if (val !== null && typeof val === "object") return "json";
+  if (typeof val === "number") return Number.isInteger(val) ? "int" : "float";
+  if (typeof val !== "string") return "string";
+  const s = val.trim();
+  if (s === "true" || s === "false") return "bool";
+  if (/^-?\d+$/.test(s)) return "int";
+  if (/^-?\d+\.\d*$/.test(s) || /^-?\d*\.\d+$/.test(s)) return "float";
+  if (s.startsWith("[")) { try { if (Array.isArray(JSON.parse(s))) return "list"; } catch {} }
+  if (s.startsWith("{")) { try { if (typeof JSON.parse(s) === "object") return "json"; } catch {} }
+  return "string";
+}
+
+function coerceToType(raw, type) {
+  const s = String(raw).trim();
+  switch (type) {
+    case "int":   { const n = parseInt(s, 10);   return isNaN(n) ? 0 : n; }
+    case "float": { const n = parseFloat(s);     return isNaN(n) ? 0.0 : n; }
+    case "bool":  return s === "true" || s === "1" || s === "yes";
+    case "list": {
+      try { const p = JSON.parse(s); if (Array.isArray(p)) return p; } catch {}
+      return s ? s.split(",").map(x => x.trim()).filter(Boolean) : [];
+    }
+    case "json": {
+      try { return JSON.parse(s); } catch {}
+      return {};
+    }
+    default: return s;
+  }
+}
+
+function valueForEdit(val) {
+  if (Array.isArray(val) || (val !== null && typeof val === "object")) return JSON.stringify(val);
+  return String(val ?? "");
+}
+
+function makeTypeOptions(selected) {
+  return Object.entries(GV_TYPES)
+    .map(([t, m]) => `<option value="${t}"${t === selected ? " selected" : ""}>${m.label}</option>`)
+    .join("");
+}
+
+// ── Global Variables Panel ──
+
+export function openGlobalVarsModal() {
+  const modal = document.getElementById("global-vars-modal");
+  if (!modal) return;
+  modal.classList.remove("d-none");
+
+  const nameInp = document.getElementById("gv-new-name");
+  const valInp  = document.getElementById("gv-new-value");
+  const typeSel = document.getElementById("gv-new-type");
+  nameInp.value = "";
+  valInp.value  = "";
+  if (typeSel) typeSel.value = "string";
+  setTimeout(() => nameInp.focus(), 50);
+
+  if (typeSel) {
+    valInp.oninput = () => { typeSel.value = inferType(valInp.value); };
+  }
+
+  document.getElementById("btn-gv-close").onclick = () => modal.classList.add("d-none");
+  document.getElementById("btn-gv-add").onclick = () => addGlobalVar();
+
+  nameInp.onkeydown = valInp.onkeydown = (e) => {
+    if (e.key === "Enter") addGlobalVar();
+    if (e.key === "Escape") modal.classList.add("d-none");
+  };
+}
+
+function addGlobalVar() {
+  const nameInp = document.getElementById("gv-new-name");
+  const valInp  = document.getElementById("gv-new-value");
+  const typeSel = document.getElementById("gv-new-type");
+  const name = nameInp.value.trim().replace(/\s+/g, "_");
+  if (!name) { nameInp.focus(); return; }
+
+  state.globalVariables[name] = coerceToType(valInp.value, typeSel?.value || inferType(valInp.value));
+  saveSignals();
+  nameInp.value = "";
+  valInp.value  = "";
+  if (typeSel) typeSel.value = "string";
+  nameInp.focus();
+  renderGlobalVarsSection();
+}
+
+export function renderGlobalVarsSection() {
+  const list = document.getElementById("sb-gv-list");
+  if (!list) return;
+  list.innerHTML = "";
+
+  const entries = Object.entries(state.globalVariables);
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="gv-empty">Sin variables definidas.</div>';
+    return;
+  }
+
+  entries.forEach(([name, value]) => {
+    const type = inferType(value);
+    const meta = GV_TYPES[type] || GV_TYPES.string;
+    const displayVal = Array.isArray(value)
+      ? `[${value.length} items]`
+      : (value !== null && typeof value === "object")
+        ? JSON.stringify(value)
+        : String(value ?? "");
+
+    const row = document.createElement("div");
+    row.className = "sb-gv-row";
+    row.dataset.name = name;
+
+    row.innerHTML = `
+      <div class="sb-gv-info">
+        <div class="sb-gv-name-row">
+          <span class="sb-gv-name">$${escHtml(name)}</span>
+          <span class="gv-type-badge ${meta.cls}">${meta.label}</span>
+        </div>
+        <span class="sb-gv-value">${escHtml(displayVal)}</span>
+      </div>
+      <div class="sb-gv-actions">
+        <button class="btn-icon sb-gv-edit" title="Editar">✎</button>
+        <button class="btn-icon gv-del sb-gv-del" title="Eliminar">✕</button>
+      </div>`;
+
+    row.querySelector(".sb-gv-edit").addEventListener("click", () => openGvEditModal(name, value));
+
+    row.querySelector(".sb-gv-del").addEventListener("click", () => {
+      delete state.globalVariables[name];
+      saveSignals();
+      renderGlobalVarsSection();
+    });
+
+    list.appendChild(row);
+  });
+}
+
+function openGvEditModal(oldName, oldValue) {
+  const modal = document.getElementById("gv-edit-modal");
+  if (!modal) return;
+
+  const nameInp = document.getElementById("gv-edit-name");
+  const valInp  = document.getElementById("gv-edit-value");
+  const typeSel = document.getElementById("gv-edit-type");
+
+  nameInp.value = oldName;
+  valInp.value  = valueForEdit(oldValue);
+  typeSel.value = inferType(oldValue);
+  modal.classList.remove("d-none");
+  setTimeout(() => nameInp.focus(), 50);
+
+  valInp.oninput = () => { typeSel.value = inferType(valInp.value); };
+
+  const close = () => modal.classList.add("d-none");
+
+  const save = () => {
+    const newName = nameInp.value.trim().replace(/\s+/g, "_");
+    if (!newName) { nameInp.focus(); return; }
+    if (newName !== oldName) delete state.globalVariables[oldName];
+    state.globalVariables[newName] = coerceToType(valInp.value, typeSel.value);
+    saveSignals();
+    renderGlobalVarsSection();
+    close();
+  };
+
+  document.getElementById("btn-gv-edit-save").onclick = save;
+  document.getElementById("btn-gv-edit-cancel").onclick = close;
+  nameInp.onkeydown = valInp.onkeydown = (e) => {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") close();
+  };
+}
+
+window.openGlobalVarsModal = openGlobalVarsModal;
 
 export function addFolder() {
   showPrompt("Nombre de la nueva carpeta", "", (name) => {
@@ -906,32 +1187,33 @@ export function changeSort(criteria) {
 window.changeSort = changeSort;
 
 export function addSignal() {
-  const input = document.getElementById("new-sig-cfg");
-  const sig = input.value.trim().toUpperCase().replace(/\s+/g, "_");
-  if (!sig) return;
-  if (state.signals[sig]) {
-    showToast("Ya existe", `"${sig}" ya está`);
-    return;
-  }
-  pushUndo();
-  const color =
-    SIG_COLORS[Object.keys(state.signals).length % SIG_COLORS.length];
-  state.signals[sig] = { 
-    label: "", 
-    color, 
-    steps: [], 
-    assignedToButton: [],
-    folderId: null,
-    createdAt: Date.now()
-  };
-  input.value = "";
-  saveSignals();
-  renderSignalList();
-  selectSignal(sig);
-  setTimeout(() => {
-    document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, 50);
+  showPrompt("Nuevo Workflow", "", (raw) => {
+    if (!raw) return;
+    const sig = raw.trim().toUpperCase().replace(/\s+/g, "_");
+    if (!sig) return;
+    if (state.signals[sig]) {
+      showToast("Ya existe", `"${sig}" ya está`);
+      return;
+    }
+    pushUndo();
+    const color = SIG_COLORS[Object.keys(state.signals).length % SIG_COLORS.length];
+    state.signals[sig] = {
+      label: "",
+      color,
+      steps: [],
+      assignedToButton: [],
+      folderId: null,
+      createdAt: Date.now(),
+      runCount: 0,
+    };
+    saveSignals();
+    renderSignalList();
+    selectSignal(sig);
+    setTimeout(() => {
+      document.querySelector(`.sig-card[data-sig="${CSS.escape(sig)}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  });
 }
 window.addSignal = addSignal;
 
@@ -1222,99 +1504,113 @@ export function initAssignDropdown() {
 
 export async function assignApp() {
   if (!state.selectedSig) return;
-  const sig = state.signals[state.selectedSig];
+  const sigName = state.selectedSig;
+  const sig = state.signals[sigName];
   const modal = document.getElementById("app-assign-modal");
-  const input = document.getElementById("assigned-app-input");
-  const runningList = document.getElementById("running-apps-list");
-  const commonSelect = document.getElementById("common-apps-select");
-  
-  if (!modal || !input || !runningList) return;
+  const list = document.getElementById("assign-apps-list");
+  const searchInp = document.getElementById("assign-app-search");
+  const tabRunning = document.getElementById("tab-assign-running");
+  const tabInstalled = document.getElementById("tab-assign-installed");
+  const titleLbl = document.getElementById("assign-app-list-title");
+  if (!modal || !list) return;
 
-  // Reset and Show
-  input.value = sig.assignedApp || "";
-  commonSelect.value = "";
+  let currentTab = "running";
+  let installedApps = [];
+  let filterText = "";
+
+  const save = (appName) => {
+    pushUndo();
+    sig.assignedApp = appName || null;
+    saveSignals();
+    updateAssignButtonUI();
+    renderSignalList();
+    modal.classList.add("d-none");
+    if (appName) showToast("App vinculada", appName);
+  };
+
+  const renderList = () => {
+    const source = currentTab === "running" ? (state.runningApps || []) : installedApps;
+    const q = filterText.toLowerCase();
+    const filtered = source.filter(a => {
+      const name = typeof a === "string" ? a : a.name;
+      return !q || name.toLowerCase().includes(q);
+    });
+
+    titleLbl.textContent = currentTab === "running" ? "Apps abiertas actualmente" : "Aplicaciones instaladas";
+    list.innerHTML = "";
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="loading-apps">No se encontraron aplicaciones.</div>';
+      return;
+    }
+
+    filtered.forEach(a => {
+      const appName = typeof a === "string" ? a : a.name;
+      const item = document.createElement("div");
+      item.className = "app-item" + (appName === sig.assignedApp ? " selected" : "");
+      item.innerHTML = `<span>${currentTab === "running" ? "▶" : "🚀"}</span> ${escHtml(appName)}`;
+      item.onclick = () => save(appName);
+      list.appendChild(item);
+    });
+  };
+
+  const refresh = async () => {
+    list.innerHTML = `<div class="loading-apps">Buscando ${currentTab === "running" ? "procesos activos" : "apps instaladas"}...</div>`;
+    if (currentTab === "running") {
+      await refreshRunningApps();
+    } else {
+      installedApps = await window.arduino.listInstalledApps();
+    }
+    renderList();
+  };
+
+  // Reset UI
+  searchInp.value = "";
+  filterText = "";
+  currentTab = "running";
+  tabRunning.classList.add("active");
+  tabInstalled.classList.remove("active");
   modal.classList.remove("d-none");
+  setTimeout(() => searchInp.focus(), 50);
 
-  // Use cached apps or fetch if empty
-  let apps = state.runningApps;
-  if (!apps || apps.length === 0) {
-    runningList.innerHTML = '<div class="loading-apps">Buscando procesos activos...</div>';
-    apps = await refreshRunningApps();
-  }
-  
-  renderAppList(apps, sig.assignedApp);
+  // Wire events
+  searchInp.oninput = (e) => { filterText = e.target.value; renderList(); };
 
-  // Wire up inner modal buttons
-  document.getElementById("btn-confirm-app-assign").onclick = () => {
-    pushUndo();
-    sig.assignedApp = input.value.trim() || null;
-    saveSignals();
-    updateAssignButtonUI();
-    renderSignalList();
-    modal.classList.add("d-none");
+  tabRunning.onclick = () => {
+    currentTab = "running";
+    tabRunning.classList.add("active");
+    tabInstalled.classList.remove("active");
+    renderList();
   };
 
-  document.getElementById("btn-clear-app-assign").onclick = () => {
-    pushUndo();
-    sig.assignedApp = null;
-    saveSignals();
-    updateAssignButtonUI();
-    renderSignalList();
-    modal.classList.add("d-none");
+  tabInstalled.onclick = async () => {
+    currentTab = "installed";
+    tabInstalled.classList.add("active");
+    tabRunning.classList.remove("active");
+    if (installedApps.length === 0) await refresh();
+    else renderList();
   };
 
-  document.getElementById("btn-cancel-app-assign").onclick = () => {
-    modal.classList.add("d-none");
-  };
+  document.getElementById("btn-refresh-assign-apps").onclick = refresh;
+
+  document.getElementById("btn-clear-app-assign").onclick = () => save(null);
+
+  document.getElementById("btn-cancel-app-assign").onclick = () => modal.classList.add("d-none");
 
   document.getElementById("btn-browse-app-exe").onclick = async () => {
     const filePath = await window.arduino.selectFile();
     if (filePath) {
       const fileName = filePath.split(/[\\/]/).pop();
-      input.value = fileName;
+      save(fileName);
     }
   };
 
-  commonSelect.onchange = (e) => {
-    if (e.target.value) input.value = e.target.value;
-  };
-
-  document.getElementById("btn-refresh-apps-list").onclick = async () => {
-    const btn = document.getElementById("btn-refresh-apps-list");
-    btn.disabled = true;
-    btn.textContent = "⌛ Buscando...";
-    runningList.innerHTML = '<div class="loading-apps">Buscando procesos activos...</div>';
-    const newApps = await refreshRunningApps();
-    renderAppList(newApps, input.value);
-    btn.disabled = false;
-    btn.textContent = "🔄 Actualizar";
-  };
-}
-
-function renderAppList(apps, selectedApp) {
-  const runningList = document.getElementById("running-apps-list");
-  const input = document.getElementById("assigned-app-input");
-  if (!runningList) return;
-
-  runningList.innerHTML = "";
-  if (!apps || apps.length === 0) {
-    runningList.innerHTML = '<div class="loading-apps">No se encontraron procesos.</div>';
-    return;
+  // Initial load
+  if (!state.runningApps || state.runningApps.length === 0) {
+    await refresh();
+  } else {
+    renderList();
   }
-
-  apps.forEach(app => {
-    const appName = typeof app === "string" ? app : app.name;
-    const item = document.createElement("div");
-    item.className = "app-item";
-    if (appName === selectedApp) item.classList.add("selected");
-    item.innerHTML = `<span>📂</span> ${escHtml(appName)}`;
-    item.onclick = () => {
-      document.querySelectorAll(".app-item").forEach(i => i.classList.remove("selected"));
-      item.classList.add("selected");
-      input.value = appName;
-    };
-    runningList.appendChild(item);
-  });
 }
 window.assignApp = assignApp;
 
@@ -1413,11 +1709,13 @@ function renderStepAppList(apps, stepPath) {
       </div>
     `;
     item.onclick = () => {
-      updateParam(stepPath, "path", app.path);
-      const input = document.getElementById(`path-${JSON.stringify(stepPath)}`);
-      if (input) {
-        input.value = app.name;
-        input.title = app.path;
+      const step = getStepByPath(stepPath);
+      if (step) {
+        if (!step.params) step.params = {};
+        step.params.path = app.path;
+        step.params.appDisplayName = app.name;
+        saveSignals();
+        renderFlow();
       }
       modal.classList.add("d-none");
       showToast("App seleccionada", `Se vinculó ${app.name}`);
@@ -1656,6 +1954,11 @@ function toggleStepMenuAt(x, y) {
   menu.style.left = `${x}px`;
   menu.style.transform = "none";
   menu.classList.add("open");
+  if (menu._searchInput) {
+    menu._searchInput.value = "";
+    menu._searchInput.dispatchEvent(new Event("input"));
+    setTimeout(() => menu._searchInput.focus(), 50);
+  }
 }
 
 function getStepSummary(step) {
@@ -1666,8 +1969,8 @@ function getStepSummary(step) {
     case "clipboard": return p.text ? `"${String(p.text).slice(0, 28)}"` : "–";
     case "open_url": return p.url || "–";
     case "run_cmd": return p.cmd || "–";
-    case "open_file":
-    case "open_app": return p.path ? p.path.split(/[\\/]/).pop() : "–";
+    case "open_file": return p.path ? p.path.split(/[\\/]/).pop() : "–";
+    case "open_app": return p.appDisplayName || (p.path ? p.path.split(/[\\/]/).pop() : "–");
     case "notify": return [p.title, p.body].filter(Boolean).join(" · ").slice(0, 36) || "–";
     case "run_script": {
       const lines = (p.code || "").split("\n").filter(l => l.trim()).length;
@@ -1947,7 +2250,11 @@ function moveStep(srcPath, destPath) {
 
 function discoverVariables(currentPath = null) {
   const vars = new Set();
-  if (!state.selectedSig) return [];
+
+  // Add global variables
+  Object.keys(state.globalVariables || {}).forEach(v => vars.add(v.trim()));
+
+  if (!state.selectedSig) return Array.from(vars).sort();
 
   const scan = (steps, pathPrefix = []) => {
     if (!steps || !Array.isArray(steps)) return;
@@ -1986,6 +2293,31 @@ function buildStepParams(container, step, path) {
     row.appendChild(lbl);
     return row;
   }
+  function resolveForPreview(val) {
+    if (typeof val !== "string" || !val.includes("$")) return null;
+    const vars = state.globalVariables || {};
+    if (/^\$[a-zA-Z0-9_]+$/.test(val)) {
+      const name = val.substring(1);
+      return name in vars ? String(vars[name] ?? "") : null;
+    }
+    const result = val.replace(/\$([a-zA-Z0-9_]+)/g, (m, name) =>
+      name in vars ? String(vars[name] ?? "") : m
+    );
+    return result !== val ? result : null;
+  }
+
+  function attachVarHint(inp) {
+    const anchor = inp.closest(".param-input-row") || inp.parentElement;
+    anchor?.parentElement?.querySelector(".param-var-hint")?.remove();
+    const resolved = resolveForPreview(inp.value);
+    if (resolved === null) return;
+    const hint = document.createElement("div");
+    hint.className = "param-var-hint";
+    hint.textContent = `= ${resolved}`;
+    hint.title = resolved;
+    anchor?.insertAdjacentElement("afterend", hint);
+  }
+
   function makeInput(type, value, placeholder, param) {
     const inp = document.createElement("input");
     inp.type = type;
@@ -1994,6 +2326,8 @@ function buildStepParams(container, step, path) {
     inp.placeholder = placeholder || "";
     inp.dataset.path = pathStr;
     inp.dataset.param = param;
+    setTimeout(() => attachVarHint(inp), 0);
+    inp.addEventListener("input", () => attachVarHint(inp));
     return inp;
   }
   function makeSelect(options, current, param, cls = "") {
@@ -2188,7 +2522,9 @@ function buildStepParams(container, step, path) {
       const wrap = document.createElement("div");
       wrap.className = "param-input-row";
       
-      const displayValue = (isApp && p.path) ? p.path.split(/[\\/]/).pop() : (p.path || "");
+      const displayValue = isApp
+        ? (p.appDisplayName || (p.path ? p.path.split(/[\\/]/).pop() : ""))
+        : (p.path || "");
 
       const inp = makeInput(
         "text",
@@ -2738,16 +3074,17 @@ window.startKeyCapture = startKeyCapture;
 
 export async function browseFile(path) {
   const filePath = await window.arduino.selectFile();
-  if (filePath) {
-    const input = document.getElementById(`path-${JSON.stringify(path)}`);
-    const step = getStepByPath(path);
-    const isApp = step && step.type === "open_app";
-    if (input) {
-      input.value = isApp ? filePath.split(/[\\/]/).pop() : filePath;
-      input.title = filePath;
-    }
-    updateParam(path, "path", filePath);
+  if (!filePath) return;
+  const step = getStepByPath(path);
+  if (!step) return;
+  const isApp = step.type === "open_app";
+  if (!step.params) step.params = {};
+  step.params.path = filePath;
+  if (isApp) {
+    step.params.appDisplayName = filePath.split(/[\\/]/).pop();
   }
+  saveSignals();
+  renderFlow();
 }
 window.browseFile = browseFile;
 
@@ -2763,33 +3100,35 @@ export function buildStepMenu() {
   menu.innerHTML = "";
 
   const sections = [
-    {
-      title: "Básicos",
-      items: ["keypress", "wait", "clipboard", "notify", "note"],
-    },
-    {
-      title: "Sistema / Archivos",
-      items: ["open_url", "run_cmd", "open_file", "open_app"],
-    },
-    {
-      title: "Lógica / Variables",
-      items: [
-        "set_variable",
-        "modify_variable",
-        "list_operation",
-        "loop",
-        "condition",
-      ],
-    },
-    {
-      title: "Avanzado",
-      items: ["media", "run_script", "screenshot", "screenshot_region"],
-    },
+    { title: "Básicos", items: ["keypress", "wait", "clipboard", "notify", "note"] },
+    { title: "Sistema / Archivos", items: ["open_url", "run_cmd", "open_file", "open_app"] },
+    { title: "Lógica / Variables", items: ["set_variable", "modify_variable", "list_operation", "loop", "condition"] },
+    { title: "Avanzado", items: ["media", "run_script", "screenshot", "screenshot_region"] },
   ];
+
+  // ── Search bar ──
+  const searchWrap = document.createElement("div");
+  searchWrap.className = "step-menu-search-wrap";
+
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.className = "step-menu-search";
+  searchInput.placeholder = "Buscar bloque...";
+  searchInput.autocomplete = "off";
+  searchInput.spellcheck = false;
+  searchWrap.appendChild(searchInput);
+  menu.appendChild(searchWrap);
+
+  // ── Columns grid ──
+  const grid = document.createElement("div");
+  grid.className = "step-menu-grid";
+
+  const allItems = [];
 
   sections.forEach((section) => {
     const col = document.createElement("div");
     col.className = "step-menu-col";
+    col.dataset.section = section.title;
 
     const title = document.createElement("div");
     title.className = "step-menu-title";
@@ -2802,6 +3141,8 @@ export function buildStepMenu() {
 
       const item = document.createElement("div");
       item.className = "menu-item";
+      item.dataset.type = type;
+      item.dataset.label = meta.label.toLowerCase();
 
       const iconEl = document.createElement("div");
       iconEl.className = `menu-icon ${meta.cls}`;
@@ -2827,10 +3168,56 @@ export function buildStepMenu() {
         }
         menu.classList.remove("open");
       });
+
       col.appendChild(item);
+      allItems.push({ item, col, type, label: meta.label.toLowerCase() });
     });
-    menu.appendChild(col);
+
+    grid.appendChild(col);
   });
+
+  // Empty search state
+  const emptyMsg = document.createElement("div");
+  emptyMsg.className = "step-menu-empty";
+  emptyMsg.textContent = "Sin resultados";
+  emptyMsg.style.display = "none";
+  grid.appendChild(emptyMsg);
+
+  menu.appendChild(grid);
+
+  // ── Search logic ──
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+    let visibleCount = 0;
+
+    allItems.forEach(({ item, col, label, type }) => {
+      const matches = !q || label.includes(q) || type.includes(q);
+      item.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+
+    // Show/hide section titles based on visible children
+    grid.querySelectorAll(".step-menu-col").forEach(col => {
+      const hasVisible = [...col.querySelectorAll(".menu-item")].some(i => i.style.display !== "none");
+      col.style.display = hasVisible ? "" : "none";
+    });
+
+    emptyMsg.style.display = visibleCount === 0 ? "" : "none";
+  });
+
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      menu.classList.remove("open");
+      e.stopPropagation();
+      return;
+    }
+    if (e.key === "Enter") {
+      const first = allItems.find(({ item }) => item.style.display !== "none");
+      if (first) first.item.click();
+    }
+  });
+
+  menu._searchInput = searchInput;
 }
 
 export function toggleStepMenu() {
@@ -2840,9 +3227,27 @@ export function toggleStepMenu() {
   }
   state.insertionPoint = null;
   const menu = document.getElementById("step-menu");
+  const isOpening = !menu.classList.contains("open");
   menu.classList.toggle("open");
+  if (isOpening && menu._searchInput) {
+    menu._searchInput.value = "";
+    menu._searchInput.dispatchEvent(new Event("input"));
+    setTimeout(() => menu._searchInput.focus(), 50);
+  }
 }
 window.toggleStepMenu = toggleStepMenu;
+
+// ── Ctrl+F to focus step menu search ──
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+    const menu = document.getElementById("step-menu");
+    if (menu?.classList.contains("open") && menu._searchInput) {
+      e.preventDefault();
+      menu._searchInput.focus();
+      menu._searchInput.select();
+    }
+  }
+});
 
 // ── Script Editor helpers ──
 function highlightCode(code, lang) {

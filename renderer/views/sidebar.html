@@ -1,4 +1,4 @@
-<div class="s-section">
+<div class="s-section" id="section-serial">
   <div class="s-label">Conexión Serial</div>
   <div class="field">
     <label>Puerto</label>
@@ -29,11 +29,15 @@
     <button class="btn-ghost-sm" id="btn-cancel-reconnect">✕</button>
   </div>
   <div class="btn-row">
-    <button class="btn btn-primary" id="btn-conn">
-      Conectar
-    </button>
-    <button class="btn btn-ghost" id="btn-refresh-ports2">
-      ↺ Puertos
-    </button>
+    <button class="btn btn-primary" id="btn-conn">Conectar</button>
+    <button class="btn btn-ghost btn-ports" id="btn-refresh-ports2" title="Actualizar puertos">↺</button>
   </div>
+</div>
+
+<div class="s-section d-none" id="section-global-vars">
+  <div class="s-section-header">
+    <span class="s-label">Variables Globales</span>
+    <button class="btn-icon s-section-add" id="btn-sb-add-gv" title="Nueva variable">+</button>
+  </div>
+  <div id="sb-gv-list" class="sb-gv-list"></div>
 </div>

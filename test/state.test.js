@@ -12,8 +12,12 @@ beforeEach(() => {
     arduino: {
       saveData: jest.fn(),
       updateSignals: jest.fn(),
+      updateGlobalVars: jest.fn(),
       loadData: jest.fn(() => Promise.resolve(null)),
+      getThemeData: jest.fn(() => Promise.resolve({ colors: {} })),
+      setZoomFactor: jest.fn(),
     },
+    matchMedia: jest.fn(() => ({ matches: true })),
   };
 
   global.localStorage = {
@@ -23,7 +27,11 @@ beforeEach(() => {
 
   global.document = {
     documentElement: { style: { setProperty: jest.fn() } },
+    dispatchEvent: jest.fn(),
+    getElementById: jest.fn(() => ({ classList: { add: jest.fn(), remove: jest.fn() } })),
   };
+
+  global.CustomEvent = class { constructor(n) { this.name = n; } };
 
   const m = require('../renderer/js/state');
   state = m.state;

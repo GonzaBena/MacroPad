@@ -3,47 +3,28 @@
     <div class="modal-header">Vincular workflow a aplicación</div>
     <div class="modal-body">
       <div class="param-row">
-        <div class="d-flex justify-between align-center">
-          <label class="param-label mb-0">Aplicaciones actualmente abiertas</label>
-          <button class="btn-header-small" id="btn-refresh-apps-list" title="Refrescar lista" style="padding: 2px 6px;">🔄 Actualizar</button>
-        </div>
-        <div class="app-list-container" id="running-apps-list">
-          <!-- Dinámico -->
-          <div class="loading-apps">Buscando procesos activos...</div>
-        </div>
-      </div>
+        <input type="text" class="param-input" id="assign-app-search" placeholder="Buscar aplicación..." autocomplete="off" style="margin-bottom: 12px;" />
 
-      <div class="modal-divider"></div>
-
-      <div class="param-row">
-        <label class="param-label">Otras opciones</label>
-        <div class="param-input-row">
-          <select class="param-select flex-1" id="common-apps-select">
-            <option value="">-- Seleccionar aplicación común --</option>
-            <option value="chrome.exe">Google Chrome</option>
-            <option value="firefox.exe">Firefox</option>
-            <option value="Spotify.exe">Spotify</option>
-            <option value="Discord.exe">Discord</option>
-            <option value="Code.exe">VS Code</option>
-            <option value="Photoshop.exe">Photoshop</option>
-            <option value="Premiere.exe">Premiere Pro</option>
-            <option value="steam.exe">Steam</option>
-          </select>
-          <button class="btn btn-header-small" id="btn-browse-app-exe" title="Seleccionar ejecutable manualmente">📂 Explorar...</button>
+        <div class="modal-tabs">
+          <button class="modal-tab active" id="tab-assign-running">En ejecución</button>
+          <button class="modal-tab" id="tab-assign-installed">Instaladas</button>
         </div>
-      </div>
 
-      <div class="param-row mt-20">
-        <label class="param-label">Nombre del proceso vinculado</label>
-        <input type="text" class="param-input" id="assigned-app-input" placeholder="ej: chrome.exe o Spotify" />
-        <div class="param-hint">El workflow solo se activará si el proceso con este nombre está corriendo.</div>
+        <div class="d-flex justify-between align-center mt-10">
+          <label class="param-label mb-0" id="assign-app-list-title">Apps abiertas actualmente</label>
+          <button class="btn-header-small" id="btn-refresh-assign-apps" title="Refrescar lista">🔄 Actualizar</button>
+        </div>
+        <div class="app-list-container" id="assign-apps-list" style="height: 250px;">
+          <div class="loading-apps">Buscando procesos...</div>
+        </div>
+        <div class="param-hint">El workflow solo se activará si este proceso está en ejecución.</div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn-header-small" id="btn-clear-app-assign">Desvincular</button>
+      <button class="btn-header-small" id="btn-browse-app-exe">📂 Archivo...</button>
       <div class="flex-1"></div>
       <button class="btn-header-small" id="btn-cancel-app-assign">Cancelar</button>
-      <button class="btn-header-small btn-save-config" id="btn-confirm-app-assign" style="padding: 6px 16px; margin-top: 0;">Guardar</button>
     </div>
   </div>
 </div>
@@ -158,3 +139,59 @@
   margin: 20px 0;
 }
 </style>
+
+<!-- Modal: Editar Variable Global -->
+<div class="modal-overlay d-none" id="gv-edit-modal">
+  <div class="modal-content max-w-320">
+    <div class="modal-header">Editar Variable</div>
+    <div class="modal-body">
+      <div class="gv-add-col">
+        <input type="text" class="param-input" id="gv-edit-name" placeholder="nombre_variable" autocomplete="off" spellcheck="false" />
+        <div class="gv-val-type-row">
+          <input type="text" class="param-input flex-1" id="gv-edit-value" placeholder="valor" autocomplete="off" />
+          <select class="gv-type-sel" id="gv-edit-type">
+            <option value="string">str</option>
+            <option value="int">int</option>
+            <option value="float">float</option>
+            <option value="bool">bool</option>
+            <option value="list">list</option>
+            <option value="json">json</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-header-small" id="btn-gv-edit-cancel">Cancelar</button>
+      <div class="flex-1"></div>
+      <button class="btn btn-primary" id="btn-gv-edit-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Variables Globales -->
+<div class="modal-overlay d-none" id="global-vars-modal">
+  <div class="modal-content max-w-320">
+    <div class="modal-header">Nueva Variable</div>
+    <div class="modal-body">
+      <div class="gv-add-col">
+        <input type="text" class="param-input" id="gv-new-name" placeholder="nombre_variable" autocomplete="off" spellcheck="false" />
+        <div class="gv-val-type-row">
+          <input type="text" class="param-input flex-1" id="gv-new-value" placeholder="valor inicial" autocomplete="off" />
+          <select class="gv-type-sel" id="gv-new-type">
+            <option value="string">str</option>
+            <option value="int">int</option>
+            <option value="float">float</option>
+            <option value="bool">bool</option>
+            <option value="list">list</option>
+            <option value="json">json</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btn-gv-add">+ Agregar</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="flex-1"></div>
+      <button class="btn-header-small" id="btn-gv-close">Cerrar</button>
+    </div>
+  </div>
+</div>

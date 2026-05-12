@@ -167,6 +167,7 @@ export function saveConfigView() {
   const startupModeEl = document.getElementById("cfg-startup-mode");
   const zoomEnabledEl = document.getElementById("cfg-zoom-enabled");
   const accentEl = document.getElementById("cfg-accent");
+  const activityBarEl = document.getElementById("cfg-activity-bar");
 
   if (themeEl) state.config.theme = themeEl.value;
   if (closeEl) state.config.closeBehavior = closeEl.value;
@@ -174,6 +175,7 @@ export function saveConfigView() {
   if (startupModeEl) state.config.startupMode = startupModeEl.value;
   if (zoomEnabledEl) state.config.enableZoom = zoomEnabledEl.checked;
   if (accentEl) state.config.accentColor = accentEl.value;
+  if (activityBarEl) state.config.activityBarPosition = activityBarEl.value;
 
   saveConfig();
   showToast("Configuración", "Los cambios han sido guardados y aplicados.");
@@ -282,19 +284,17 @@ function setupResizer(resizerId, containerId, cssVar, minW, maxW) {
   resizer.addEventListener("mousedown", (e) => {
     isDragging = true;
     resizer.classList.add("dragging");
+    container.classList.add("is-resizing");
     document.body.style.cursor = "col-resize";
     e.preventDefault();
   });
 
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
-
     const containerRect = container.getBoundingClientRect();
     let newWidth = e.clientX - containerRect.left;
-
     if (newWidth < minW) newWidth = minW;
     if (newWidth > maxW) newWidth = maxW;
-
     container.style.setProperty(cssVar, `${newWidth}px`);
   });
 
@@ -302,6 +302,7 @@ function setupResizer(resizerId, containerId, cssVar, minW, maxW) {
     if (isDragging) {
       isDragging = false;
       resizer.classList.remove("dragging");
+      container.classList.remove("is-resizing");
       document.body.style.cursor = "";
     }
   });
@@ -360,17 +361,42 @@ export function initMenu() {
 
 // ── Keyboard shortcuts ──
 
+function toggleSidebar() {
+  state.config.sidebarCollapsed = !state.config.sidebarCollapsed;
+  saveConfig();
+}
+
+function navigateToTab(name) {
+  document.querySelector(`.tab[data-tab="${name}"]`)?.click();
+}
+
+const SHORTCUTS = [
+  // Edición
+  { ctrl: true,                key: 'z', action: undo },
+  { ctrl: true,                key: 'y', action: redo },
+  { ctrl: true, shift: true,   key: 'z', action: redo },
+  // Navegación
+  { ctrl: true,                key: 'b', action: toggleSidebar },
+  { ctrl: true,                key: ',', action: openConfigView },
+  { ctrl: true, shift: true,   key: 'v', action: () => document.getElementById("ab-btn-global-vars")?.click() },
+  { ctrl: true,                key: '1', action: () => navigateToTab('monitor') },
+  { ctrl: true,                key: '2', action: () => navigateToTab('workflows') },
+  { ctrl: true,                key: '3', action: () => navigateToTab('metrics') },
+];
+
 export function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    // Ctrl+Z = Undo
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-    }
-    // Ctrl+Shift+Z or Ctrl+Y = Redo
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-      e.preventDefault();
-      redo();
+    const ctrl = e.ctrlKey || e.metaKey;
+    for (const s of SHORTCUTS) {
+      if (
+        !!s.ctrl === ctrl &&
+        !!s.shift === e.shiftKey &&
+        e.key.toLowerCase() === s.key.toLowerCase()
+      ) {
+        e.preventDefault();
+        s.action();
+        return;
+      }
     }
   });
 }

@@ -5,7 +5,6 @@
         <div class="s-label">Señales</div>
         <div class="slp-header-actions">
           <span class="save-indicator" id="save-indicator">✓ Guardado</span>
-          <button class="btn-header-small" id="btn-add-folder" title="Nueva Carpeta">📂+</button>
           <button class="btn-header-small" id="btn-import-workflow" title="Importar Workflow">📥</button>
         </div>
       </div>
@@ -22,10 +21,6 @@
         <input type="text" id="sig-search" placeholder="Buscar workflows..." autocomplete="off" spellcheck="false" />
         <button id="btn-clear-search" class="btn-clear-search" title="Limpiar búsqueda">✕</button>
       </div>
-      <div class="slp-add">
-        <input type="text" id="new-sig-cfg" placeholder="NUEVA_SEÑAL" maxlength="40" />
-        <button id="btn-add-signal" title="Nueva Señal">+</button>
-      </div>
     </div>
     <div class="signal-list" id="signal-list"></div>
   </div>
@@ -34,8 +29,13 @@
 
   <div class="step-editor-panel">
     <div class="se-empty" id="se-empty">
-      <span class="ico">↰</span>
-      <span>Seleccioná una señal</span>
+      <svg class="se-empty-icon" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="6" width="32" height="7" rx="2.5"/>
+        <rect x="4" y="18" width="24" height="7" rx="2.5"/>
+        <rect x="4" y="30" width="14" height="7" rx="2.5"/>
+      </svg>
+      <span>Seleccioná un workflow</span>
+      <span class="se-empty-sub">o creá uno nuevo en el panel izquierdo</span>
     </div>
     <div class="se-content d-none" id="se-content">
       <div class="se-header">
@@ -67,6 +67,7 @@
           <button class="add-step-btn" id="add-step-btn">
             + Agregar paso
           </button>
+          <span class="add-step-hint">Ctrl+F para buscar</span>
           <div class="step-menu" id="step-menu"></div>
         </div>
       </div>

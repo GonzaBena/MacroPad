@@ -70,9 +70,16 @@
 
 .btn-row {
     display: flex;
-    flex-direction: column;
-    padding: 24px 0;
+    flex-direction: row;
+    padding: 14px 0 4px;
     gap: 8px;
+}
+
+.btn-ports {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    font-size: 15px;
+    line-height: 1;
 }
 
 .btn {
@@ -200,4 +207,132 @@
 .btn-ghost-sm:hover {
     color: var(--text);
     background: rgba(255,255,255,0.15);
+}
+
+/* ── Sidebar section header (title + action button) ── */
+.s-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.s-section-header .s-label {
+    margin-bottom: 0;
+}
+
+.s-section-add {
+    padding: 3px 8px;
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* ── Global vars sidebar list ── */
+.sb-gv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sb-gv-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    min-width: 0;
+}
+
+.sb-gv-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.sb-gv-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--amber);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sb-gv-value {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sb-gv-actions {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.sb-gv-actions .btn-icon {
+    padding: 3px 5px;
+    font-size: 11px;
+}
+
+/* ── Global vars — name + type badge row ── */
+.sb-gv-name-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+/* ── Type badges ── */
+.gv-type-badge {
+    font-size: 9px;
+    font-family: var(--mono);
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+}
+
+.gvt-string { background: rgba(150,150,170,0.15); color: var(--muted2); }
+.gvt-int    { background: rgba(91,142,240,0.18);  color: #7aa4f5; }
+.gvt-float  { background: rgba(45,212,191,0.18);  color: #2dd4bf; }
+.gvt-bool   { background: rgba(61,220,132,0.15);  color: var(--green); }
+.gvt-list   { background: rgba(167,139,250,0.18); color: #b79dfa; }
+.gvt-json   { background: rgba(251,146,60,0.18);  color: #fb923c; }
+
+/* ── Value + type selector row ── */
+.gv-val-type-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.gv-type-sel {
+    flex-shrink: 0;
+    width: 58px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 4px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+}
+
+.gv-type-sel:focus {
+    border-color: var(--amber);
+    color: var(--text);
 }

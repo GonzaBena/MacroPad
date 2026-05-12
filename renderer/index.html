@@ -1,118 +1,226 @@
 <!doctype html>
 <html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;"
+    />
+    <title>PokePad</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="css/metrics.css" />
+    <script src="js/vendor/marked.js"></script>  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;" />
-  <title>PokePad</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
-    rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-  <script src="js/vendor/marked.js"></script>
-</head>
+  <body>
+    <div class="app">
+      <div class="titlebar">
+        <div class="tb-brand">
+          <span class="tb-dot" id="tb-dot"></span>
+          PokePad
+        </div>
 
-<body>
-  <div class="app">
-    <div class="titlebar">
-      <div class="tb-brand">
-        <span class="tb-dot" id="tb-dot"></span>
-        PokePad
+        <div class="tb-menu">
+          <div class="menu-wrapper">
+            <div class="menu-btn">Archivo</div>
+            <div class="dropdown">
+              <div class="dd-item" id="menu-config">Configuraciones...</div>
+              <div class="dd-divider"></div>
+              <div class="dd-item" id="menu-exit">Salir</div>
+            </div>
+          </div>
+          <div class="menu-wrapper">
+            <div class="menu-btn">Editar</div>
+            <div class="dropdown">
+              <div class="dd-item" id="menu-undo">Deshacer</div>
+              <div class="dd-item" id="menu-redo">Rehacer</div>
+            </div>
+          </div>
+          <div class="menu-wrapper">
+            <div class="menu-btn">Ayuda</div>
+            <div class="dropdown">
+              <div class="dd-item" id="menu-check-updates">
+                Buscar actualizaciones...
+              </div>
+              <div class="dd-divider"></div>
+              <div class="dd-item" id="menu-about">Acerca</div>
+            </div>
+          </div>
+        </div>
+        <div class="tb-controls">
+          <button class="wbtn" id="wbtn-min">−</button>
+          <button class="wbtn" id="wbtn-max">□</button>
+          <button class="wbtn close" id="wbtn-close">✕</button>
+        </div>
       </div>
 
-      <div class="tb-menu">
-        <div class="menu-wrapper">
-          <div class="menu-btn">Archivo</div>
-          <div class="dropdown">
-            <div class="dd-item" id="menu-config">Configuraciones...</div>
-            <div class="dd-divider"></div>
-            <div class="dd-item" id="menu-exit">Salir</div>
-          </div>
+      <div class="app-body" id="app-body">
+        <div class="activity-bar" id="activity-bar">
+          <button
+            class="ab-btn active"
+            id="ab-btn-serial"
+            title="Conexión Serial"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2v8"></path>
+              <path d="m16 8 4 4-4 4"></path>
+              <path d="M20 12H12"></path>
+              <rect x="2" y="6" width="10" height="12" rx="2"></rect>
+            </svg>
+          </button>
+          <button
+            class="ab-btn"
+            id="ab-btn-global-vars"
+            title="Variables Globales"
+          >
+            𝑥
+          </button>
+          <button class="ab-btn" id="ab-btn-add-folder" title="Nueva Carpeta">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+              ></path>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+          </button>
+          <button class="ab-btn" id="ab-btn-add-signal" title="Nuevo Workflow">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </button>
         </div>
-        <div class="menu-wrapper">
-          <div class="menu-btn">Editar</div>
-          <div class="dropdown">
-            <div class="dd-item" id="menu-undo">Deshacer</div>
-            <div class="dd-item" id="menu-redo">Rehacer</div>
-          </div>
-        </div>
-        <div class="menu-wrapper">
-          <div class="menu-btn">Ayuda</div>
-          <div class="dropdown">
-            <div class="dd-item" id="menu-check-updates">Buscar actualizaciones...</div>
-            <div class="dd-divider"></div>
-            <div class="dd-item" id="menu-about">Acerca</div>
-          </div>
+
+        <div class="content" id="main-content">
+          <div class="sidebar" id="main-sidebar"></div>
+          <div class="resizer" id="main-resizer"></div>
+
+          <div class="panel">
+            <div class="tabs">
+              <div class="tab active" id="tab-btn-monitor" data-tab="monitor">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M1 7h2l2-4 3 8 2-5 1 2h3" />
+                </svg>
+                Monitor
+              </div>
+              <div class="tab" id="tab-btn-workflows" data-tab="workflows">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                >
+                  <line x1="1" y1="3.5" x2="13" y2="3.5" />
+                  <line x1="1" y1="7" x2="9" y2="7" />
+                  <line x1="1" y1="10.5" x2="6" y2="10.5" />
+                </svg>
+                Workflows
+              </div>
+              <div class="tab" id="tab-btn-metrics" data-tab="metrics">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 13H1V1h12v12zM1 9h12M1 5h12M5 1v12M9 1v12"/>
+                </svg>
+                Métricas
+              </div>
+              </div>
+
+              <!-- Monitor -->
+              <div class="tab-pane active" id="tab-monitor"></div>
+
+              <!-- workflows -->
+              <div class="tab-pane" id="tab-workflows"></div>
+
+              <!-- metrics -->
+              <div class="tab-pane" id="tab-metrics"></div>          </div>
         </div>
       </div>
-      <div class="tb-controls">
-        <button class="wbtn" id="wbtn-min">−</button>
-        <button class="wbtn" id="wbtn-max">□</button>
-        <button class="wbtn close" id="wbtn-close">✕</button>
+    </div>
+    <div id="toasts"></div>
+
+    <!-- Modales -->
+    <div class="cmd-modal-overlay d-none" id="cmd-modal-overlay"></div>
+    <div id="app-modal-container"></div>
+
+    <div class="modal-overlay d-none" id="prompt-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span id="prompt-title">Título</span>
+        </div>
+        <div class="modal-body">
+          <input
+            type="text"
+            id="prompt-input"
+            class="param-input"
+            spellcheck="false"
+          />
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="prompt-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="prompt-ok">Confirmar</button>
+        </div>
       </div>
     </div>
 
-    <div class="content" id="main-content">
-      <div class="sidebar" id="main-sidebar"></div>
-      <div class="resizer" id="main-resizer"></div>
-
-      <div class="panel">
-        <div class="tabs">
-          <div class="tab active" id="tab-btn-monitor" data-tab="monitor">
-            Monitor
-          </div>
-          <div class="tab" id="tab-btn-workflows" data-tab="workflows">
-            Workflows
-          </div>
+    <div class="modal-overlay d-none" id="confirm-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span id="confirm-title">Confirmar</span>
         </div>
-
-        <!-- Monitor -->
-        <div class="tab-pane active" id="tab-monitor"></div>
-
-        <!-- workflows -->
-        <div class="tab-pane" id="tab-workflows"></div>
+        <div class="modal-body">
+          <p id="confirm-message" class="confirm-message"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
+          <button class="btn btn-danger" id="confirm-ok">Eliminar</button>
+        </div>
       </div>
     </div>
-  </div>
-  <div id="toasts"></div>
 
-  <!-- Modales -->
-  <div class="cmd-modal-overlay d-none" id="cmd-modal-overlay"></div>
-  <div id="app-modal-container"></div>
-
-  <div class="modal-overlay d-none" id="prompt-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <span id="prompt-title">Título</span>
-      </div>
-      <div class="modal-body">
-        <input type="text" id="prompt-input" class="param-input" spellcheck="false" />
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="prompt-cancel">Cancelar</button>
-        <button class="btn btn-primary" id="prompt-ok">Confirmar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay d-none" id="confirm-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <span id="confirm-title">Confirmar</span>
-      </div>
-      <div class="modal-body">
-        <p id="confirm-message" class="confirm-message"></p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
-        <button class="btn btn-danger" id="confirm-ok">Eliminar</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="js/main.js"></script>
-</body>
-
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>

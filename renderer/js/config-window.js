@@ -1,6 +1,44 @@
 import { loadView, initConfigColorPicker, showToast, saveConfigView, exportConfig, importConfig, applyTheme } from './ui.js';
 import { loadConfig, saveConfig, state } from './state.js';
 
+function initSegments() {
+    document.querySelectorAll('.cfg-segment').forEach(seg => {
+        const input = document.getElementById(seg.dataset.target);
+        if (!input) return;
+        seg.querySelectorAll('.cfg-seg-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.value === input.value);
+            btn.addEventListener('click', () => {
+                seg.querySelectorAll('.cfg-seg-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                input.value = btn.dataset.value;
+                input.dispatchEvent(new Event("change"));
+            });
+        });
+    });
+}
+
+function initSwatches() {
+    const accentEl = document.getElementById('cfg-accent');
+    const pickerEl = document.getElementById('cfg-accent-picker');
+    const previewEl = document.getElementById('cfg-accent-preview');
+    const syncActive = (val) => {
+        document.querySelectorAll('.cfg-swatch').forEach(s =>
+            s.classList.toggle('active', s.dataset.color.toLowerCase() === val.toLowerCase())
+        );
+    };
+    syncActive(accentEl?.value || '#f5a623');
+    document.querySelectorAll('.cfg-swatch').forEach(swatch => {
+        swatch.addEventListener('click', () => {
+            const color = swatch.dataset.color;
+            if (accentEl) accentEl.value = color.toUpperCase();
+            if (pickerEl) pickerEl.value = color;
+            if (previewEl) previewEl.style.background = color;
+            syncActive(color);
+        });
+    });
+    accentEl?.addEventListener('input', () => syncActive(accentEl.value));
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
     // Cargar la vista de configuración
     await loadView("config-view-container", "views/config.html");
@@ -16,6 +54,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const zoomEnabledEl = document.getElementById("cfg-zoom-enabled");
     const accentEl = document.getElementById("cfg-accent");
     const pickerEl = document.getElementById("cfg-accent-picker");
+    const activityBarEl = document.getElementById("cfg-activity-bar");
 
     const populateThemes = async () => {
         if (!themeEl) return;
@@ -42,10 +81,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (initialTabEl) initialTabEl.value = state.config.initialTab || "monitor";
     if (startupModeEl) startupModeEl.value = state.config.startupMode || "none";
     if (zoomEnabledEl) zoomEnabledEl.checked = state.config.enableZoom !== false;
+    if (activityBarEl) activityBarEl.value = state.config.activityBarPosition || "left";
     if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
     if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
 
+    initSegments();
     initConfigColorPicker();
+    initSwatches();
 
     // Event Listeners
     themeEl?.addEventListener("change", async () => {
@@ -56,6 +98,11 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     zoomEnabledEl?.addEventListener("change", () => {
         state.config.enableZoom = zoomEnabledEl.checked;
+        saveConfig();
+    });
+
+    activityBarEl?.addEventListener("change", () => {
+        state.config.activityBarPosition = activityBarEl.value;
         saveConfig();
     });
 
@@ -78,7 +125,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     });
     document.getElementById("wbtn-close")?.addEventListener("click", () => window.arduino.close());
-    document.getElementById("btn-back-config")?.remove(); // No necesitamos botón volver en ventana separada
     
     document.getElementById("btn-save-config")?.addEventListener("click", () => {
         saveConfigView();

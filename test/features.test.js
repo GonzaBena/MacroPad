@@ -6,6 +6,7 @@ global.window = {
     getThemeData: jest.fn(),
     setZoomFactor: jest.fn(),
     updateSignals: jest.fn(),
+    updateGlobalVars: jest.fn(),
     saveData: jest.fn().mockResolvedValue({ ok: true }),
   },
   matchMedia: jest.fn().mockImplementation(query => ({
@@ -26,6 +27,10 @@ global.document = {
       setProperty: jest.fn(),
     },
   },
+  getElementById: jest.fn(() => ({
+    classList: { add: jest.fn(), remove: jest.fn() }
+  })),
+  dispatchEvent: jest.fn(),
 };
 
 describe('Theme Fallback', () => {

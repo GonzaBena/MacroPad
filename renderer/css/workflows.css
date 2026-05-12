@@ -1,411 +1,502 @@
 /* Configure tab */
 .configure-split {
-    display: grid;
-    grid-template-columns: var(--sig-sidebar-w, 220px) 4px 1fr;
-    height: 100%;
-    overflow: hidden;
+  display: grid;
+  grid-template-columns: var(--sig-sidebar-w, 220px) 4px 1fr;
+  height: 100%;
+  overflow: hidden;
 }
 
 .signal-list-panel {
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .slp-header {
-    padding: 14px 14px 10px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .slp-header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .slp-header-actions {
-    display: flex;
-    gap: 4px;
+  display: flex;
+  gap: 4px;
 }
 
 .btn-header-small {
-    padding: 4px 6px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--surface2);
-    color: var(--text);
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.1s;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
 }
 
 .btn-header-small:hover {
-    background: var(--surface3);
-    border-color: var(--border2);
+  background: var(--surface3);
+  border-color: var(--border2);
 }
 
 .slp-sort select {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--muted);
-    font-size: 10px;
-    padding: 4px;
-    border-radius: 4px;
-    outline: none;
-    cursor: pointer;
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-size: 10px;
+  padding: 4px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
 }
 
 .slp-sort select:focus {
-    border-color: var(--amber);
-    color: var(--text);
+  border-color: var(--amber);
+  color: var(--text);
 }
 
 .slp-search {
-    position: relative;
-    display: flex;
-    align-items: center;
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .slp-search input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    font-size: 11px;
-    padding: 5px 24px 5px 8px;
-    border-radius: 6px;
-    outline: none;
-    font-family: var(--mono);
-    transition: border-color 0.15s;
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 11px;
+  padding: 5px 24px 5px 8px;
+  border-radius: 6px;
+  outline: none;
+  font-family: var(--mono);
+  transition: border-color 0.15s;
 }
 
 .slp-search input:focus {
-    border-color: var(--amber);
+  border-color: var(--amber);
 }
 
 .slp-search input::placeholder {
-    color: var(--muted2);
+  color: var(--muted2);
 }
 
 .btn-clear-search {
-    position: absolute;
-    right: 6px;
-    background: none;
-    border: none;
-    color: var(--muted2);
-    cursor: pointer;
-    font-size: 10px;
-    padding: 2px 3px;
-    display: none;
-    line-height: 1;
-    border-radius: 3px;
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--muted2);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 3px;
+  display: none;
+  line-height: 1;
+  border-radius: 3px;
 }
 
 .btn-clear-search:hover {
-    color: var(--text);
-    background: var(--surface3);
+  color: var(--text);
+  background: var(--surface3);
 }
 
 .slp-search input:not(:placeholder-shown) ~ .btn-clear-search {
-    display: block;
+  display: block;
 }
 
 .sig-search-empty {
-    padding: 24px 12px;
-    text-align: center;
-    font-size: 11px;
-    color: var(--muted2);
-    font-family: var(--mono);
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted2);
+  font-family: var(--mono);
 }
 
 .sig-list-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 40px 16px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--muted2);
-    font-family: var(--mono);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted2);
+  font-family: var(--mono);
 }
 
 .sig-list-empty-icon {
-    font-size: 32px;
-    opacity: 0.2;
+  font-size: 32px;
+  opacity: 0.2;
 }
 
 .btn-list-create {
-    margin-top: 4px;
-    padding: 6px 14px;
-    border: 1px solid var(--amber-dim);
-    border-radius: 6px;
-    background: var(--amber-bg);
-    color: var(--amber);
-    font-family: var(--ui);
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
+  margin-top: 4px;
+  padding: 6px 14px;
+  border: 1px solid var(--amber-dim);
+  border-radius: 6px;
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
 .btn-list-create:hover {
-    background: var(--amber);
-    color: #0c0e14;
+  background: var(--amber);
+  color: #0c0e14;
 }
 
 .sig-folder-count {
-    font-size: 10px;
-    color: var(--muted2);
-    background: var(--surface3);
-    border-radius: 10px;
-    padding: 1px 6px;
-    flex-shrink: 0;
-    min-width: 18px;
-    text-align: center;
+  font-size: 10px;
+  color: var(--muted2);
+  background: var(--surface3);
+  border-radius: 10px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  min-width: 18px;
+  text-align: center;
 }
 
 .slp-add {
-    display: flex;
-    gap: 6px;
+  display: flex;
+  gap: 6px;
 }
 
 /* Folder styles */
 .sig-folder {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
 }
 
 .sig-folder-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.1s;
-    user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s;
+  user-select: none;
 }
 
 .sig-folder-header:hover {
-    background: var(--surface2);
+  background: var(--surface2);
 }
 
 .sig-folder-chevron {
-    font-size: 8px;
-    color: var(--muted2);
-    transition: transform 0.2s;
-    width: 10px;
-    text-align: center;
+  font-size: 8px;
+  color: var(--muted2);
+  transition: transform 0.2s;
+  width: 10px;
+  text-align: center;
 }
 
 .sig-folder.expanded .sig-folder-chevron {
-    transform: rotate(90deg);
+  transform: rotate(90deg);
 }
 
 .sig-folder-icon {
-    font-size: 12px;
+  font-size: 12px;
 }
 
 .sig-folder-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sig-folder-content {
-    display: none;
-    flex-direction: column;
-    gap: 4px;
-    padding-left: 18px;
-    margin-top: 4px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 18px;
+  margin-top: 4px;
 }
 
 .sig-folder.expanded .sig-folder-content {
-    display: flex;
+  display: flex;
 }
 
 .sig-folder.drag-over {
-    background: var(--amber-bg);
-    border: 1px dashed var(--amber);
-    border-radius: 8px;
+  background: var(--amber-bg);
+  border: 1px dashed var(--amber);
+  border-radius: 8px;
 }
 
 .sig-insertion-bar {
-    height: 12px;
-    margin: -6px 0;
-    position: relative;
-    z-index: 10;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
+  height: 12px;
+  margin: -6px 0;
+  position: relative;
+  z-index: 10;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 .sig-insertion-line {
-    height: 2px;
-    width: 100%;
-    background: var(--border);
-    opacity: 0;
-    transition: all 0.2s;
-    border-radius: 1px;
+  height: 2px;
+  width: 100%;
+  background: var(--border);
+  opacity: 0;
+  transition: all 0.2s;
+  border-radius: 1px;
 }
 
 .sig-insertion-bar:hover .sig-insertion-line,
 .sig-insertion-bar.drag-over .sig-insertion-line {
-    opacity: 1;
-    background: var(--amber);
+  opacity: 1;
+  background: var(--amber);
 }
 
 .sig-insertion-bar.drag-over {
-    height: 24px;
-    margin: -12px 0;
+  height: 24px;
+  margin: -12px 0;
 }
 
 .sig-insertion-bar.drag-over .sig-insertion-line {
-    height: 4px;
-    box-shadow: 0 0 8px var(--amber);
+  height: 4px;
+  box-shadow: 0 0 8px var(--amber);
 }
 
 .sig-card.dragging {
-    opacity: 0.4;
-    border-style: dashed;
-    background: var(--surface);
-    transform: scale(0.98);
+  opacity: 0.4;
+  border-style: dashed;
+  background: var(--surface);
+  transform: scale(0.98);
+}
+
+.sig-folder.dragging {
+  opacity: 0.45;
+  outline: 1px dashed var(--amber);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+.sig-folder-drag-handle {
+  font-size: 13px;
+  color: var(--muted2);
+  cursor: grab;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.sig-folder-header:hover .sig-folder-drag-handle {
+  opacity: 0.6;
+}
+
+.sig-folder-drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--amber);
+}
+
+.sig-folder-drag-handle:active {
+  cursor: grabbing;
 }
 
 .signal-list.is-dragging .sig-insertion-line {
-    opacity: 0.4;
-    background: var(--border2);
+  opacity: 0.4;
+  background: var(--border2);
 }
 
 .slp-add input {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    outline: none;
-    min-width: 0;
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  outline: none;
+  min-width: 0;
 }
 
 .slp-add input:focus {
-    border-color: var(--amber);
+  border-color: var(--amber);
 }
 
 .slp-add input::placeholder {
-    color: var(--muted);
+  color: var(--muted);
 }
 
 .slp-add button {
-    padding: 6px 10px;
-    border: none;
-    border-radius: 6px;
-    background: var(--amber);
-    color: #0c0e14;
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    flex-shrink: 0;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--amber);
+  color: #0c0e14;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .signal-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .signal-list::-webkit-scrollbar {
-    width: 3px;
+  width: 3px;
 }
 
 .signal-list::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 2px;
+  background: var(--border);
+  border-radius: 2px;
 }
 
 .sig-card {
-    padding: 10px 12px 10px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    border-left-width: 3px;
-    background: var(--surface2);
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+  padding: 10px 12px 10px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  background: var(--surface2);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .sig-card:hover {
-    border-color: var(--border2);
-    border-left-color: inherit;
+  border-color: var(--border2);
+  border-left-color: inherit;
 }
 
 .sig-card.active {
-    border-color: var(--amber-dim);
-    background: var(--surface3);
+  border-color: var(--amber-dim);
+  background: var(--surface3);
 }
 
 .sig-card-top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 3px;
 }
 
 .sig-name {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--amber);
-    font-weight: 700;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  font-weight: 700;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sig-label {
-    font-size: 11px;
-    color: var(--muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sig-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
 }
 
 .sig-steps-count {
-    font-size: 10px;
-    color: var(--muted2);
-    margin-top: 2px;
+  font-size: 10px;
+  color: var(--muted2);
+}
+
+.sig-run-count {
+  font-size: 10px;
+  color: var(--muted2);
+  font-variant-numeric: tabular-nums;
+}
+
+.sig-app-badge {
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .sig-pulse {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
-    flex-shrink: 0;
-    animation: pulse 1s ease-in-out infinite;
-    display: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  flex-shrink: 0;
+  animation: pulse 1s ease-in-out infinite;
+  display: none;
 }
 
 .sig-card.running .sig-pulse {
-    display: block;
+  display: block;
 }
 
+/* ── Global Variables Modal ── */
+.gv-add-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Global Variables ── */
+.gv-empty {
+  font-size: 11px;
+  color: var(--muted2);
+  text-align: center;
+  padding: 20px 0;
+  font-style: italic;
+}
+
+.gv-del {
+  flex-shrink: 0;
+  padding: 3px 6px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted2);
+  cursor: pointer;
+}
+
+.gv-del:hover {
+  border-color: var(--red, #e05c5c);
+  color: var(--red, #e05c5c);
+  background: rgba(224, 92, 92, 0.08);
+}

@@ -1,140 +1,188 @@
 <div class="config-page">
-  <div class="config-header">
-    <button class="btn-back" id="btn-back-config"><span>←</span> Volver</button>
-    <h2 class="config-title">Configuraciones Generales</h2>
-  </div>
-
   <div class="config-body">
+
+    <!-- Apariencia -->
     <div class="config-section">
-      <div class="config-section-title">Preferencias de la aplicación</div>
+      <div class="config-section-title">
+        <svg class="cfg-sec-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12c0-1 .6-1.8 1.8-1.8S5.5 11 5.5 12s-.6 2-1.7 2S2 13 2 12z"/>
+          <path d="M4.5 10.2L11 3.2a1.6 1.6 0 0 1 2.2 2.2L6.5 12"/>
+        </svg>
+        Apariencia
+      </div>
 
       <div class="config-row">
-        <div class="config-label">Tema visual</div>
-        <div style="display: flex; gap: 8px; flex: 1">
-          <select class="config-input" id="cfg-theme" style="flex: 1">
+        <div class="cfg-label-group">
+          <span class="config-label">Barra de actividad</span>
+        </div>
+        <div class="cfg-control">
+          <input type="hidden" id="cfg-activity-bar" value="left" />
+          <div class="cfg-segment" data-target="cfg-activity-bar">
+            <button class="cfg-seg-btn" data-value="left">Izquierda</button>
+            <button class="cfg-seg-btn" data-value="right">Derecha</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="cfg-label-group">
+          <span class="config-label">Tema visual</span>
+          <span class="config-hint">Añadí .json en la carpeta o importá desde VSCode, Alacritty</span>
+        </div>
+        <div class="cfg-control cfg-theme-row">
+          <select class="config-input" id="cfg-theme">
             <option value="dark-default">Oscuro (Por defecto)</option>
           </select>
-          <button
-            class="config-color-btn"
-            id="btn-open-themes"
-            title="Abrir carpeta de temas"
-          >
-            <span>📂</span>
-          </button>
-          <button
-            class="config-color-btn"
-            id="btn-import-external-theme"
-            title="Importar tema externo (VSCode, Alacritty, TOML...)"
-            style="font-size: 16px"
-          >
-            <span>⬇</span>
-          </button>
-          <button
-            class="btn-save-config"
-            id="btn-theme-preview"
-            style="padding: 0 12px; height: 32px; white-space: nowrap"
-          >
-            Vista Previa
-          </button>
-        </div>
-      </div>
-      <div class="config-row" style="margin-top: -8px">
-        <div class="config-label config-hint">
-          Podes añadir archivos .json en la carpeta de temas, o importar temas de VSCode, Alacritty (YAML/TOML) y otros con el botón ⬇.
+          <button class="config-color-btn" id="btn-open-themes" title="Abrir carpeta de temas">📂</button>
+          <button class="config-color-btn" id="btn-import-external-theme" title="Importar tema externo (VSCode, Alacritty, TOML...)">⬇</button>
+          <button class="cfg-btn-secondary" id="btn-theme-preview">Vista Previa</button>
         </div>
       </div>
 
+      <div class="config-row cfg-row-accent">
+        <div class="cfg-label-group">
+          <span class="config-label">Color de acento</span>
+        </div>
+        <div class="cfg-control">
+          <div class="cfg-accent-wrap">
+            <div class="cfg-swatches">
+              <button class="cfg-swatch" data-color="#f5a623" style="background:#f5a623" title="Amber"></button>
+              <button class="cfg-swatch" data-color="#2dd4bf" style="background:#2dd4bf" title="Teal"></button>
+              <button class="cfg-swatch" data-color="#5b8ef0" style="background:#5b8ef0" title="Azul"></button>
+              <button class="cfg-swatch" data-color="#a78bfa" style="background:#a78bfa" title="Violeta"></button>
+              <button class="cfg-swatch" data-color="#f472b6" style="background:#f472b6" title="Rosa"></button>
+              <button class="cfg-swatch" data-color="#3ddc84" style="background:#3ddc84" title="Verde"></button>
+              <button class="cfg-swatch" data-color="#fb923c" style="background:#fb923c" title="Naranja"></button>
+              <button class="cfg-swatch" data-color="#ff4d6a" style="background:#ff4d6a" title="Rojo"></button>
+            </div>
+            <div class="config-color-field">
+              <input
+                type="text"
+                class="config-input config-input-hex"
+                id="cfg-accent"
+                value="#f5a623"
+                maxlength="7"
+                spellcheck="false"
+                placeholder="#f5a623"
+              />
+              <button class="config-color-btn" id="cfg-accent-btn" title="Abrir selector de color">
+                <span class="config-color-preview" id="cfg-accent-preview"></span>
+              </button>
+              <input type="color" id="cfg-accent-picker" value="#f5a623" class="d-none" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comportamiento -->
+    <div class="config-section">
+      <div class="config-section-title">
+        <svg class="cfg-sec-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <line x1="2" y1="3.5" x2="12" y2="3.5"/>
+          <line x1="2" y1="7" x2="12" y2="7"/>
+          <line x1="2" y1="10.5" x2="12" y2="10.5"/>
+          <circle cx="5" cy="3.5" r="1.5" fill="var(--surface2)"/>
+          <circle cx="9" cy="7" r="1.5" fill="var(--surface2)"/>
+          <circle cx="6" cy="10.5" r="1.5" fill="var(--surface2)"/>
+        </svg>
+        Comportamiento
+      </div>
+
       <div class="config-row">
-        <div class="config-label">Color de Acento</div>
-        <div class="config-color-field">
-          <input
-            type="text"
-            class="config-input config-input-hex"
-            id="cfg-accent"
-            value="#f5a623"
-            maxlength="7"
-            spellcheck="false"
-            placeholder="#f5a623"
-          />
-          <button
-            class="config-color-btn"
-            id="cfg-accent-btn"
-            title="Abrir selector de color"
-          >
-            <span class="config-color-preview" id="cfg-accent-preview"></span>
-          </button>
-          <input
-            type="color"
-            id="cfg-accent-picker"
-            value="#f5a623"
-            class="d-none"
-          />
+        <div class="cfg-label-group">
+          <span class="config-label">Al cerrar la ventana</span>
+        </div>
+        <div class="cfg-control">
+          <input type="hidden" id="cfg-close" value="close" />
+          <div class="cfg-segment" data-target="cfg-close">
+            <button class="cfg-seg-btn" data-value="close">Cerrar</button>
+            <button class="cfg-seg-btn" data-value="tray">Minimizar a bandeja</button>
+          </div>
         </div>
       </div>
 
       <div class="config-row">
-        <div class="config-label">Comportamiento al cerrar</div>
-        <select class="config-input" id="cfg-close">
-          <option value="close">Cerrar completamente</option>
-          <option value="tray">Minimizar a la bandeja del sistema</option>
-        </select>
+        <div class="cfg-label-group">
+          <span class="config-label">Pestaña inicial</span>
+        </div>
+        <div class="cfg-control">
+          <input type="hidden" id="cfg-initial-tab" value="monitor" />
+          <div class="cfg-segment" data-target="cfg-initial-tab">
+            <button class="cfg-seg-btn" data-value="monitor">Monitor</button>
+            <button class="cfg-seg-btn" data-value="workflows">Workflows</button>
+          </div>
+        </div>
       </div>
 
       <div class="config-row">
-        <div class="config-label">Pestaña inicial</div>
-        <select class="config-input" id="cfg-initial-tab">
-          <option value="monitor">Monitor</option>
-          <option value="workflows">Workflows</option>
-        </select>
+        <div class="cfg-label-group">
+          <span class="config-label">Al iniciar sesión</span>
+        </div>
+        <div class="cfg-control">
+          <input type="hidden" id="cfg-startup-mode" value="none" />
+          <div class="cfg-segment" data-target="cfg-startup-mode">
+            <button class="cfg-seg-btn" data-value="none">No iniciar</button>
+            <button class="cfg-seg-btn" data-value="normal">Con foco</button>
+            <button class="cfg-seg-btn" data-value="minimized">Minimizado</button>
+          </div>
+        </div>
       </div>
 
       <div class="config-row">
-        <div class="config-label">Comportamiento al iniciar sesión</div>
-        <select class="config-input" id="cfg-startup-mode">
-          <option value="none">No iniciar</option>
-          <option value="normal">Focus</option>
-          <option value="minimized">Minimizado</option>
-        </select>
-      </div>
-
-      <div class="config-row">
-        <div class="config-label">Zoom con teclado y mouse</div>
-        <div class="config-check-field">
-          <input type="checkbox" id="cfg-zoom-enabled" />
-          <label for="cfg-zoom-enabled" class="config-hint" style="margin-top: 0">
-            Habilitar Ctrl + Scroll / (+/-) para escalar la interfaz
+        <div class="cfg-label-group">
+          <span class="config-label">Zoom con teclado y mouse</span>
+          <span class="config-hint">Ctrl + Scroll o +/− para escalar la interfaz</span>
+        </div>
+        <div class="cfg-control">
+          <label class="cfg-toggle">
+            <input type="checkbox" id="cfg-zoom-enabled" />
+            <span class="cfg-toggle-track">
+              <span class="cfg-toggle-thumb"></span>
+            </span>
           </label>
         </div>
       </div>
     </div>
 
+    <!-- Datos -->
     <div class="config-section config-data-section">
-      <div class="config-section-title">Datos y configuración</div>
+      <div class="config-section-title">
+        <svg class="cfg-sec-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="7" cy="3.5" rx="4.5" ry="1.5"/>
+          <path d="M2.5 3.5v3c0 .83 2.02 1.5 4.5 1.5s4.5-.67 4.5-1.5v-3"/>
+          <path d="M2.5 6.5v3c0 .83 2.02 1.5 4.5 1.5s4.5-.67 4.5-1.5v-3"/>
+        </svg>
+        Datos y configuración
+      </div>
 
       <div class="config-row">
-        <div class="config-label">Exportar / Importar</div>
-        <div class="config-data-actions">
+        <div class="cfg-label-group">
+          <span class="config-label">Exportar / Importar</span>
+          <span class="config-hint">Guardá tus workflows a un JSON para backup o transferir a otra PC</span>
+        </div>
+        <div class="cfg-control cfg-data-btns">
           <button class="btn-export" id="btn-export">
-            📦 Exportar configuración
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 8.5V1.5M4 4L6.5 1.5 9 4"/>
+              <path d="M1.5 9.5v1.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9.5"/>
+            </svg>
+            Exportar
           </button>
           <button class="btn-import" id="btn-import">
-            📥 Importar configuración
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 1.5v7M4 6l2.5 2.5L9 6"/>
+              <path d="M1.5 9.5v1.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9.5"/>
+            </svg>
+            Importar
           </button>
         </div>
       </div>
-      <div class="config-row">
-        <div class="config-label config-hint">
-          Exportá tus workflows y configuraciones a un archivo JSON para hacer
-          backup o transferir a otra PC.
-        </div>
-      </div>
     </div>
 
-    <div class="config-actions">
-      <button class="btn-save-config" id="btn-save-config">
-        Guardar Configuraciones
-      </button>
-    </div>
+  </div>
+
+  <div class="config-footer">
+    <button class="btn-save-config" id="btn-save-config">Guardar Configuraciones</button>
   </div>
 </div>
-

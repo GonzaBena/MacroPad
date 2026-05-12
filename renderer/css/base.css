@@ -56,9 +56,84 @@ body {
     height: 100vh;
 }
 
+.app-body {
+    display: flex;
+    overflow: hidden;
+    height: 100%;
+}
+
+.app-body.ab-right {
+    flex-direction: row-reverse;
+}
+
+.activity-bar {
+    width: 48px;
+    background: var(--surface2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+    gap: 12px;
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+.app-body.ab-right .activity-bar {
+    border-right: none;
+    border-left: 1px solid var(--border);
+}
+
+.ab-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.ab-btn:hover {
+    background: var(--surface3);
+    color: var(--text);
+}
+
+.ab-btn:active {
+    color: var(--amber);
+}
+
+.ab-btn.active {
+    color: var(--amber);
+    background: var(--surface3);
+}
+
 .content {
+    flex: 1;
     display: grid;
     grid-template-columns: var(--main-sidebar-w, 260px) 4px 1fr;
     overflow: hidden;
+    min-width: 0;
+    transition: grid-template-columns 0.2s ease;
+}
+
+.content.is-resizing {
+    transition: none;
+}
+
+.content.sidebar-hidden {
+    grid-template-columns: 0px 0px 1fr;
+}
+
+.content.sidebar-hidden .sidebar,
+.content.sidebar-hidden .resizer {
+    visibility: hidden;
+    pointer-events: none;
 }
 

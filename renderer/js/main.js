@@ -1,7 +1,8 @@
-import { state, loadSignalsData, loadConfig, saveConfig } from './state.js';
+import { state, loadSignalsData, loadConfig, saveConfig, saveSignals } from './state.js';
 import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
+import { renderMetrics } from './metrics.js';
 import {
   buildStepMenu,
   renderSignalList,
@@ -19,6 +20,9 @@ import {
   importWorkflow,
   initAssignDropdown,
   renderFlow,
+  updateCardMeta,
+  openGlobalVarsModal,
+  renderGlobalVarsSection,
 } from "./workflows.js";
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -26,6 +30,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   await loadView("main-sidebar", "views/sidebar.html");
   await loadView("tab-monitor", "views/monitor.html");
   await loadView("tab-workflows", "views/workflows.html");
+  await loadView("tab-metrics", "views/metrics.html");
   await loadView("cmd-modal-overlay", "views/cmd-modal.html");
   await loadView("app-modal-container", "views/app-modal.html");
 
@@ -48,6 +53,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
       tabEl.classList.add("active");
       document.getElementById(`tab-${name}`)?.classList.add("active");
+      
+      if (name === "metrics") renderMetrics();
     });
   });
 
@@ -60,11 +67,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   initFlowDelegation(); // Event delegation para step cards
 
   // 4. Cablear elementos de las vistas cargadas
-  // Sidebar
+  // Sidebar — Serial
   document.getElementById("btn-conn")?.addEventListener("click", toggleConnect);
   document.getElementById("btn-refresh-ports")?.addEventListener("click", refreshPorts);
   document.getElementById("btn-refresh-ports2")?.addEventListener("click", refreshPorts);
   document.getElementById("btn-cancel-reconnect")?.addEventListener("click", cancelReconnect);
+
+  // Sidebar — Global Vars
+  document.getElementById("btn-sb-add-gv")?.addEventListener("click", openGlobalVarsModal);
 
   // Monitor
   document.getElementById("log-filter")?.addEventListener("input", filterLog);
@@ -74,13 +84,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   document.getElementById("btn-send-serial")?.addEventListener("click", sendSerial);
 
-  // Workflows panel
-  document.getElementById("new-sig-cfg")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") addSignal();
+  // Activity Bar
+  document.getElementById("ab-btn-serial")?.addEventListener("click", () => switchSidebarSection("serial"));
+  document.getElementById("ab-btn-global-vars")?.addEventListener("click", () => {
+    switchSidebarSection("global-vars");
+    if (!state.config.sidebarCollapsed) renderGlobalVarsSection();
   });
-  document.getElementById("btn-add-signal")?.addEventListener("click", addSignal);
-  document.getElementById("btn-add-folder")?.addEventListener("click", addFolder);
-  
+  document.getElementById("ab-btn-add-signal")?.addEventListener("click", addSignal);
+  document.getElementById("ab-btn-add-folder")?.addEventListener("click", addFolder);
+
+  // Workflows panel
   const sortSel = document.getElementById("sort-workflows");
   if (sortSel) {
     sortSel.value = state.config.workflowSort || "original";
@@ -138,6 +151,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   renderSignalList();
   initAssignDropdown();
+  if (!state.config.sidebarCollapsed && state.config.activeSidebarSection === "global-vars") {
+    renderGlobalVarsSection();
+  }
   refreshRunningApps(); // Pre-fetch apps list
   
   // Sincronizar estado de conexión al iniciar
@@ -178,8 +194,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  window.arduino.onSequenceEnd((signal) => {
-    console.log(`Sequence end: ${signal}`);
+  window.arduino.onSequenceEnd(({ signal, success }) => {
+    console.log(`Sequence end: ${signal}, success: ${success}`);
     const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(signal)}"]`);
     if (card) card.classList.remove("running");
     if (signal === state.selectedSig) {
@@ -188,6 +204,30 @@ window.addEventListener("DOMContentLoaded", async () => {
         btn.classList.remove("running");
         btn.innerHTML = "<span>▶ Probar</span>";
       }
+    }
+
+    // Actualizar estadísticas e historial
+    if (success) state.stats.success++;
+    else state.stats.failure++;
+
+    state.history.unshift({
+      signal,
+      success,
+      timestamp: Date.now()
+    });
+    if (state.history.length > 10) state.history.pop();
+
+    // Increment run counter
+    const entry = state.signals[signal];
+    if (entry) {
+      entry.runCount = (entry.runCount || 0) + 1;
+      updateCardMeta(signal, entry);
+    }
+    saveSignals();
+
+    // Refrescar métricas si están visibles
+    if (document.getElementById("tab-metrics")?.classList.contains("active")) {
+      renderMetrics();
     }
   });
 
@@ -250,6 +290,20 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 });
 
+// ── Sidebar section switching ──
+
+function switchSidebarSection(section) {
+  const isOpen = !state.config.sidebarCollapsed;
+  const isSame = state.config.activeSidebarSection === section;
+  if (isOpen && isSame) {
+    state.config.sidebarCollapsed = true;
+  } else {
+    state.config.activeSidebarSection = section;
+    state.config.sidebarCollapsed = false;
+  }
+  saveConfig();
+}
+
 // ── Lógica de Zoom ──
 let zoomTimeout = null;
 
@@ -295,4 +349,3 @@ function initZoom() {
     }
   });
 }
-
