@@ -3,12 +3,12 @@
 This document outlines the incremental strategy to migrate PokePad from JavaScript to TypeScript. The goal is to improve maintainability and type safety without halting development.
 
 ## Progress Tracking
-- [ ] Phase 1: Environment Setup
-- [ ] Phase 2: Core Types & State
-- [ ] Phase 3: IPC & Preload (The Bridge)
-- [ ] Phase 4: Main Process Migration
-- [ ] Phase 5: Renderer Process Migration
-- [ ] Phase 6: Full Strict Mode & Cleanup
+- [x] Phase 1: Environment Setup ✅
+- [x] Phase 2: Core Types & State ✅
+- [x] Phase 3: IPC & Preload (The Bridge) ✅
+- [x] Phase 4: Main Process Migration ✅
+- [x] Phase 5: Renderer Process Migration ✅
+- [ ] Phase 6: Full Strict Mode & Cleanup 🧹
 
 ---
 
@@ -46,16 +46,18 @@ Typing the "Brain" of the application.
 - [x] Migrate `main-process/serial.js` and other modules.
 - [x] Finally, migrate `main.js` to `main.ts`.
 
-## Phase 5: Renderer Process Migration 🎨
+## Phase 5: Renderer Process Migration ✅
 UI logic and Workflow editor.
 
-- [ ] Migrate `renderer/js/workflows.js` (complex UI logic).
-- [ ] Migrate `renderer/js/ui.js` and other helper modules.
-- [ ] Convert all view-specific scripts.
+- [x] Migrate `renderer/js/workflows.js` (complex UI logic).
+- [x] Migrate `renderer/js/ui.js` and other helper modules.
+- [x] Convert all view-specific scripts (`config-window`, `monitor`, `metrics`, etc.).
+- [x] Create `src/types/env.d.ts` for global `window` object extensions.
 
 ## Phase 6: Final Polish 🧹
 - [ ] Enable `strict: true` in `tsconfig.json`.
-- [ ] Remove `allowJs` and ensure all files are `.ts` or `.tsx`.
+- [ ] Remove `allowJs` and ensure all files are `.ts`.
+- [ ] Clean up redundant `.js` files if they are no longer needed as source.
 - [ ] Final audit of type safety and performance.
 
 ---
@@ -63,4 +65,4 @@ UI logic and Workflow editor.
 ## Risks & Mitigations
 - **SerialPort Native Modules:** Ensure `@electron/rebuild` is run after adding TS dependencies.
 - **Workflow Breaking Changes:** Maintain a strong test suite in `test/` and run it after every file migration.
-- **UI Interaction:** Be careful with `window` object extensions; use global declaration files (`env.d.ts`).
+- **UI Interaction:** Be careful with `window` object extensions; use global declaration files (`env.d.ts`). [RESOLVED with `src/types/env.d.ts`]
