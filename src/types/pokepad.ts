@@ -35,6 +35,9 @@ export interface SignalEntry {
   assignedApp: string | null;
   assignedToButton: string | string[]; // Can be 'RAPIDA', 'MEDIA', 'LENTA' or a list
   steps: Step[];
+  folderId?: string | null;
+  createdAt?: number;
+  runCount?: number;
 }
 
 export type SignalMap = Record<string, SignalEntry>;
@@ -60,6 +63,7 @@ export interface AppState {
   connected: boolean;
   signals: SignalMap;
   folders: any[]; // To be detailed later if needed
+  selectedFolder: string;
   globalVariables: GlobalVariables;
   selectedSig: string | null;
   logAll: any[];

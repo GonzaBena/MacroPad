@@ -1,5 +1,5 @@
-let currentThemes = [];
-let selectedThemeId = null;
+let currentThemes: any[] = [];
+let selectedThemeId: string | null = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     const listEl = document.getElementById("theme-list");
@@ -9,12 +9,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cancelBtn = document.getElementById("btn-cancel-preview");
     const closeBtn = document.getElementById("btn-close");
 
+    if (!listEl || !nameEl || !containerEl || !applyBtn || !cancelBtn || !closeBtn) return;
+
     // Load themes
     currentThemes = await window.arduino.getThemes();
     
     // Get current config to highlight active theme
     const data = await window.arduino.loadData();
-    selectedThemeId = data.config.theme;
+    if (data?.config) selectedThemeId = data.config.theme;
 
     const renderList = () => {
         listEl.innerHTML = "";
@@ -30,7 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     };
 
-    const selectTheme = async (id) => {
+    const selectTheme = async (id: string) => {
         selectedThemeId = id;
         renderList();
         
@@ -38,8 +40,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (themeData) {
             nameEl.textContent = themeData.name;
             // Apply colors to the preview container only
-            for (const [key, value] of Object.entries(themeData.colors)) {
-                containerEl.style.setProperty(key, value);
+            if (themeData.colors) {
+                for (const [key, value] of Object.entries(themeData.colors)) {
+                    containerEl.style.setProperty(key, value as string);
+                }
             }
         }
     };
@@ -49,8 +53,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         // Save to config
         const data = await window.arduino.loadData();
-        data.config.theme = selectedThemeId;
-        await window.arduino.saveData(data);
+        if (data && data.config) {
+            data.config.theme = selectedThemeId;
+            await window.arduino.saveData(data);
+        }
         
         // Notify other windows
         window.arduino.notifyThemeChanged();
@@ -75,7 +81,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const themeStillExists = currentThemes.some(t => t.id === selectedThemeId);
         if (!themeStillExists) {
             const data = await window.arduino.loadData();
-            if (data.config.theme) selectTheme(data.config.theme);
+            if (data?.config?.theme) selectTheme(data.config.theme);
         }
     });
 });
+
+export {};

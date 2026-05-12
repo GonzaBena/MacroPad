@@ -23,6 +23,7 @@ import {
   updateCardMeta,
   openGlobalVarsModal,
   renderGlobalVarsSection,
+  refreshRunningApps,
 } from "./workflows.js";
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -48,7 +49,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Tabs — delegado con data-tab
   document.querySelectorAll(".tab[data-tab]").forEach((tabEl) => {
     tabEl.addEventListener("click", () => {
-      const name = tabEl.dataset.tab;
+      const name = (tabEl as HTMLElement).dataset.tab;
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
       document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
       tabEl.classList.add("active");
@@ -94,10 +95,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("ab-btn-add-folder")?.addEventListener("click", addFolder);
 
   // Workflows panel
-  const sortSel = document.getElementById("sort-workflows");
+  const sortSel = document.getElementById("sort-workflows") as HTMLSelectElement | null;
   if (sortSel) {
     sortSel.value = state.config.workflowSort || "original";
-    sortSel.addEventListener("change", (e) => changeSort(e.target.value));
+    sortSel.addEventListener("change", (e) => changeSort((e.target as HTMLSelectElement).value));
   }
 
   document.getElementById("btn-import-workflow")?.addEventListener("click", (e) => {
@@ -108,7 +109,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     e.stopPropagation();
     toggleStepMenu();
   });
-  document.getElementById("se-label-input")?.addEventListener("input", (e) => updateSignalLabel(e.target.value));
+  document.getElementById("se-label-input")?.addEventListener("input", (e) => updateSignalLabel((e.target as HTMLInputElement).value));
   document.getElementById("btn-assign")?.addEventListener("click", (e) => toggleAssignMenu(e));
   document.getElementById("btn-test")?.addEventListener("click", testCurrentSignal);
   document.getElementById("btn-del-sig")?.addEventListener("click", deleteCurrentSignal);
@@ -126,12 +127,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.addEventListener("click", (e) => {
     // Step menu
     const menu = document.getElementById("step-menu");
-    if (menu && menu.classList.contains("open") && !e.target.closest("#step-menu"))
+    if (menu && menu.classList.contains("open") && !(e.target as HTMLElement).closest("#step-menu"))
       menu.classList.remove("open");
     
     // Assign dropdown
     const drop = document.getElementById("assign-dropdown");
-    if (drop && drop.classList.contains("show") && !e.target.closest(".assign-dropdown-wrap"))
+    if (drop && drop.classList.contains("show") && !(e.target as HTMLElement).closest(".assign-dropdown-wrap"))
       drop.classList.remove("show");
   });
 
@@ -141,12 +142,13 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // 6. Aplicar pestaña inicial
   const initialTab = state.config.initialTab || "monitor";
-  const tabBtn = document.querySelector(`.tab[data-tab="${initialTab}"]`);
+  const tabBtn = document.querySelector(`.tab[data-tab="${initialTab}"]`) as HTMLElement | null;
   if (tabBtn) {
     document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
     document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
     tabBtn.classList.add("active");
-    document.getElementById(`tab-${initialTab}`)?.classList.add("active");
+    const pane = document.getElementById(`tab-${initialTab}`);
+    if (pane) pane.classList.add("active");
   }
 
   renderSignalList();
@@ -171,12 +173,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   window.arduino.onData(({ signal }) => {
     state.stats.sig++;
-    document.getElementById("st-sig").textContent = state.stats.sig;
+    const sigEl = document.getElementById("st-sig");
+    if (sigEl) sigEl.textContent = String(state.stats.sig);
     log(signal, "sig");
     const entry = state.signals[signal];
     if (entry?.steps?.length) {
       state.stats.act += entry.steps.length;
-      document.getElementById("st-act").textContent = state.stats.act;
+      const actEl = document.getElementById("st-act");
+      if (actEl) actEl.textContent = String(state.stats.act);
       log(`Ejecutando ${entry.steps.length} paso(s) para "${signal}"`, "act");
     }
   });
@@ -233,7 +237,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   window.arduino.onError((msg) => {
     state.stats.err++;
-    document.getElementById("st-err").textContent = state.stats.err;
+    const errEl = document.getElementById("st-err");
+    if (errEl) errEl.textContent = String(state.stats.err);
     log(`Error: ${msg}`, "err");
   });
 
@@ -242,20 +247,23 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.arduino.onActionResult(({ cmd, ok, output }) => {
     const result = (output || "").trim();
     if (result) {
-      document.getElementById("cmd-modal-cmd").textContent = cmd;
+      const cmdEl = document.getElementById("cmd-modal-cmd");
+      if (cmdEl) cmdEl.textContent = cmd;
       const outEl = document.getElementById("cmd-modal-output");
-      outEl.textContent = result;
-      outEl.className = ok ? "" : "error";
-      document.getElementById("cmd-modal-overlay").classList.remove("d-none");
+      if (outEl) {
+          outEl.textContent = result;
+          outEl.className = ok ? "" : "error";
+      }
+      document.getElementById("cmd-modal-overlay")?.classList.remove("d-none");
     }
   });
 
   window.arduino.onKeyCaptured((combo) => {
     if (state.capturingPath === null) return;
-    const path = JSON.parse(state.capturingPath);
+    const path = JSON.parse(state.capturingPath as any);
     state.capturingPath = null;
     
-    const input = document.querySelector(`.param-input[data-path='${JSON.stringify(path)}'][data-param="combo"]`);
+    const input = document.querySelector(`.param-input[data-path='${JSON.stringify(path)}'][data-param="combo"]`) as HTMLInputElement | null;
     if (input) {
       input.value = combo;
       input.classList.remove("capturing");
@@ -266,7 +274,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   window.arduino.onRegionSelected(({ x, y, width, height }) => {
     if (state.selectingRegionPath === null) return;
-    const path = JSON.parse(state.selectingRegionPath);
+    const path = JSON.parse(state.selectingRegionPath as any);
     state.selectingRegionPath = null;
     
     updateParam(path, "x", x);
@@ -292,7 +300,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
 // ── Sidebar section switching ──
 
-function switchSidebarSection(section) {
+function switchSidebarSection(section: string) {
   const isOpen = !state.config.sidebarCollapsed;
   const isSame = state.config.activeSidebarSection === section;
   if (isOpen && isSame) {
@@ -305,9 +313,9 @@ function switchSidebarSection(section) {
 }
 
 // ── Lógica de Zoom ──
-let zoomTimeout = null;
+let zoomTimeout: any = null;
 
-function applyZoom(factor) {
+function applyZoom(factor: number) {
   state.config.zoomLevel = factor;
   window.arduino.setZoomFactor(factor);
   

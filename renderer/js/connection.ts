@@ -3,7 +3,8 @@ import { log } from "./monitor.js";
 import { showToast } from "./ui.js";
 
 export async function refreshPorts() {
-  const sel = document.getElementById("port-sel");
+  const sel = document.getElementById("port-sel") as HTMLSelectElement | null;
+  if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '<option value="">— Seleccioná un puerto —</option>';
   const ports = await window.arduino.listPorts();
@@ -31,9 +32,11 @@ export function toggleConnect() {
   if (state.connected) {
     window.arduino.disconnect();
   } else {
-    const sel = document.getElementById("port-sel");
+    const sel = document.getElementById("port-sel") as HTMLSelectElement | null;
+    if (!sel) return;
     const port = sel.value;
-    const baud = document.getElementById("baud-sel").value;
+    const baudEl = document.getElementById("baud-sel") as HTMLSelectElement | null;
+    const baud = baudEl ? parseInt(baudEl.value) : 9600;
 
     if (!port) {
       showToast("Sin puerto", "Seleccioná un puerto primero");
@@ -51,8 +54,6 @@ export function toggleConnect() {
 window.toggleConnect = toggleConnect;
 
 export function cancelReconnect() {
-  window.arduino.send("cancel-reconnect-placeholder");
-  // Use the IPC channel
   // We need a dedicated way - let's just disconnect
   window.arduino.disconnect();
   showToast("Reconexión cancelada", "Se detuvo la reconexión automática");
@@ -60,33 +61,40 @@ export function cancelReconnect() {
 window.cancelReconnect = cancelReconnect;
 
 export function handleConnectionStatus(
-  c,
-  port,
-  baud,
-  reconnecting,
-  attempt,
-  maxAttempts,
+  c: boolean,
+  port: string | null,
+  baud: number | null,
+  reconnecting: boolean,
+  attempt: number,
+  maxAttempts: number,
 ) {
   state.connected = c;
-  document.getElementById("tb-dot").classList.toggle("on", c);
-  document.getElementById("s-dot").classList.toggle("on", c);
+  document.getElementById("tb-dot")?.classList.toggle("on", c);
+  document.getElementById("s-dot")?.classList.toggle("on", c);
   const st = document.getElementById("s-text");
 
   // Encontrar el nombre del dispositivo en el selector para mostrarlo en el estado
-  const sel = document.getElementById("port-sel");
+  const sel = document.getElementById("port-sel") as HTMLSelectElement | null;
   let deviceName = "PokePad";
-  for (let i = 0; i < sel.options.length; i++) {
-    if (sel.options[i].value === port) {
-      deviceName = sel.options[i].text.split("(")[0].trim();
-      break;
-    }
+  if (sel) {
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === port) {
+          deviceName = sel.options[i].text.split("(")[0].trim();
+          break;
+        }
+      }
   }
 
-  st.textContent = c ? `${deviceName} @ ${baud}` : "Desconectado";
-  st.classList.toggle("on", c);
+  if (st) {
+    st.textContent = c ? `${deviceName} @ ${baud}` : "Desconectado";
+    st.classList.toggle("on", c);
+  }
+  
   const btn = document.getElementById("btn-conn");
-  btn.textContent = c ? "Desconectar" : "Conectar";
-  btn.className = c ? "btn btn-ghost" : "btn btn-primary";
+  if (btn) {
+    btn.textContent = c ? "Desconectar" : "Conectar";
+    btn.className = c ? "btn btn-ghost" : "btn btn-primary";
+  }
 
   // Handle reconnect indicator
   const indicator = document.getElementById("reconnect-indicator");

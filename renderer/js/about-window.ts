@@ -10,3 +10,5 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-close-top')?.addEventListener('click', close);
     document.getElementById('btn-close-bottom')?.addEventListener('click', close);
 });
+
+export {};

@@ -7,20 +7,20 @@ export function renderMetrics() {
   const rateEl = document.getElementById('metrics-rate');
   const listEl = document.getElementById('metrics-history-list');
 
-  if (!totalEl) return;
+  if (!totalEl || !successEl || !failureEl || !rateEl || !listEl) return;
 
   const stats = state.stats;
   const total = stats.success + stats.failure;
   const rate = total > 0 ? Math.round((stats.success / total) * 100) : 0;
 
-  totalEl.textContent = total;
-  successEl.textContent = stats.success;
-  failureEl.textContent = stats.failure;
+  totalEl.textContent = String(total);
+  successEl.textContent = String(stats.success);
+  failureEl.textContent = String(stats.failure);
   rateEl.textContent = `${rate}%`;
 
   listEl.innerHTML = '';
 
-  if (state.history.length === 0) {
+  if (!state.history || state.history.length === 0) {
     listEl.innerHTML = '<div class="stat-label" style="text-align: center; padding: 20px;">No hay historial disponible</div>';
     return;
   }

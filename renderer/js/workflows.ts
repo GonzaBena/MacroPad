@@ -8,6 +8,13 @@ import {
   MEDIA_OPTIONS,
 } from "./state.js";
 import { escHtml, escAttr, showToast, showPrompt, showConfirm } from "./ui.js";
+import { Step, StepType } from "../../src/types/pokepad";
+
+declare global {
+  interface HTMLElement {
+    _saveTimer?: any;
+  }
+}
 
 // ── Event delegation para el flow-container ──
 export function initFlowDelegation() {
@@ -15,10 +22,10 @@ export function initFlowDelegation() {
   if (!panel) return;
 
   panel.addEventListener("click", (e) => {
-    const target = e.target;
+    const target = e.target as HTMLElement;
     const delBtn = target.closest(".btn-del-step");
     if (delBtn) {
-      deleteStep(JSON.parse(delBtn.dataset.path));
+      deleteStep(JSON.parse((delBtn as HTMLElement).dataset.path!));
       return;
     }
     const keyBtn = target.closest(".btn-key-capture");
@@ -44,7 +51,7 @@ export function initFlowDelegation() {
   });
 
   panel.addEventListener("change", (e) => {
-    const target = e.target;
+    const target = e.target as any;
     if (target.classList.contains("step-type-select")) {
       changeStepType(JSON.parse(target.dataset.path), target.value);
       return;
@@ -66,7 +73,7 @@ export function initFlowDelegation() {
   });
 
   panel.addEventListener("input", (e) => {
-    const target = e.target;
+    const target = e.target as any;
     if (target.dataset.param && target.dataset.path) {
       updateParam(
         JSON.parse(target.dataset.path),
@@ -82,16 +89,18 @@ export function initFlowDelegation() {
   panel.addEventListener(
     "scroll",
     (e) => {
-      if (e.target.classList.contains("script-textarea")) {
-        syncScriptScroll(JSON.parse(e.target.dataset.path));
+      const target = e.target as any;
+      if (target.classList.contains("script-textarea")) {
+        syncScriptScroll(JSON.parse(target.dataset.path));
       }
     },
     true,
   );
 
   panel.addEventListener("keydown", (e) => {
-    if (e.target.classList.contains("script-textarea")) {
-      handleScriptKeydown(e, JSON.parse(e.target.dataset.path));
+    const target = e.target as any;
+    if (target.classList.contains("script-textarea")) {
+      handleScriptKeydown(e, JSON.parse(target.dataset.path));
     }
   });
 }
@@ -1829,14 +1838,14 @@ export function updateAssignButtonUI() {
     });
 }
 
-export function renderFlow(container, steps, path = []) {
+export function renderFlow(container?: HTMLElement | null, steps?: Step[], path: number[] = []) {
   const isRoot = !container;
   const fc = container || document.getElementById("flow-container");
   if (!fc) return;
 
   if (isRoot) {
     fc.innerHTML = "";
-    steps = state.signals[state.selectedSig]?.steps || [];
+    steps = state.signals[state.selectedSig!]?.steps || [];
   }
 
   // Initial insertion bar

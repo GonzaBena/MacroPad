@@ -3,14 +3,18 @@ import { loadConfig, saveConfig, state } from './state.js';
 
 function initSegments() {
     document.querySelectorAll('.cfg-segment').forEach(seg => {
-        const input = document.getElementById(seg.dataset.target);
+        const segment = seg as HTMLElement;
+        const targetId = segment.dataset.target;
+        if (!targetId) return;
+        const input = document.getElementById(targetId) as HTMLInputElement | null;
         if (!input) return;
-        seg.querySelectorAll('.cfg-seg-btn').forEach(btn => {
+        segment.querySelectorAll('.cfg-seg-btn').forEach(btnEl => {
+            const btn = btnEl as HTMLElement;
             btn.classList.toggle('active', btn.dataset.value === input.value);
             btn.addEventListener('click', () => {
-                seg.querySelectorAll('.cfg-seg-btn').forEach(b => b.classList.remove('active'));
+                segment.querySelectorAll('.cfg-seg-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                input.value = btn.dataset.value;
+                if (btn.dataset.value) input.value = btn.dataset.value;
                 input.dispatchEvent(new Event("change"));
             });
         });
@@ -18,18 +22,23 @@ function initSegments() {
 }
 
 function initSwatches() {
-    const accentEl = document.getElementById('cfg-accent');
-    const pickerEl = document.getElementById('cfg-accent-picker');
-    const previewEl = document.getElementById('cfg-accent-preview');
-    const syncActive = (val) => {
-        document.querySelectorAll('.cfg-swatch').forEach(s =>
-            s.classList.toggle('active', s.dataset.color.toLowerCase() === val.toLowerCase())
-        );
+    const accentEl = document.getElementById('cfg-accent') as HTMLInputElement | null;
+    const pickerEl = document.getElementById('cfg-accent-picker') as HTMLInputElement | null;
+    const previewEl = document.getElementById('cfg-accent-preview') as HTMLElement | null;
+    const syncActive = (val: string) => {
+        document.querySelectorAll('.cfg-swatch').forEach(s => {
+            const swatch = s as HTMLElement;
+            if (swatch.dataset.color) {
+                swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === val.toLowerCase());
+            }
+        });
     };
     syncActive(accentEl?.value || '#f5a623');
-    document.querySelectorAll('.cfg-swatch').forEach(swatch => {
+    document.querySelectorAll('.cfg-swatch').forEach(swatchEl => {
+        const swatch = swatchEl as HTMLElement;
         swatch.addEventListener('click', () => {
             const color = swatch.dataset.color;
+            if (!color) return;
             if (accentEl) accentEl.value = color.toUpperCase();
             if (pickerEl) pickerEl.value = color;
             if (previewEl) previewEl.style.background = color;
@@ -47,14 +56,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     await loadConfig();
 
     // Setup inicial de la vista de config
-    const themeEl = document.getElementById("cfg-theme");
-    const closeEl = document.getElementById("cfg-close");
-    const initialTabEl = document.getElementById("cfg-initial-tab");
-    const startupModeEl = document.getElementById("cfg-startup-mode");
-    const zoomEnabledEl = document.getElementById("cfg-zoom-enabled");
-    const accentEl = document.getElementById("cfg-accent");
-    const pickerEl = document.getElementById("cfg-accent-picker");
-    const activityBarEl = document.getElementById("cfg-activity-bar");
+    const themeEl = document.getElementById("cfg-theme") as HTMLSelectElement | null;
+    const closeEl = document.getElementById("cfg-close") as HTMLSelectElement | null;
+    const initialTabEl = document.getElementById("cfg-initial-tab") as HTMLSelectElement | null;
+    const startupModeEl = document.getElementById("cfg-startup-mode") as HTMLSelectElement | null;
+    const zoomEnabledEl = document.getElementById("cfg-zoom-enabled") as HTMLInputElement | null;
+    const accentEl = document.getElementById("cfg-accent") as HTMLInputElement | null;
+    const pickerEl = document.getElementById("cfg-accent-picker") as HTMLInputElement | null;
+    const activityBarEl = document.getElementById("cfg-activity-bar") as HTMLSelectElement | null;
 
     const populateThemes = async () => {
         if (!themeEl) return;
@@ -81,7 +90,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (initialTabEl) initialTabEl.value = state.config.initialTab || "monitor";
     if (startupModeEl) startupModeEl.value = state.config.startupMode || "none";
     if (zoomEnabledEl) zoomEnabledEl.checked = state.config.enableZoom !== false;
-    if (activityBarEl) activityBarEl.value = state.config.activityBarPosition || "left";
+    if (activityBarEl) activityBarEl.value = state.config.activeSidebarSection || "serial";
     if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
     if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
 
@@ -102,7 +111,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
 
     activityBarEl?.addEventListener("change", () => {
-        state.config.activityBarPosition = activityBarEl.value;
+        state.config.activeSidebarSection = activityBarEl.value;
         saveConfig();
     });
 
