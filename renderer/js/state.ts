@@ -259,40 +259,49 @@ export async function loadSignalsData(): Promise<void> {
   let fileData: any = null;
   try {
     fileData = await window.arduino.loadData();
-    if (fileData && fileData.signals && Object.keys(fileData.signals).length > 0) {
-      state.signals = fileData.signals;
-      state.folders = fileData.folders || [];
-      state.globalVariables = fileData.globalVariables || {};
-      state.stats = { ...state.stats, ...(fileData.stats || {}) };
-      state.history = fileData.history || [];
+    if (fileData) {
+      if (fileData.signals) state.signals = fileData.signals;
+      if (fileData.folders) state.folders = fileData.folders;
+      if (fileData.globalVariables) state.globalVariables = fileData.globalVariables;
+      if (fileData.stats) state.stats = { ...state.stats, ...fileData.stats };
+      if (fileData.history) state.history = fileData.history;
+      
       if (fileData.config) {
         state.config = { ...state.config, ...fileData.config };
         applyConfig();
       }
+      
       console.log("[state] Loaded data from file persistence");
-      pushSignals();
-      return;
+      
+      // If we have data in file, we might still want to check if there's something to migrate
+      // but usually file persistence is the primary source once it exists.
+      if (Object.keys(state.signals).length > 0 || Object.keys(state.globalVariables).length > 0) {
+         pushSignals();
+         return;
+      }
     }
   } catch (e) {
-    console.warn("[state] File persistence not available, falling back to localStorage", e);
+    console.warn("[state] File persistence error, falling back to localStorage", e);
   }
 
-  if (fileData?.folders?.length > 0) {
-    state.folders = fileData.folders;
-  } else {
-    try {
-      const localFolders = localStorage.getItem("ac-folders");
-      if (localFolders) {
-        const parsed = JSON.parse(localFolders);
-        if (Array.isArray(parsed) && parsed.length > 0) state.folders = parsed;
-      }
-    } catch (_) {}
-  }
-
+  // Migration / Fallback from localStorage
   try {
-    const s = localStorage.getItem("ac-signals");
-    if (s) {
-      const parsed = JSON.parse(s);
+    const localSignals = localStorage.getItem("ac-signals");
+    const localFolders = localStorage.getItem("ac-folders");
+    const localVars = localStorage.getItem("ac-vars");
+
+    if (localVars) {
+      state.globalVariables = JSON.parse(localVars);
+      console.log("[state] Migrated variables from localStorage");
+    }
+
+    if (localFolders) {
+      const parsed = JSON.parse(localFolders);
+      if (Array.isArray(parsed)) state.folders = parsed;
+    }
+
+    if (localSignals) {
+      const parsed = JSON.parse(localSignals);
       Object.entries(parsed).forEach(([sig, val]: [string, any]) => {
         if (!val.steps) {
           state.signals[sig] = {
@@ -314,11 +323,15 @@ export async function loadSignalsData(): Promise<void> {
           state.signals[sig] = val;
         }
       });
-      console.log("[state] Migrating localStorage data to file persistence");
+      console.log("[state] Migrated signals from localStorage");
+    }
+
+    if (localSignals || localVars || localFolders) {
       window.arduino.saveData(getPersistableState());
     }
   } catch (e) {
-    console.error(e);
+    console.error("[state] Error migrating from localStorage:", e);
   }
+
   pushSignals();
 }
