@@ -117,7 +117,6 @@ export function handleConnectionStatus(
       showToast("Reconectado", `Conexión restaurada en ${deviceName}`);
     }
   } else if (!reconnecting) {
-    log("Desconectado", "sys");
     refreshPorts();
   }
 }

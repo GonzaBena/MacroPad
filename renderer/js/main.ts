@@ -160,10 +160,35 @@ window.addEventListener("DOMContentLoaded", async () => {
   
   // Sincronizar estado de conexión al iniciar
   const initStatus = await window.arduino.getConnectionStatus();
-  if (initStatus) {
+  if (initStatus?.connected) {
     handleConnectionStatus(initStatus.connected, initStatus.port, initStatus.baud, false, 0, 0);
   } else {
-    refreshPorts();
+    await refreshPorts();
+
+    // Si hay dispositivos en la lista, esperar a que el auto-connect conecte (máx 10s)
+    const portSel = document.getElementById("port-sel") as HTMLSelectElement | null;
+    if (portSel && portSel.options.length > 1) {
+      const splashStatus = document.getElementById("splash-status");
+      if (splashStatus) splashStatus.textContent = "Conectando...";
+
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, 10000);
+        window.arduino.onStatus(({ connected, port, baud, reconnecting, attempt, maxAttempts }: any) => {
+          if (connected) {
+            handleConnectionStatus(connected, port, baud, reconnecting, attempt, maxAttempts);
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      });
+    }
+  }
+
+  // Ocultar splash una vez que sabemos el estado del dispositivo
+  const splash = document.getElementById("splash");
+  if (splash) {
+    splash.classList.add("fade-out");
+    splash.addEventListener("transitionend", () => splash.classList.add("hidden"), { once: true });
   }
 
   // 6. IPC listeners
@@ -284,8 +309,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     
     renderFlow();
   });
-
-  log("Sistema listo", "sys");
 
   // Listen for update notifications
   window.arduino.onUpdateMessage(({ text, type }) => {
