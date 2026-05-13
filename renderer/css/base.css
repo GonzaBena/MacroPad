@@ -66,6 +66,10 @@ body {
     flex-direction: row-reverse;
 }
 
+.app-body.ab-left {
+    flex-direction: row;
+}
+
 .activity-bar {
     width: 48px;
     background: var(--surface2);

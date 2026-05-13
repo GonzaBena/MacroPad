@@ -58,6 +58,7 @@ export interface AppConfig {
   workflowSort: 'original' | 'alphabetical' | 'name' | 'active' | 'created' | 'steps';
   activeSidebarSection: string;
   sidebarCollapsed?: boolean;
+  activityBarPosition: 'left' | 'right';
 }
 
 export interface AppState {

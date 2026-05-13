@@ -86,7 +86,8 @@ export const state: AppState & {
     sidebarCollapsed: false,
     initialTab: "workflows",
     activeSidebarSection: "serial",
-    workflowSort: "original"
+    workflowSort: "original",
+    activityBarPosition: "right"
   },
   dragSrcPath: null,
   dragSrcWorkflow: null,
@@ -197,10 +198,14 @@ export async function applyConfig(): Promise<void> {
   }
 
   // Sidebar state
-  const content = document.getElementById("main-content");
-  if (content) {
-    content.classList.toggle("sidebar-hidden", !!state.config.sidebarCollapsed);
+  const appBody = document.getElementById("app-body");
+  if (appBody) {
+    appBody.classList.toggle("sidebar-collapsed", !!state.config.sidebarCollapsed);
+    appBody.classList.toggle("ab-right", state.config.activityBarPosition === "right");
+    appBody.classList.toggle("ab-left", state.config.activityBarPosition === "left");
   }
+
+  const content = document.getElementById("main-content");
 
   const section = state.config.activeSidebarSection || "serial";
   document.getElementById("ab-btn-serial")?.classList.toggle("active", !state.config.sidebarCollapsed && section === "serial");
