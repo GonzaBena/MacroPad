@@ -10,9 +10,9 @@
   "main": "dist-ts/main.js",
   "scripts": {
     "start": "electron . --enable-logging",
-    "dev": "concurrently \"tsc --watch\" \"electron . --enable-logging\"",
+    "dev": "concurrently \"tsc -p tsconfig.main.json --watch\" \"tsc -p tsconfig.renderer.json --watch\" \"electron . --enable-logging\"",
     "build": "npm run compile && electron-builder",
-    "compile": "tsc",
+    "compile": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
