@@ -702,7 +702,7 @@ function makeSignalCard(sig: string, entry: SignalEntry) {
   div.innerHTML = `
     <div class="sig-card-top">
       <span class="sig-name">${escHtml(sig)}${badge}</span>
-      ${appName ? `<span class="sig-app-badge" title="Solo activo con: ${escAttr(entry.assignedApp)}">📌 ${escHtml(appName)}</span>` : ""}
+      ${appName ? `<span class="sig-app-badge" title="Solo activo con: ${escAttr(entry.assignedApp || "")}">📌 ${escHtml(appName)}</span>` : ""}
       <span class="sig-pulse"></span>
     </div>
     ${entry.label ? `<div class="sig-label">${escHtml(entry.label)}</div>` : ""}
@@ -868,6 +868,7 @@ function addGlobalVar() {
   if (typeSel) typeSel.value = "string";
   nameInp.focus();
   renderGlobalVarsSection();
+  renderFlow();
 }
 
 export function renderGlobalVarsSection() {
@@ -913,6 +914,7 @@ export function renderGlobalVarsSection() {
       delete state.globalVariables[name];
       saveSignals();
       renderGlobalVarsSection();
+      renderFlow();
     });
 
     list.appendChild(row);
@@ -940,10 +942,16 @@ function openGvEditModal(oldName: string, oldValue: any) {
   const save = () => {
     const newName = nameInp.value.trim().replace(/\s+/g, "_");
     if (!newName) { nameInp.focus(); return; }
-    if (newName !== oldName) delete state.globalVariables[oldName];
+    if (newName !== oldName) {
+      delete state.globalVariables[oldName];
+      Object.values(state.signals).forEach(sig => {
+        if (sig.steps) renameVarInSteps(sig.steps, oldName, newName);
+      });
+    }
     state.globalVariables[newName] = coerceToType(valInp.value, typeSel.value);
     saveSignals();
     renderGlobalVarsSection();
+    renderFlow();
     close();
   };
 
@@ -2926,6 +2934,21 @@ function getStepByPath(path: number[]): Step | null {
     }
   }
   return target;
+}
+
+function renameVarInSteps(steps: Step[], oldName: string, newName: string) {
+  if (!steps) return;
+  const pattern = new RegExp(`\\$${oldName}(?![a-zA-Z0-9_])`, "g");
+  const replacement = `$${newName}`;
+  for (const step of steps) {
+    if (!step?.params) continue;
+    for (const key of Object.keys(step.params)) {
+      if (typeof step.params[key] === "string") {
+        step.params[key] = step.params[key].replace(pattern, replacement);
+      }
+    }
+    if (step.params.steps) renameVarInSteps(step.params.steps, oldName, newName);
+  }
 }
 
 export function updateParam(path: number[], key: string, value: any) {
