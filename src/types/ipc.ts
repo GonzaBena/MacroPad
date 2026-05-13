@@ -1,4 +1,4 @@
-import { SignalMap, GlobalVariables } from './pokepad';
+import { SignalMap, GlobalVariables, PluginManifest, RemotePlugin } from './pokepad';
 
 export interface IpcEvents {
   // Serial & Connection
@@ -24,6 +24,7 @@ export interface IpcEvents {
   'apply-theme': () => void;
   'key-captured': (combo: string) => void;
   'region-selection-complete': (rect: { x: number; y: number; width: number; height: number } | null) => void;
+  'plugins-changed': (plugins: PluginManifest[]) => void;
 }
 
 export interface ArduinoApi {
@@ -63,6 +64,8 @@ export interface ArduinoApi {
   openConfigWindow: () => void;
   openAboutWindow: () => void;
   openThemePreview: () => void;
+  openPluginManagerWindow: () => void;
+  readPluginReadme: (pluginId: string) => Promise<string | null>;
   getAppVersion: () => Promise<string>;
   listRunningApps: () => Promise<string[]>;
   listInstalledApps: () => Promise<any[]>;
@@ -86,6 +89,18 @@ export interface ArduinoApi {
   importExternalTheme: () => Promise<any>;
   notifyThemeChanged: () => void;
   onApplyTheme: (cb: () => void) => void;
+
+  // Plugins
+  getPlugins: () => Promise<PluginManifest[]>;
+  getRemotePlugins: () => Promise<RemotePlugin[]>;
+  installRemotePlugin: (params: { id: string; downloadUrl: string }) => Promise<{ success: boolean; error?: string }>;
+  installLocalPlugin: () => Promise<{ success?: boolean; canceled?: boolean; id?: string; error?: string }>;
+  togglePlugin: (params: { id: string; enabled: boolean }) => Promise<{ success: boolean; error?: string }>;
+  reloadPlugins: () => Promise<PluginManifest[]>;
+  deletePlugin: (id: string) => Promise<{ success: boolean; error?: string }>;
+  openPluginsFolder: () => void;
+  readPluginAsset: (params: { pluginId: string; assetPath: string }) => Promise<string | null>;
+  onPluginsChanged: (cb: (plugins: PluginManifest[]) => void) => void;
 
   // Region Selection
   startRegionSelection: () => void;

@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld("arduino", {
   openConfigWindow: () => ipcRenderer.send("open-config-window"),
   openAboutWindow: () => ipcRenderer.send("open-about-window"),
   openThemePreview: () => ipcRenderer.send("open-theme-preview"),
+  openPluginManagerWindow: () => ipcRenderer.send("open-plugin-manager-window"),
+  readPluginReadme: (pluginId: string) => ipcRenderer.invoke("read-plugin-readme", pluginId),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   listRunningApps: () => ipcRenderer.invoke("list-running-apps"),
   listInstalledApps: () => ipcRenderer.invoke("list-installed-apps"),
@@ -70,6 +72,18 @@ contextBridge.exposeInMainWorld("arduino", {
   importExternalTheme: () => ipcRenderer.invoke("import-external-theme"),
   notifyThemeChanged: () => ipcRenderer.send("theme-changed"),
   onApplyTheme: (cb: () => void) => safeOn("apply-theme", cb),
+
+  // Plugins
+  getPlugins: () => ipcRenderer.invoke("get-plugins"),
+  getRemotePlugins: () => ipcRenderer.invoke("get-remote-plugins"),
+  installRemotePlugin: (params: { id: string; downloadUrl: string }) => ipcRenderer.invoke("install-remote-plugin", params),
+  installLocalPlugin: () => ipcRenderer.invoke("install-local-plugin"),
+  togglePlugin: (params: { id: string; enabled: boolean }) => ipcRenderer.invoke("toggle-plugin", params),
+  reloadPlugins: () => ipcRenderer.invoke("reload-plugins"),
+  deletePlugin: (id: string) => ipcRenderer.invoke("delete-plugin", id),
+  openPluginsFolder: () => ipcRenderer.invoke("open-plugins-folder"),
+  readPluginAsset: (params: { pluginId: string; assetPath: string }) => ipcRenderer.invoke("read-plugin-asset", params),
+  onPluginsChanged: (cb: (plugins: any[]) => void) => safeOn("plugins-changed", cb),
 
   // Region Selection
   startRegionSelection: () => ipcRenderer.send("start-region-selection"),

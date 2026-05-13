@@ -135,7 +135,7 @@ describe('toggleConnect', () => {
 
     mod.toggleConnect();
 
-    expect(global.window.arduino.connect).toHaveBeenCalledWith('/dev/cu.test', '115200');
+    expect(global.window.arduino.connect).toHaveBeenCalledWith('/dev/cu.test', 115200);
   });
 
   it('no llama a connect cuando no hay puerto aunque baud esté definido', () => {

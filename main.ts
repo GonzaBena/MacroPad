@@ -1,4 +1,6 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
+import log from './main-process/logger';
+import { FilePathSchema, ThemeIdSchema, RegionRectSchema } from "./src/types/ipc-schemas";
 import {
   createWindow,
   getWindow,
@@ -6,6 +8,7 @@ import {
   createAboutWindow,
   createThemePreviewWindow,
   createSelectionWindow,
+  createPluginManagerWindow,
 } from "./main-process/window";
 import { setupSerial } from "./main-process/serial";
 import { setupMedia } from "./main-process/media";
@@ -13,6 +16,7 @@ import { setupKeyboard, listRunningApps, listInstalledApps } from "./main-proces
 import { setupExecution } from "./main-process/execution";
 import { setupPersistence } from "./main-process/persistence";
 import { setupTray } from "./main-process/tray";
+import { setupPlugins } from "./main-process/plugins";
 import { getThemeList, getThemeData, openThemesFolder, importExternalTheme } from "./main-process/themes";
 import { setupUpdater } from "./main-process/updater";
 import * as path from "path";
@@ -31,7 +35,7 @@ if (!app.isPackaged) {
       hardResetMethod: 'exit'
     });
   } catch (err) {
-    console.error("electron-reload failed to initialize", err);
+    log.warn("electron-reload failed to initialize", err);
   }
 }
 
@@ -82,6 +86,7 @@ if (!gotTheLock) {
     setupKeyboard();
     setupExecution(promptForRegion); // Pass promptForRegion to execution
     setupPersistence();
+    setupPlugins();
 
     ipcMain.handle("select-file", async () => {
       const win = getWindow();
@@ -105,6 +110,10 @@ if (!gotTheLock) {
       createAboutWindow();
     });
 
+    ipcMain.on("open-plugin-manager-window", () => {
+      createPluginManagerWindow();
+    });
+
     ipcMain.on("open-theme-preview", (event) => {
       const parent = BrowserWindow.fromWebContents(event.sender);
       if (parent) createThemePreviewWindow(parent);
@@ -116,28 +125,30 @@ if (!gotTheLock) {
 
     ipcMain.handle("list-running-apps", () => listRunningApps());
     ipcMain.handle("list-installed-apps", () => listInstalledApps());
-    ipcMain.handle("file-exists", (_event, filePath: string) => {
-      if (!filePath || typeof filePath !== 'string') return false;
+    ipcMain.handle("file-exists", (_event, filePath: unknown) => {
+      const parsed = FilePathSchema.safeParse(filePath);
+      if (!parsed.success) return false;
       try {
-        const cleanPath = filePath.trim().replace(/^["']|["']$/g, '');
-        
-        // Si empieza con un protocolo conocido de Windows/MacOS que no es filesystem directo
+        const cleanPath = parsed.data.trim().replace(/^["']|["']$/g, '');
         if (/^(shell:|mailto:|http:|https:|file:)/i.test(cleanPath)) {
           return true;
         }
-
         const normalized = path.normalize(cleanPath);
         const exists = fs.existsSync(normalized);
-        console.log(`[file-exists] Path: "${normalized}" -> ${exists}`);
+        log.debug(`[file-exists] Path: "${normalized}" -> ${exists}`);
         return exists;
       } catch (e) {
-        console.error(`[file-exists] Error checking "${filePath}":`, e);
+        log.error(`[file-exists] Error checking "${filePath}":`, e);
         return false;
       }
     });
 
     ipcMain.handle("get-themes", () => getThemeList());
-    ipcMain.handle("get-theme-data", (_event, themeId: string) => getThemeData(themeId));
+    ipcMain.handle("get-theme-data", (_event, themeId: unknown) => {
+      const parsed = ThemeIdSchema.safeParse(themeId);
+      if (!parsed.success) return null;
+      return getThemeData(parsed.data);
+    });
     ipcMain.handle("import-external-theme", () => importExternalTheme());
     ipcMain.on("open-themes-folder", () => openThemesFolder());
 
@@ -155,7 +166,7 @@ if (!gotTheLock) {
         
         // Don't watch ASAR paths as fs.watch doesn't support them and throws
         if (dir.includes('.asar')) {
-          console.log(`[main] Skipping watch for ${name} (ASAR path)`);
+          log.debug(`[main] Skipping watch for ${name} (ASAR path)`);
           return;
         }
 
@@ -163,16 +174,16 @@ if (!gotTheLock) {
           if (filename && filename.endsWith('.json')) {
             if (themeWatchTimeout) clearTimeout(themeWatchTimeout);
             themeWatchTimeout = setTimeout(() => {
-              console.log(`[main] Theme directory changed (${name}): ${filename}, notifying windows.`);
+              log.info(`[main] Theme directory changed (${name}): ${filename}, notifying windows.`);
               BrowserWindow.getAllWindows().forEach((win) => {
                 win.webContents.send("apply-theme");
               });
             }, 200);
           }
         });
-        console.log(`[main] Watching ${name} for changes: ${dir}`);
+        log.info(`[main] Watching ${name} for changes: ${dir}`);
       } catch (e: any) {
-        console.warn(`[main] Failed to watch ${name}:`, e.message);
+        log.warn(`[main] Failed to watch ${name}:`, e.message);
       }
     };
 
@@ -207,16 +218,24 @@ if (!gotTheLock) {
       createSelectionWindow();
     });
 
-    ipcMain.on("finish-region-selection", (event, rect: any) => {
+    ipcMain.on("finish-region-selection", (event, rect: unknown) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       if (win) win.close();
-      
+
+      const parsed = RegionRectSchema.safeParse(rect);
+      const safeRect = parsed.success ? {
+        x: Math.round(parsed.data.x),
+        y: Math.round(parsed.data.y),
+        width: Math.round(parsed.data.width),
+        height: Math.round(parsed.data.height),
+      } : null;
+
       if (selectionResolve) {
-        selectionResolve(rect);
+        selectionResolve(safeRect);
         selectionResolve = null;
-      } else {
+      } else if (safeRect) {
         const mainWin = getWindow();
-        if (mainWin) mainWin.webContents.send("region-selection-complete", rect);
+        if (mainWin) mainWin.webContents.send("region-selection-complete", safeRect);
       }
     });
 

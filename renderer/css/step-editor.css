@@ -895,7 +895,7 @@
 }
 
 .t-wait {
-  background: rgba(90, 96, 128, 0.15);
+  background: var(--muted-bg);
   color: var(--muted);
 }
 
@@ -934,12 +934,17 @@
   color: var(--lime);
 }
 
+.t-plugin {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
 /* Script Editor */
 .script-editor-wrap {
   display: flex;
   border: 1px solid var(--border2);
   border-radius: 8px;
-  background: #0a0c12;
+  background: var(--bg-deep);
   overflow: hidden;
   font-family: var(--mono);
   font-size: 12px;
@@ -1054,20 +1059,20 @@
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #0a0c12;
-  background: linear-gradient(135deg, #f5a623, #fb923c);
+  color: var(--bg-deep);
+  background: linear-gradient(135deg, var(--amber), var(--orange));
   text-transform: uppercase;
 }
 
 /* Variables */
 .t-var {
-  background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  background: var(--purple-bg);
+  color: var(--purple);
 }
 
 .t-open_app {
-  background: rgba(236, 72, 153, 0.15);
-  color: #f472b6;
+  background: var(--pink-bg);
+  color: var(--pink);
 }
 
 .btn-var-link {

@@ -37,6 +37,19 @@
     --lime-bg: rgba(163, 230, 53, 0.1);
     --mono: "Space Mono", monospace;
     --ui: "Syne", sans-serif;
+
+    /* Derived / semantic */
+    --amber-light: #ffbc50;
+    --bg-deep: #0a0c12;
+    --modal-overlay: rgba(12, 14, 20, 0.85);
+    --orange-border: rgba(251, 146, 60, 0.3);
+    --muted-bg: rgba(90, 96, 128, 0.15);
+}
+
+*:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 html,
@@ -103,6 +116,13 @@ body {
 .ab-btn.active {
     color: var(--amber);
     background: var(--surface3);
+}
+
+.ab-divider {
+    width: 24px;
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
 }
 
 .content {

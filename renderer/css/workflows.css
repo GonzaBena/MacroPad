@@ -158,7 +158,7 @@
 
 .btn-list-create:hover {
   background: var(--amber);
-  color: #0c0e14;
+  color: var(--bg);
 }
 
 .sig-folder-count {
@@ -348,7 +348,7 @@
   border: none;
   border-radius: 6px;
   background: var(--amber);
-  color: #0c0e14;
+  color: var(--bg);
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;

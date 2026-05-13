@@ -1,33 +1,31 @@
+/**
+ * @jest-environment jsdom
+ */
 
 let state, saveSignals, saveConfig;
 
 beforeEach(() => {
   jest.resetModules();
 
-  global.window = {
-    arduino: {
-      saveData: jest.fn(),
-      updateSignals: jest.fn(),
-      updateGlobalVars: jest.fn(),
-      loadData: jest.fn(() => Promise.resolve(null)),
-      getThemeData: jest.fn(() => Promise.resolve({ colors: {} })),
-      setZoomFactor: jest.fn(),
-    },
-    matchMedia: jest.fn(() => ({ matches: true })),
+  global.arduino = {
+    saveData: jest.fn(),
+    updateSignals: jest.fn(),
+    updateGlobalVars: jest.fn(),
+    loadData: jest.fn(() => Promise.resolve(null)),
+    getThemeData: jest.fn(() => Promise.resolve({ colors: {} })),
+    setZoomFactor: jest.fn(),
   };
+  global.matchMedia = jest.fn(() => ({ matches: true }));
 
   global.localStorage = {
     setItem: jest.fn(),
     getItem: jest.fn(() => null),
   };
 
-  global.document = {
-    documentElement: { style: { setProperty: jest.fn() } },
-    dispatchEvent: jest.fn(),
-    getElementById: jest.fn(() => ({ classList: { add: jest.fn(), remove: jest.fn() } })),
-  };
-
-  global.CustomEvent = class { constructor(n) { this.name = n; } };
+  jest.spyOn(document, 'dispatchEvent').mockReturnValue(true);
+  jest.spyOn(document, 'getElementById').mockReturnValue(
+    /** @type {any} */ ({ classList: { add: jest.fn(), remove: jest.fn(), toggle: jest.fn() } })
+  );
 
   const m = require('../renderer/js/state');
   state = m.state;
@@ -45,7 +43,7 @@ describe('Data Loss Prevention', () => {
 
     saveSignals();
 
-    expect(global.window.arduino.saveData).toHaveBeenCalledWith(expect.objectContaining({
+    expect(global.arduino.saveData).toHaveBeenCalledWith(expect.objectContaining({
       signals: state.signals,
       globalVariables: state.globalVariables,
       stats: state.stats,
@@ -63,7 +61,7 @@ describe('Data Loss Prevention', () => {
 
     await saveConfig();
 
-    expect(global.window.arduino.saveData).toHaveBeenCalledWith(expect.objectContaining({
+    expect(global.arduino.saveData).toHaveBeenCalledWith(expect.objectContaining({
       signals: state.signals,
       globalVariables: state.globalVariables,
       stats: state.stats,
@@ -75,17 +73,17 @@ describe('Data Loss Prevention', () => {
   it('applyConfig fallback includes all state fields', async () => {
     state.globalVariables = { var1: 'val1' };
     state.config.theme = 'non-existent';
-    
+
     // Mock getThemeData to return null for the first call (non-existent)
     // and a valid theme for the fallback call
-    global.window.arduino.getThemeData
+    global.arduino.getThemeData
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ colors: {} });
 
     const { applyConfig } = require('../renderer/js/state');
     await applyConfig();
 
-    expect(global.window.arduino.saveData).toHaveBeenCalledWith(expect.objectContaining({
+    expect(global.arduino.saveData).toHaveBeenCalledWith(expect.objectContaining({
       globalVariables: state.globalVariables,
       config: expect.objectContaining({ theme: expect.any(String) }),
     }));

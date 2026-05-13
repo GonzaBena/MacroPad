@@ -13,7 +13,21 @@
       "Bash(Select-Object Name, Mode)",
       "Bash(xargs wc -l)",
       "Bash(npm start *)",
-      "Bash(Remove-Item *)"
+      "Bash(Remove-Item *)",
+      "Bash(npm run *)",
+      "Bash(xargs cat)",
+      "Bash(npm audit *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm show *)",
+      "Bash(Copy-Item *)",
+      "Bash(grep -rn \"#[0-9a-fA-F]\\\\{3,6\\\\}\\\\b\\\\|rgba\\\\?\\(\" renderer/css/ --include=\"*.css\")",
+      "Bash(grep -v \"//\")",
+      "Bash(node *)",
+      "Bash(npx jest *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api *)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

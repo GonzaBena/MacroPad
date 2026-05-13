@@ -20,11 +20,11 @@ export async function applyTheme(): Promise<void> {
   await applyConfig();
 }
 
-export function showToast(title: string, body: string): void {
+export function showToast(title: string, body: string, type: 'info' | 'success' | 'error' = 'info'): void {
   const c = document.getElementById("toasts");
   if (!c) return;
   const t = document.createElement("div");
-  t.className = "toast";
+  t.className = `toast toast-${type}`;
   t.innerHTML = `<div class="toast-t">${escHtml(title)}</div><div class="toast-b">${escHtml(body)}</div>`;
   c.appendChild(t);
   setTimeout(() => {

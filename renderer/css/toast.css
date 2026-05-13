@@ -42,3 +42,21 @@
     color: var(--muted);
 }
 
+.toast-success {
+    border-left: 3px solid var(--green);
+}
+.toast-success .toast-t {
+    color: var(--green);
+}
+
+.toast-error {
+    border-left: 3px solid var(--red);
+}
+.toast-error .toast-t {
+    color: var(--red);
+}
+
+.toast-info {
+    border-left: 3px solid var(--amber);
+}
+

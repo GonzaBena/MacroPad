@@ -6,6 +6,10 @@ const NotificationMock = Object.assign(
 module.exports = {
   app: {
     getPath: jest.fn(() => '/tmp/pokepad-test'),
+    getAppPath: jest.fn(() => '/tmp/pokepad-test'),
+    isPackaged: false,
+    setLoginItemSettings: jest.fn(),
+    quit: jest.fn(),
   },
   ipcMain: {
     handle: jest.fn(),

@@ -1,75 +1,66 @@
+/**
+ * @jest-environment jsdom
+ */
 const { state, applyConfig } = require('../renderer/js/state');
 
-// Mocks for browser globals
-global.window = {
-  arduino: {
-    getThemeData: jest.fn(),
-    setZoomFactor: jest.fn(),
-    updateSignals: jest.fn(),
-    updateGlobalVars: jest.fn(),
-    saveData: jest.fn().mockResolvedValue({ ok: true }),
-  },
-  matchMedia: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
+// In jsdom, window === global, so assign arduino/matchMedia directly on global.
+global.arduino = {
+  getThemeData: jest.fn(),
+  setZoomFactor: jest.fn(),
+  updateSignals: jest.fn(),
+  updateGlobalVars: jest.fn(),
+  saveData: jest.fn().mockResolvedValue({ ok: true }),
 };
-
-global.document = {
-  documentElement: {
-    style: {
-      setProperty: jest.fn(),
-    },
-  },
-  getElementById: jest.fn(() => ({
-    classList: { add: jest.fn(), remove: jest.fn() }
-  })),
+global.matchMedia = jest.fn().mockImplementation(query => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: jest.fn(),
+  removeListener: jest.fn(),
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
   dispatchEvent: jest.fn(),
-};
+}));
 
 describe('Theme Fallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Spy on real jsdom document methods — global.document override doesn't work in jsdom
+    jest.spyOn(document, 'dispatchEvent').mockReturnValue(true);
+    jest.spyOn(document, 'getElementById').mockReturnValue(
+      /** @type {any} */ ({ classList: { add: jest.fn(), remove: jest.fn(), toggle: jest.fn() } })
+    );
+    jest.spyOn(document.documentElement.style, 'setProperty');
     state.config.theme = 'non-existent-theme';
     state.config.accentColor = '#f5a623';
   });
 
   it('falls back to dark-default if theme is missing and system is dark', async () => {
-    // Mock system preference as dark
-    global.window.matchMedia.mockReturnValueOnce({ matches: true });
-    
-    // Mock theme data missing for 'non-existent-theme' but present for 'dark-default'
-    global.window.arduino.getThemeData
-      .mockResolvedValueOnce(null) // for 'non-existent-theme'
-      .mockResolvedValueOnce({ colors: { '--bg': '#000' } }); // for fallback 'dark-default'
+    global.matchMedia.mockReturnValueOnce({ matches: true });
+
+    global.arduino.getThemeData
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ colors: { '--bg': '#000' } });
 
     await applyConfig();
 
-    expect(global.window.arduino.getThemeData).toHaveBeenCalledWith('non-existent-theme');
-    expect(global.window.arduino.getThemeData).toHaveBeenCalledWith('dark-default');
-    expect(global.document.documentElement.style.setProperty).toHaveBeenCalledWith('--bg', '#000');
+    expect(global.arduino.getThemeData).toHaveBeenCalledWith('non-existent-theme');
+    expect(global.arduino.getThemeData).toHaveBeenCalledWith('dark-default');
+    expect(document.documentElement.style.setProperty).toHaveBeenCalledWith('--bg', '#000');
   });
 
   it('falls back to light-default if theme is missing and system is light', async () => {
-    // Mock system preference as light
-    global.window.matchMedia.mockReturnValueOnce({ matches: false });
-    
-    // Mock theme data missing for 'non-existent-theme' but present for 'light-default'
-    global.window.arduino.getThemeData
-      .mockResolvedValueOnce(null) // for 'non-existent-theme'
-      .mockResolvedValueOnce({ colors: { '--bg': '#fff' } }); // for fallback 'light-default'
+    global.matchMedia.mockReturnValueOnce({ matches: false });
+
+    global.arduino.getThemeData
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ colors: { '--bg': '#fff' } });
 
     await applyConfig();
 
-    expect(global.window.arduino.getThemeData).toHaveBeenCalledWith('non-existent-theme');
-    expect(global.window.arduino.getThemeData).toHaveBeenCalledWith('light-default');
-    expect(global.document.documentElement.style.setProperty).toHaveBeenCalledWith('--bg', '#fff');
+    expect(global.arduino.getThemeData).toHaveBeenCalledWith('non-existent-theme');
+    expect(global.arduino.getThemeData).toHaveBeenCalledWith('light-default');
+    expect(document.documentElement.style.setProperty).toHaveBeenCalledWith('--bg', '#fff');
   });
 });
 
@@ -121,19 +112,16 @@ describe('Execution Feedback (Renderer Logic)', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    
-    // Mock for state
+
     const stateM = require('../renderer/js/state');
     stateM.state.selectedSig = 'TEST_SIG';
 
-    // Mock for arduino listeners
-    global.window.arduino = {
-      ...global.window.arduino,
+    global.arduino = {
+      ...global.arduino,
       onSequenceStart: jest.fn(cb => { onStartCb = cb; }),
       onSequenceEnd: jest.fn(cb => { onEndCb = cb; }),
     };
 
-    // Mock for DOM
     const btn = {
       classList: { add: jest.fn(), remove: jest.fn() },
       innerHTML: '',
@@ -142,35 +130,17 @@ describe('Execution Feedback (Renderer Logic)', () => {
       classList: { add: jest.fn(), remove: jest.fn() },
     };
 
-    global.document.getElementById = jest.fn(id => id === 'btn-test' ? btn : null);
-    global.document.querySelector = jest.fn(sel => sel.includes('TEST_SIG') ? card : null);
+    // Direct assignment on the real jsdom document works fine
+    document.getElementById = jest.fn(id => id === 'btn-test' ? btn : null);
+    document.querySelector = jest.fn(sel => sel.includes('TEST_SIG') ? card : null);
     global.CSS = { escape: jest.fn(s => s) };
-
-    // We need to trigger the logic that registers these listeners.
-    // Since it's in a DOMContentLoaded listener in main.js, we'll simulate the calls.
-    // Logic extracted from renderer/js/main.js:
-    /*
-    window.arduino.onSequenceStart((signal) => {
-      const card = document.querySelector(`.sig-card[data-sig="${CSS.escape(signal)}"]`);
-      if (card) card.classList.add("running");
-      if (signal === state.selectedSig) {
-        const btn = document.getElementById("btn-test");
-        if (btn) {
-          btn.classList.add("running");
-          btn.innerHTML = "<span>⏳ Ejecutando...</span>";
-        }
-      }
-    });
-    */
   });
 
   it('updates button state on sequence start', () => {
-    // Simulate the logic in main.js
-    const btn = global.document.getElementById('btn-test');
+    const btn = document.getElementById('btn-test');
     const signal = 'TEST_SIG';
-    
-    // Trigger start
-    const card = global.document.querySelector(`.sig-card[data-sig="${signal}"]`);
+
+    const card = document.querySelector(`.sig-card[data-sig="${signal}"]`);
     if (card) card.classList.add("running");
     btn.classList.add("running");
     btn.innerHTML = "<span>⏳ Ejecutando...</span>";
@@ -180,11 +150,10 @@ describe('Execution Feedback (Renderer Logic)', () => {
   });
 
   it('restores button state on sequence end', () => {
-    const btn = global.document.getElementById('btn-test');
+    const btn = document.getElementById('btn-test');
     const signal = 'TEST_SIG';
-    
-    // Trigger end
-    const card = global.document.querySelector(`.sig-card[data-sig="${signal}"]`);
+
+    const card = document.querySelector(`.sig-card[data-sig="${signal}"]`);
     if (card) card.classList.remove("running");
     btn.classList.remove("running");
     btn.innerHTML = "<span>▶ Probar</span>";

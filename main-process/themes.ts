@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 // @ts-ignore
 import { getWindow } from "./window";
+import log from './logger';
 
 const BUILTIN_THEMES_DIR = path.join(app.getAppPath(), "assets", "themes");
 const USER_THEMES_DIR = path.join(app.getPath("userData"), "themes");
@@ -21,7 +22,7 @@ function ensureUserThemesDir() {
       try {
         fs.copyFileSync(src, dest);
       } catch (e) {
-        console.error("Error copying example theme file:", file, e);
+        log.error("Error copying example theme file:", file, e);
       }
     }
   });
@@ -46,7 +47,7 @@ export function getThemeList() {
             path: path.join(BUILTIN_THEMES_DIR, file),
           });
         } catch (e) {
-          console.error("Error loading builtin theme:", file, e);
+          log.error("Error loading builtin theme:", file, e);
         }
       }
     });
@@ -66,7 +67,7 @@ export function getThemeList() {
           path: path.join(USER_THEMES_DIR, file),
         });
       } catch (e) {
-        console.error("Error loading user theme:", file, e);
+        log.error("Error loading user theme:", file, e);
       }
     }
   });
@@ -82,7 +83,7 @@ export function getThemeData(themeId: string) {
   try {
     return JSON.parse(fs.readFileSync(themeInfo.path, "utf-8"));
   } catch (e) {
-    console.error("Error reading theme data:", themeId, e);
+    log.error("Error reading theme data:", themeId, e);
     return null;
   }
 }

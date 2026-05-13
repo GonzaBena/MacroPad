@@ -10,6 +10,23 @@ import {
 import { escHtml, escAttr, showToast, showPrompt, showConfirm } from "./ui.js";
 import { Step, StepType, SignalEntry } from "../../src/types/pokepad";
 
+function sanitizeHtml(html: string): string {
+  const purify = (window as any).DOMPurify;
+  if (purify) {
+    return purify.sanitize(html, {
+      ALLOWED_TAGS: ['p','br','strong','em','b','i','u','s','del','ins',
+        'blockquote','ul','ol','li','h1','h2','h3','h4','h5','h6',
+        'code','pre','hr','a','img','table','thead','tbody','tr','th','td'],
+      ALLOWED_ATTR: ['href','title','alt','src','width','height','align'],
+      ALLOW_DATA_ATTR: false,
+    });
+  }
+  // Fallback: strip all tags if DOMPurify isn't loaded
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || '';
+}
+
 declare global {
   interface HTMLElement {
     _saveTimer?: any;
@@ -904,8 +921,8 @@ export function renderGlobalVarsSection() {
         <span class="sb-gv-value">${escHtml(displayVal)}</span>
       </div>
       <div class="sb-gv-actions">
-        <button class="btn-icon sb-gv-edit" title="Editar">✎</button>
-        <button class="btn-icon gv-del sb-gv-del" title="Eliminar">✕</button>
+        <button class="btn-icon sb-gv-edit" title="Editar" aria-label="Editar variable">✎</button>
+        <button class="btn-icon gv-del sb-gv-del" title="Eliminar" aria-label="Eliminar variable">✕</button>
       </div>`;
 
     row.querySelector(".sb-gv-edit")?.addEventListener("click", () => openGvEditModal(name, value));
@@ -2030,7 +2047,13 @@ function getStepSummary(step: Step) {
     case "screenshot": return p.filename || "auto";
     case "screenshot_region": return p.filename || "selección";
     case "note": return (p.text || "").replace(/\n/g, " ").slice(0, 40) || "–";
-    default: return "";
+    default: {
+      const manifest = state.pluginManifests[step.type];
+      if (manifest && manifest.params) {
+        return manifest.params.slice(0, 2).map((ps: any) => p[ps.name] || "?").join(" · ");
+      }
+      return "";
+    }
   }
 }
 
@@ -2094,6 +2117,7 @@ export function makeStepCard(step: Step, idx: number, path: number[]) {
   const collapseBtn = document.createElement("button");
   collapseBtn.className = "btn-collapse-step";
   collapseBtn.title = step.collapsed ? "Expandir paso" : "Colapsar paso";
+  collapseBtn.setAttribute("aria-label", step.collapsed ? "Expandir paso" : "Colapsar paso");
   collapseBtn.textContent = step.collapsed ? "▶" : "▼";
   collapseBtn.onclick = (e) => {
     e.stopPropagation();
@@ -2104,6 +2128,7 @@ export function makeStepCard(step: Step, idx: number, path: number[]) {
   const delBtn = document.createElement("button");
   delBtn.className = "btn-del-step";
   delBtn.title = "Eliminar paso";
+  delBtn.setAttribute("aria-label", "Eliminar paso");
   delBtn.textContent = "✕";
   delBtn.dataset.path = pathStr;
   header.appendChild(delBtn);
@@ -2116,11 +2141,12 @@ export function makeStepCard(step: Step, idx: number, path: number[]) {
     content.className = "step-note-content";
 
     const render = () => {
-      content.innerHTML = window.marked
+      const raw = window.marked
         ? window.marked.parse(
             step.params?.text || "_Nota vacía (doble click para editar)_",
           )
         : step.params?.text || "";
+      content.innerHTML = sanitizeHtml(raw);
     };
 
     const edit = () => {
@@ -2918,6 +2944,46 @@ function buildStepParams(container: HTMLElement, step: Step, path: number[]) {
       container.appendChild(r2);
       break;
     }
+    default: {
+      // Check if it's a plugin
+      const manifest = state.pluginManifests[step.type];
+      if (manifest && manifest.params) {
+        manifest.params.forEach((paramSchema: any) => {
+          const row = makeRow(paramSchema.label || paramSchema.name);
+          const wrap = document.createElement("div");
+          wrap.className = "param-input-row";
+
+          const currentValue = p[paramSchema.name] !== undefined ? p[paramSchema.name] : (paramSchema.default || "");
+
+          if (paramSchema.type === "select") {
+            const select = makeSelect(
+              (paramSchema.options || []).map((o: any) => ({ v: o.value, l: o.label })),
+              currentValue,
+              paramSchema.name
+            );
+            row.appendChild(select);
+          } else {
+            const inputType = paramSchema.type === "number" ? "number" : "text";
+            const inp = makeInput(
+              inputType,
+              currentValue,
+              paramSchema.placeholder || "",
+              paramSchema.name
+            );
+            inp.className = "param-input flex-1";
+            wrap.appendChild(inp);
+            wrap.appendChild(makeVarLink(paramSchema.name));
+            row.appendChild(wrap);
+          }
+          container.appendChild(row);
+        });
+
+        if (manifest.description) {
+          container.appendChild(makeHint(manifest.description));
+        }
+      }
+      break;
+    }
   }
 }
 
@@ -3034,6 +3100,16 @@ export function addStep(type: string, containerPath: number[] | null = null, ind
     screenshot: { filename: "" },
     screenshot_region: { filename: "" },
   };
+
+  const pluginManifest = state.pluginManifests[type];
+  if (pluginManifest && pluginManifest.params) {
+    const pluginDefaults: any = {};
+    pluginManifest.params.forEach((ps: any) => {
+      pluginDefaults[ps.name] = ps.default !== undefined ? ps.default : "";
+    });
+    defaults[type] = pluginDefaults;
+  }
+
   const step: Step = {
     id: uid(),
     type: type as StepType,
@@ -3160,6 +3236,14 @@ export function buildStepMenu() {
     { title: "Lógica / Variables", items: ["set_variable", "modify_variable", "list_operation", "loop", "condition"] },
     { title: "Avanzado", items: ["media", "run_script", "screenshot", "screenshot_region"] },
   ];
+
+  // Add plugins section if there are any loaded
+  const pluginIds = Object.keys(state.pluginManifests).filter(
+    (id) => state.pluginManifests[id]?.enabled
+  );
+  if (pluginIds.length > 0) {
+    sections.push({ title: "Plugins", items: pluginIds });
+  }
 
   // ── Search bar ──
   const searchWrap = document.createElement("div");

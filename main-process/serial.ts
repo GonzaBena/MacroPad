@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 // @ts-ignore
 import { getWindow } from "./window";
+import { ConnectSerialSchema, SendSerialSchema } from "../src/types/ipc-schemas";
+import log from './logger';
 
 const FIRMA = "POKEPAD_V1";
 const HANDSHAKE = "IDENTIFY";
@@ -19,7 +21,7 @@ export function isPotentialDevice(port: any) {
   const pnpId = (port.pnpId || "").toLowerCase();
   const friendlyName = (port.friendlyName || "").toLowerCase();
 
-  console.log(`[serial] Revisando puerto: ${port.path} | VID:${vid} | PID:${pid} | Mfr:${manufacturer}`);
+  log.debug(`[serial] Revisando puerto: ${port.path} | VID:${vid} | PID:${pid} | Mfr:${manufacturer}`);
 
   // 1. Check exact IDs
   if (ARDUINO_IDS.some(id => id.vid === vid && id.pid === pid)) return true;
@@ -51,7 +53,12 @@ const verifiedPorts = new Map<string, { isOurDevice: boolean; lastChecked: numbe
 const currentlyVerifying = new Set<string>();
 
 // Ignorar re-intentos de puertos fallidos por 30 segundos
-const NEGATIVE_CACHE_TTL = 30000; 
+const NEGATIVE_CACHE_TTL = 30000;
+
+// Throttle UI notifications for rapid identical signals (contact bounce).
+// Execution is always attempted; only the renderer log is suppressed.
+const SIGNAL_THROTTLE_MS = 50;
+const signalLastSent = new Map<string, number>();
 
 function clearReconnect() {
   if (reconnectTimer) {
@@ -90,7 +97,7 @@ export async function verifyPort(portPath: string, baudRate: number | string = 9
     };
 
     try {
-      console.log(`[serial] Verificando: ${portPath}...`);
+      log.debug(`[serial] Verificando: ${portPath}...`);
       port = new SerialPort({ 
         path: portPath, 
         baudRate: typeof baudRate === "string" ? parseInt(baudRate) : baudRate,
@@ -99,7 +106,7 @@ export async function verifyPort(portPath: string, baudRate: number | string = 9
       const parser = port.pipe(new ReadlineParser({ delimiter: "\n" }));
 
       timeout = setTimeout(() => {
-        console.log(`[serial] Timeout en ${portPath} (Nano reseteando?)`);
+        log.debug(`[serial] Timeout en ${portPath} (Nano reseteando?)`);
         verifiedPorts.set(portPath, { isOurDevice: false, lastChecked: Date.now() });
         cleanup();
         resolve(false);
@@ -109,7 +116,7 @@ export async function verifyPort(portPath: string, baudRate: number | string = 9
         // El bootloader del Nano tarda ~2 segundos. Esperamos 2.5s para estar seguros.
         setTimeout(() => {
           if (port.isOpen) {
-            console.log(`[serial] Handshake -> ${portPath}`);
+            log.debug(`[serial] Handshake -> ${portPath}`);
             port.write(HANDSHAKE + "\n");
           }
         }, 2500);
@@ -118,7 +125,7 @@ export async function verifyPort(portPath: string, baudRate: number | string = 9
       parser.on("data", (line: string) => {
         const response = line.trim();
         if (response === FIRMA) {
-          console.log(`[serial] ¡${FIRMA} detectado en ${portPath}!`);
+          log.info(`[serial] ¡${FIRMA} detectado en ${portPath}!`);
           verifiedPorts.set(portPath, { isOurDevice: true, lastChecked: Date.now() });
           cleanup();
           resolve(true);
@@ -126,7 +133,7 @@ export async function verifyPort(portPath: string, baudRate: number | string = 9
       });
 
       port.on("error", (err: any) => {
-        console.log(`[serial] Error en ${portPath}: ${err.message}`);
+        log.debug(`[serial] Error en ${portPath}: ${err.message}`);
         verifiedPorts.set(portPath, { isOurDevice: false, lastChecked: Date.now() });
         cleanup();
         resolve(false);
@@ -165,7 +172,7 @@ function startAutoConnect() {
         }
       }
     } catch (err) {
-      console.error("[serial] Scan error:", err);
+      log.error("[serial] Scan error:", err);
     }
     
     autoConnectTimer = setTimeout(scan, AUTO_CONNECT_INTERVAL);
@@ -204,14 +211,16 @@ export function setupSerial() {
           return p;
         });
     } catch (error) {
-      console.error("Failed to list serial ports:", error);
+      log.error("[serial] Failed to list serial ports:", error);
       return [];
     }
   });
 
-  ipcMain.on("connect-serial", (_, { port, baud }: { port: string; baud: number }) => {
+  ipcMain.on("connect-serial", (_, payload: unknown) => {
+    const result = ConnectSerialSchema.safeParse(payload);
+    if (!result.success) return;
     clearReconnect();
-    connectSerial(port, baud, false);
+    connectSerial(result.data.port.trim(), Math.trunc(result.data.baud), false);
   });
 
   ipcMain.on("disconnect-serial", () => {
@@ -222,8 +231,9 @@ export function setupSerial() {
     }
   });
 
-  ipcMain.on("send-serial", (_, data: string) => {
-    if (activePort?.isOpen) activePort.write(data + "\n");
+  ipcMain.on("send-serial", (_, data: unknown) => {
+    if (!SendSerialSchema.safeParse(data).success) return;
+    if (activePort?.isOpen) activePort.write((data as string) + "\n");
   });
 
   ipcMain.on("cancel-reconnect", () => {
@@ -293,12 +303,21 @@ function connectSerial(portPath: string, baudRate: number | string = 9600, isRec
     parser.on("data", (line: string) => {
       const signal = line.trim();
       if (!signal) return;
-      if (win) {
-        win.webContents.send("serial-data", { signal, ts: Date.now() });
-        // @ts-ignore
-        const { executeSequence } = require("./execution");
-        executeSequence(signal);
+
+      const now = Date.now();
+
+      // Throttle UI log: suppress identical signals within SIGNAL_THROTTLE_MS
+      // to absorb contact bounce without flooding the monitor.
+      const lastSent = signalLastSent.get(signal) ?? 0;
+      if (now - lastSent > SIGNAL_THROTTLE_MS) {
+        signalLastSent.set(signal, now);
+        if (win) win.webContents.send("serial-data", { signal, ts: now });
       }
+
+      // Always attempt execution — runningSequences handles concurrent de-duplication.
+      // @ts-ignore
+      const { executeSequence } = require("./execution");
+      executeSequence(signal);
     });
 
     activePort.on("error", (err: any) => {

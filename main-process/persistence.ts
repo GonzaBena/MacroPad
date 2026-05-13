@@ -1,8 +1,10 @@
 import { app, ipcMain, dialog } from "electron";
 import * as fs from "fs";
 import * as path from "path";
+import log from './logger';
 // @ts-ignore
 import { getWindow } from "./window";
+import { ExportSingleWorkflowSchema, ExportFolderSchema } from "../src/types/ipc-schemas";
 
 const DATA_FILENAME = "pokepad-data.json";
 const BACKUP_FILENAME = "pokepad-data.bak.json";
@@ -113,15 +115,15 @@ export function loadData() {
       if (fs.existsSync(filePath)) {
         const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
         const validated = validateData(raw);
-        console.log(`[persistence] Loaded data from ${path.basename(filePath)}`);
+        log.info(`[persistence] Loaded data from ${path.basename(filePath)}`);
         return validated;
       }
     } catch (err: any) {
-      console.error(`[persistence] Failed to load ${path.basename(filePath)}:`, err.message);
+      log.error(`[persistence] Failed to load ${path.basename(filePath)}:`, err.message);
     }
   }
 
-  console.log("[persistence] No existing data found, using defaults");
+  log.info("[persistence] No existing data found, using defaults");
   return validateData(null);
 }
 
@@ -154,7 +156,7 @@ export function saveData(data: any) {
       });
     }
   } catch (err: any) {
-    console.error("[persistence] Failed to save data:", err.message);
+    log.error("[persistence] Failed to save data:", err.message);
   }
 }
 
@@ -210,7 +212,8 @@ async function importData(): Promise<any> {
 export function setupPersistence() {
   ipcMain.handle("load-data", () => loadData());
 
-  ipcMain.handle("save-data", (_, data) => {
+  ipcMain.handle("save-data", (_, data: unknown) => {
+    if (data === null || typeof data !== "object" || Array.isArray(data)) return { ok: false };
     saveData(data);
     return { ok: true };
   });
@@ -218,7 +221,11 @@ export function setupPersistence() {
   ipcMain.handle("export-data", () => exportData());
   ipcMain.handle("import-data", () => importData());
 
-  ipcMain.handle("export-single-workflow", async (_, { name, data }: { name: string; data: any }) => {
+  ipcMain.handle("export-single-workflow", async (_, payload: unknown) => {
+    const parsed = ExportSingleWorkflowSchema.safeParse(payload);
+    if (!parsed.success) return { ok: false, error: "Payload inválido" };
+    const { name, data } = parsed.data;
+
     const win = getWindow();
     if (!win) return { ok: false, error: "No window" };
 
@@ -261,7 +268,11 @@ export function setupPersistence() {
     }
   });
 
-  ipcMain.handle("export-folder", async (_, { folderName, workflows }: { folderName: string; workflows: any[] }) => {
+  ipcMain.handle("export-folder", async (_, payload: unknown) => {
+    const parsed = ExportFolderSchema.safeParse(payload);
+    if (!parsed.success) return { ok: false, error: "Payload inválido" };
+    const { folderName, workflows } = parsed.data;
+
     const win = getWindow();
     if (!win) return { ok: false, error: "No window" };
 

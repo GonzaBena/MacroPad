@@ -33,10 +33,19 @@ PokePad is an Electron-based desktop application designed to capture serial sign
 ## Development Conventions
 
 ### 1. Adding New Workflow Blocks (Steps)
-To add a new type of action to the workflow engine, you must update three main areas:
-- **`renderer/js/state.js`:** Define the block in `STEP_TYPES` (label, icon, CSS class).
-- **`renderer/js/workflows.js`:** Implement the UI parameters in `buildStepParams`. Use `makeInput` for automatic state binding.
-- **`main-process/execution.js`:** Implement the execution logic in `executeStep`. Use `resolveValue` to handle variable interpolation in parameters.
+There are two ways to add new workflow blocks:
+
+#### Option A: Custom Plugins (Recommended)
+Create a new folder in the `plugins/` directory (either in the project root for development or in `%APPDATA%/pokepad/plugins/` for production).
+- **`manifest.json`**: Define metadata, icon, and parameters schema.
+- **`index.js`**: Export an `async (params, context, utils) => { ... }` function.
+Custom blocks are automatically loaded and rendered by the UI.
+
+#### Option B: Built-in Blocks (Core)
+For core features, you must update:
+- **`renderer/js/state.ts`**: Register in `STEP_TYPES`.
+- **`renderer/js/workflows.ts`**: Implement UI in `buildStepParams` and `getStepSummary`.
+- **`main-process/execution.ts`**: Implement logic in `executeStep`.
 
 ### 2. UI Modularity
 - Avoid large HTML files. New tabs or modals should be created as partials in `renderer/views/` and loaded using the `loadView` helper in `renderer/js/ui.js`.

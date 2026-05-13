@@ -1,7 +1,10 @@
 import { ipcMain, shell, clipboard, Notification } from "electron";
 import { execFile, exec } from "child_process";
+import log from './logger';
 // @ts-ignore
 import { getWindow } from "./window";
+import { executePlugin } from "./plugins";
+import { UpdateSignalMapSchema, UpdateGlobalVarsSchema, TestSequenceSchema } from "../src/types/ipc-schemas";
 // @ts-ignore
 import { simulateKey } from "./keyboard";
 // @ts-ignore
@@ -33,15 +36,22 @@ const MAX_CMD_LENGTH = 4096;
 
 export function setupExecution(promptRegion: () => Promise<any>) {
   promptForRegionFn = promptRegion;
-  ipcMain.on("update-signal-map", (_, map: SignalMap) => {
-    signalMap = map;
+  ipcMain.on("update-signal-map", (_, map: unknown) => {
+    const result = UpdateSignalMapSchema.safeParse(map);
+    if (!result.success) return;
+    signalMap = result.data as SignalMap;
   });
 
-  ipcMain.on("update-global-vars", (_, vars: GlobalVariables) => {
-    globalVars = vars || {};
+  ipcMain.on("update-global-vars", (_, vars: unknown) => {
+    const result = UpdateGlobalVarsSchema.safeParse(vars);
+    if (result.success) globalVars = result.data as GlobalVariables;
   });
 
-  ipcMain.on("test-sequence", (_, signal: string) => executeSequence(signal, true));
+  ipcMain.on("test-sequence", (_, signal: unknown) => {
+    const result = TestSequenceSchema.safeParse(signal);
+    if (!result.success) return;
+    executeSequence(result.data, true);
+  });
 }
 
 function sleep(ms: number) {
@@ -83,7 +93,7 @@ export async function executeSequence(incomingSignal: string, isTest: boolean = 
     }
   } else {
     const focusedAppName = await getFocusedApp();
-    console.log(`[execution] Focused App: "${focusedAppName}" (Incoming: ${incomingSignal})`);
+    log.debug(`[execution] Focused App: "${focusedAppName}" (Incoming: ${incomingSignal})`);
 
     let globalCandidate: { signal: string; entry: SignalEntry } | null = null;
     let partialMatchCandidate: { signal: string; entry: SignalEntry } | null = null;
@@ -114,19 +124,19 @@ export async function executeSequence(incomingSignal: string, isTest: boolean = 
   }
 
   if (!bestCandidate) {
-    console.log(`[execution] No matching workflow found for signal "${incomingSignal}" with focus.`);
+    log.debug(`[execution] No matching workflow found for signal "${incomingSignal}" with focus.`);
     return;
   }
 
   const { signal, entry } = bestCandidate;
 
   if (runningSequences.has(signal)) {
-    console.log(`[execution] Skipping: "${signal}" is already running.`);
+    log.debug(`[execution] Skipping: "${signal}" is already running.`);
     return;
   }
   
   runningSequences.add(signal);
-  console.log(`[execution] Running: "${signal}"`);
+  log.info(`[execution] Running: "${signal}"`);
 
   if (!entry || !entry.steps?.length) {
     runningSequences.delete(signal);
@@ -145,9 +155,9 @@ export async function executeSequence(incomingSignal: string, isTest: boolean = 
     sequenceSuccess = await executeStepsRecursive(entry.steps, context);
   } catch (err: any) {
     sequenceSuccess = false;
-    console.error(`[execution] Error in "${signal}":`, err.message);
+    log.error(`[execution] Error in "${signal}":`, err.message);
   } finally {
-    console.log(`[execution] Completed: "${signal}"`);
+    log.info(`[execution] Completed: "${signal}"`);
     if (win) win.webContents.send("sequence-end", { signal, success: sequenceSuccess });
     runningSequences.delete(signal);
   }
@@ -300,7 +310,7 @@ export async function executeStep(step: Step, context: ExecutionContext) {
         }
       }
       context.variables[name] = val;
-      console.log(`[execution] Variable set: ${name} =`, val);
+      log.debug(`[execution] Variable set: ${name} =`, val);
       break;
     }
     case "modify_variable": {
@@ -328,10 +338,7 @@ export async function executeStep(step: Step, context: ExecutionContext) {
         const toAdd = val !== undefined && val !== null ? String(val) : "";
         context.variables[name] = current + toAdd;
       }
-      console.log(
-        `[execution] Variable modified: ${name} (${op}) ->`,
-        context.variables[name],
-      );
+      log.debug(`[execution] Variable modified: ${name} (${op}) ->`, context.variables[name]);
       break;
     }
     case "list_operation": {
@@ -388,9 +395,7 @@ export async function executeStep(step: Step, context: ExecutionContext) {
 
           const oldValue = context.variables[varName]; // Scope: save old value
 
-          console.log(
-            `[execution] Starting loop foreach on list (length: ${list.length})`,
-          );
+          log.debug(`[execution] Starting loop foreach on list (length: ${list.length})`);
           try {
             for (const item of list) {
               context.variables[varName] = item;
@@ -405,7 +410,7 @@ export async function executeStep(step: Step, context: ExecutionContext) {
             }
           }
         } else {
-          console.warn("[execution] Foreach loop: list is not an array", list);
+          log.warn("[execution] Foreach loop: list is not an array", list);
         }
         return; // Important to return here
       } else {
@@ -424,6 +429,10 @@ export async function executeStep(step: Step, context: ExecutionContext) {
       }
       break;
     }
+    default:
+      // If not a native block, try to execute as plugin
+      await executePlugin(step.type, p, context);
+      break;
   }
 }
 
@@ -488,7 +497,7 @@ export async function getFocusedApp(): Promise<string | null> {
     const title = await activeWin.title;
     if (title && title.trim().length > 0) return title.toLowerCase();
   } catch (e: any) {
-    console.warn("[execution] nut-js focus detection failed or timed out:", e.message);
+    log.warn("[execution] nut-js focus detection failed or timed out:", e.message);
   }
 
   if (plat === "darwin") {
@@ -533,7 +542,7 @@ export function isAppRunning(appName: string): Promise<boolean> {
       const cmd = "ps -ax";
       exec(cmd, { maxBuffer: 1024 * 1024 }, (err, stdout) => {
         if (err) {
-          console.error(`[execution] Error checking app "${appName}":`, err.message);
+          log.error(`[execution] Error checking app "${appName}":`, err.message);
           resolve(false);
           return;
         }

@@ -66,6 +66,7 @@ export const state: AppState & {
   selectingRegionPath: string | null;
   runningApps: any[];
   history: any[];
+  pluginManifests: Record<string, any>;
   insertionPoint: { path: number[]; index: number } | null;
 } = {
   connected: false,
@@ -95,8 +96,33 @@ export const state: AppState & {
   selectingRegionPath: null,
   runningApps: [],
   history: [],
+  pluginManifests: {},
   insertionPoint: null
 };
+
+export async function loadPlugins(incoming?: any[]): Promise<void> {
+  try {
+    const plugins = incoming ?? await window.arduino.getPlugins();
+
+    // Remove stale plugin entries from STEP_TYPES and pluginManifests
+    Object.keys(state.pluginManifests).forEach((id) => {
+      if ((STEP_TYPES as any)[id]) delete (STEP_TYPES as any)[id];
+    });
+    state.pluginManifests = {};
+
+    plugins.forEach((plugin: any) => {
+      STEP_TYPES[plugin.id as StepType] = {
+        label: plugin.name,
+        icon: plugin.icon || "🧩",
+        cls: "t-plugin",
+      };
+      state.pluginManifests[plugin.id] = plugin;
+    });
+    console.log(`[state] Loaded ${plugins.length} custom plugins`);
+  } catch (e) {
+    console.error("[state] Error loading plugins:", e);
+  }
+}
 
 // Undo / Redo stacks
 const undoStack: SignalMap[] = [];
@@ -152,6 +178,7 @@ export function saveSignals(): void {
   window.arduino.saveData(getPersistableState());
   localStorage.setItem("ac-signals", JSON.stringify(state.signals));
   localStorage.setItem("ac-folders", JSON.stringify(state.folders));
+  localStorage.setItem("ac-vars", JSON.stringify(state.globalVariables));
   pushSignals();
   document.dispatchEvent(new CustomEvent("data-saved"));
 }
@@ -197,12 +224,10 @@ export async function applyConfig(): Promise<void> {
   }
 
   // Sidebar state
-  const appBody = document.getElementById("app-body");
-  if (appBody) {
-    appBody.classList.toggle("sidebar-collapsed", !!state.config.sidebarCollapsed);
-  }
-
   const content = document.getElementById("main-content");
+  if (content) {
+    content.classList.toggle("sidebar-hidden", !!state.config.sidebarCollapsed);
+  }
 
   const section = state.config.activeSidebarSection || "serial";
   document.getElementById("ab-btn-serial")?.classList.toggle("active", !state.config.sidebarCollapsed && section === "serial");
@@ -265,14 +290,28 @@ export async function loadSignalsData(): Promise<void> {
       if (fileData.globalVariables) state.globalVariables = fileData.globalVariables;
       if (fileData.stats) state.stats = { ...state.stats, ...fileData.stats };
       if (fileData.history) state.history = fileData.history;
-      
+
       if (fileData.config) {
         state.config = { ...state.config, ...fileData.config };
         applyConfig();
       }
-      
+
+      // If file has no global variables but localStorage has a backup, recover from it
+      if (Object.keys(state.globalVariables).length === 0) {
+        try {
+          const localVars = localStorage.getItem("ac-vars");
+          if (localVars) {
+            const parsed = JSON.parse(localVars);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Object.keys(parsed).length > 0) {
+              state.globalVariables = parsed;
+              console.log("[state] Recovered global variables from localStorage backup");
+            }
+          }
+        } catch (_) {}
+      }
+
       console.log("[state] Loaded data from file persistence");
-      
+
       // If we have data in file, we might still want to check if there's something to migrate
       // but usually file persistence is the primary source once it exists.
       if (Object.keys(state.signals).length > 0 || Object.keys(state.globalVariables).length > 0) {

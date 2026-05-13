@@ -98,11 +98,11 @@
 
 .btn-primary {
     background: var(--amber);
-    color: #0c0e14;
+    color: var(--bg);
 }
 
 .btn-primary:hover {
-    background: #ffbc50;
+    background: var(--amber-light);
 }
 
 .btn-ghost {
@@ -175,11 +175,11 @@
     gap: 8px;
     padding: 8px 12px;
     border-radius: 6px;
-    background: rgba(251, 146, 60, 0.1);
-    border: 1px solid rgba(251, 146, 60, 0.3);
+    background: var(--orange-bg);
+    border: 1px solid var(--orange-border);
     font-family: var(--mono);
     font-size: 11px;
-    color: #fb923c;
+    color: var(--orange);
     margin-bottom: 10px;
 }
 
@@ -304,12 +304,12 @@
     text-transform: lowercase;
 }
 
-.gvt-string { background: rgba(150,150,170,0.15); color: var(--muted2); }
-.gvt-int    { background: rgba(91,142,240,0.18);  color: #7aa4f5; }
-.gvt-float  { background: rgba(45,212,191,0.18);  color: #2dd4bf; }
-.gvt-bool   { background: rgba(61,220,132,0.15);  color: var(--green); }
-.gvt-list   { background: rgba(167,139,250,0.18); color: #b79dfa; }
-.gvt-json   { background: rgba(251,146,60,0.18);  color: #fb923c; }
+.gvt-string { background: var(--muted-bg);    color: var(--muted2); }
+.gvt-int    { background: var(--blue-bg);     color: var(--blue); }
+.gvt-float  { background: var(--teal-bg);     color: var(--teal); }
+.gvt-bool   { background: var(--green-bg);    color: var(--green); }
+.gvt-list   { background: var(--purple-bg);   color: var(--purple); }
+.gvt-json   { background: var(--orange-bg);   color: var(--orange); }
 
 /* ── Value + type selector row ── */
 .gv-val-type-row {

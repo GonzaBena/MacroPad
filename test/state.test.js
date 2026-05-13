@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 // state.js uses ES module syntax (export/import); babel-jest transpiles it to CommonJS.
 // window.arduino and localStorage are browser globals — we mock them manually.
 
@@ -8,30 +11,25 @@ beforeEach(() => {
   // (undoStack / redoStack are module-level, not exported).
   jest.resetModules();
 
-  global.window = {
-    arduino: {
-      saveData: jest.fn(),
-      updateSignals: jest.fn(),
-      updateGlobalVars: jest.fn(),
-      loadData: jest.fn(() => Promise.resolve(null)),
-      getThemeData: jest.fn(() => Promise.resolve({ colors: {} })),
-      setZoomFactor: jest.fn(),
-    },
-    matchMedia: jest.fn(() => ({ matches: true })),
+  global.arduino = {
+    saveData: jest.fn(),
+    updateSignals: jest.fn(),
+    updateGlobalVars: jest.fn(),
+    loadData: jest.fn(() => Promise.resolve(null)),
+    getThemeData: jest.fn(() => Promise.resolve({ colors: {} })),
+    setZoomFactor: jest.fn(),
   };
+  global.matchMedia = jest.fn(() => ({ matches: true }));
 
   global.localStorage = {
     setItem: jest.fn(),
     getItem: jest.fn(() => null),
   };
 
-  global.document = {
-    documentElement: { style: { setProperty: jest.fn() } },
-    dispatchEvent: jest.fn(),
-    getElementById: jest.fn(() => ({ classList: { add: jest.fn(), remove: jest.fn() } })),
-  };
-
-  global.CustomEvent = class { constructor(n) { this.name = n; } };
+  jest.spyOn(document, 'dispatchEvent').mockReturnValue(true);
+  jest.spyOn(document, 'getElementById').mockReturnValue(
+    /** @type {any} */ ({ classList: { add: jest.fn(), remove: jest.fn(), toggle: jest.fn() } })
+  );
 
   const m = require('../renderer/js/state');
   state = m.state;

@@ -7,6 +7,7 @@ jest.mock('electron', () => {
   const mApp = {
     isQuiting: false,
     getPath: jest.fn(() => '/tmp'),
+    getAppPath: jest.fn(() => '/tmp'),
   };
   const mBrowserWindow = jest.fn(() => ({
     loadFile: jest.fn(),

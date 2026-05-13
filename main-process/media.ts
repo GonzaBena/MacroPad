@@ -1,5 +1,7 @@
 import { ipcMain } from "electron";
+import { MultimediaActionSchema } from "../src/types/ipc-schemas";
 import { exec } from "child_process";
+import log from './logger';
 import { keyboard, Key } from '@nut-tree-fork/nut-js';
 import * as path from "path";
 import * as os from "os";
@@ -8,11 +10,13 @@ import * as fs from "fs";
 import { getWindow } from "./window";
 
 export function setupMedia() {
-  ipcMain.on('control-multimedia', async (_event, accion: string) => {
-    switch (accion) {
+  ipcMain.on('control-multimedia', async (_event, accion: unknown) => {
+    const result = MultimediaActionSchema.safeParse(accion);
+    if (!result.success) return;
+    switch (result.data) {
       case 'play-pause':
         await keyboard.type(Key.AudioPlay);
-        console.log("Comando enviado: Play/Pause");
+        log.debug("[media] Play/Pause enviado");
         break;
       case 'siguiente':
         await keyboard.type(Key.AudioNext);
@@ -45,7 +49,7 @@ export async function mediaControl(action: string) {
         ]);
         return;
       } catch (err: any) {
-        console.error("[media] nut-js error:", err.message);
+        log.error("[media] nut-js error:", err.message);
       }
     }
   }

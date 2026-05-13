@@ -1,8 +1,9 @@
-import { state, loadSignalsData, loadConfig, saveConfig, saveSignals } from './state.js';
+import { state, loadSignalsData, loadConfig, saveConfig, saveSignals, loadPlugins } from './state.js';
 import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
 import { renderMetrics } from './metrics.js';
+import { renderPluginActivityIcons } from './plugins-ui.js';
 import {
   buildStepMenu,
   renderSignalList,
@@ -44,6 +45,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("menu-undo")?.addEventListener("click", undo);
   document.getElementById("menu-redo")?.addEventListener("click", redo);
   document.getElementById("menu-about")?.addEventListener("click", about);
+  document.getElementById("menu-plugin-manager")?.addEventListener("click", () => window.arduino.openPluginManagerWindow());
   document.getElementById("menu-check-updates")?.addEventListener("click", () => window.arduino.checkForUpdates());
 
   // Tabs — delegado con data-tab
@@ -55,6 +57,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       tabEl.classList.add("active");
       document.getElementById(`tab-${name}`)?.classList.add("active");
       
+      // Deactivate plugin icons if a standard tab is clicked
+      document.querySelectorAll(".ab-btn-plugin").forEach(btn => btn.classList.remove("active"));
+
       if (name === "metrics") renderMetrics();
     });
   });
@@ -64,8 +69,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   initMenu();
   initKeyboardShortcuts();
   initZoom();
+  await loadPlugins();
+  renderPluginActivityIcons();
   buildStepMenu();
   initFlowDelegation(); // Event delegation para step cards
+
+  window.arduino.onPluginsChanged(async (updatedPlugins) => {
+    await loadPlugins(updatedPlugins);
+    renderPluginActivityIcons();
+    buildStepMenu();
+  });
 
   // 4. Cablear elementos de las vistas cargadas
   // Sidebar — Serial
@@ -235,6 +248,15 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
+    // Toast de resultado
+    const entry = state.signals[signal];
+    const label = entry?.label || signal;
+    if (success) {
+      showToast("Workflow completado", label, "success");
+    } else {
+      showToast("Workflow falló", label, "error");
+    }
+
     // Actualizar estadísticas e historial
     if (success) state.stats.success++;
     else state.stats.failure++;
@@ -247,7 +269,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (state.history.length > 10) state.history.pop();
 
     // Increment run counter
-    const entry = state.signals[signal];
     if (entry) {
       entry.runCount = (entry.runCount || 0) + 1;
       updateCardMeta(signal, entry);
@@ -332,6 +353,10 @@ function switchSidebarSection(section: string) {
     state.config.activeSidebarSection = section;
     state.config.sidebarCollapsed = false;
   }
+  
+  // Deactivate plugin icons when switching sidebar sections
+  document.querySelectorAll(".ab-btn-plugin").forEach(btn => btn.classList.remove("active"));
+  
   saveConfig();
 }
 

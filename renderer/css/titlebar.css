@@ -78,7 +78,7 @@
 
 .wbtn.close:hover {
     background: var(--red);
-    color: #fff;
+    color: var(--text);
 }
 
 /* Menu Bar */
@@ -153,7 +153,7 @@
 
 .dd-item:hover {
     background: var(--blue);
-    color: #fff;
+    color: var(--text);
 }
 
 .dd-item.has-submenu::after {

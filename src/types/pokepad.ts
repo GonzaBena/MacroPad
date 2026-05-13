@@ -20,7 +20,43 @@ export type StepType =
   | 'run_script'
   | 'screenshot'
   | 'screenshot_region'
-  | 'note';
+  | 'note'
+  | (string & {});
+
+export interface PluginParamSchema {
+  name: string;
+  label: string;
+  type: 'string' | 'number' | 'select' | 'boolean';
+  placeholder?: string;
+  default?: any;
+  required?: boolean;
+  options?: { label: string; value: any }[]; // For select type
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  description?: string;
+  version: string;
+  author?: string;
+  icon: string;
+  color?: string;
+  params: PluginParamSchema[];
+  path?: string; // Resolved path to the plugin folder
+  enabled?: boolean; // Whether the plugin is active
+  ui?: {
+    sidebarIcon?: string; // SVG path or Emoji
+    sidebarLabel?: string;
+    entryPath: string;    // Path to the HTML file inside the plugin folder
+  };
+}
+
+export interface RemotePlugin extends Omit<PluginManifest, 'path'> {
+  downloadUrl: string;
+  isVerified: boolean;
+  downloads: number;
+  updatedAt: string; // ISO Date
+}
 
 export interface Step {
   id: string;

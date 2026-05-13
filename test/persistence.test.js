@@ -1,4 +1,14 @@
 jest.mock('../main-process/window', () => ({ getWindow: jest.fn(() => null) }));
+// jest.spyOn(fs, ...) doesn't work because persistence.ts uses `import * as fs`,
+// which Babel wraps in _interopRequireWildcard (a copy). Factory mock with __esModule: true
+// bypasses the wrapper so the same mock references are used by both test and source.
+jest.mock('fs', () => ({
+  __esModule: true,
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  copyFileSync: jest.fn(),
+}));
 
 const { validateData, loadData, saveData } = require('../main-process/persistence');
 const fs = require('fs');
@@ -126,16 +136,11 @@ describe('validateData', () => {
 // ─── loadData ────────────────────────────────────────────────────────────────
 
 describe('loadData', () => {
-  let existsSyncSpy;
-  let readFileSyncSpy;
+  const existsSyncSpy = fs.existsSync;
+  const readFileSyncSpy = fs.readFileSync;
 
   beforeEach(() => {
-    existsSyncSpy = jest.spyOn(fs, 'existsSync');
-    readFileSyncSpy = jest.spyOn(fs, 'readFileSync');
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   it('returns defaults when neither data file nor backup exists', () => {
@@ -183,18 +188,12 @@ describe('loadData', () => {
 // ─── saveData ────────────────────────────────────────────────────────────────
 
 describe('saveData', () => {
-  let existsSyncSpy;
-  let copyFileSyncSpy;
-  let writeFileSyncSpy;
+  const existsSyncSpy = fs.existsSync;
+  const copyFileSyncSpy = fs.copyFileSync;
+  const writeFileSyncSpy = fs.writeFileSync;
 
   beforeEach(() => {
-    existsSyncSpy = jest.spyOn(fs, 'existsSync');
-    copyFileSyncSpy = jest.spyOn(fs, 'copyFileSync').mockImplementation(() => {});
-    writeFileSyncSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   it('rotates the main file to backup before writing', () => {

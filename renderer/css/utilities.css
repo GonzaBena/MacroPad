@@ -62,7 +62,7 @@
 .sig-assigned-badge {
   font-size: 9px;
   background: var(--green);
-  color: #000;
+  color: var(--bg);
   padding: 2px 5px;
   border-radius: 4px;
   margin-left: 6px;
@@ -87,8 +87,8 @@
 /* Script beta badge */
 .script-beta-badge {
   font-size: 10px;
-  background: rgba(251, 146, 60, 0.2);
-  color: #fb923c;
+  background: var(--orange-bg);
+  color: var(--orange);
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 700;
@@ -243,7 +243,7 @@
 }
 .btn-danger:hover {
   background: var(--red);
-  color: #0c0e14;
+  color: var(--bg);
 }
 
 /* Confirm modal message */

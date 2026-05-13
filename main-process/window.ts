@@ -8,6 +8,7 @@ let configWindow: BrowserWindow | null = null;
 let aboutWindow: BrowserWindow | null = null;
 let themePreviewWindow: BrowserWindow | null = null;
 let selectionWindow: BrowserWindow | null = null;
+let pluginManagerWindow: BrowserWindow | null = null;
 
 export function createWindow(startupMode: string = "normal") {
   const root = app.getAppPath();
@@ -201,4 +202,33 @@ export function createSelectionWindow() {
 
 export function getWindow() {
   return mainWindow;
+}
+
+export function createPluginManagerWindow() {
+  if (pluginManagerWindow) {
+    pluginManagerWindow.focus();
+    return pluginManagerWindow;
+  }
+
+  pluginManagerWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    resizable: true,
+    frame: false,
+    icon: path.join(app.getAppPath(), "assets", "logo.png"),
+    backgroundColor: "#0c0e14",
+    webPreferences: {
+      preload: path.join(__dirname, "..", "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  pluginManagerWindow.loadFile(path.join(app.getAppPath(), "renderer", "plugins.html"));
+
+  pluginManagerWindow.on("closed", () => {
+    pluginManagerWindow = null;
+  });
+
+  return pluginManagerWindow;
 }

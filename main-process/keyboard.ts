@@ -3,6 +3,7 @@ import { exec, execFile } from "child_process";
 import { keyboard, Key } from "@nut-tree-fork/nut-js";
 // @ts-ignore
 import { getWindow } from "./window";
+import log from './logger';
 
 const NUT_KEY_MAP: Record<string, Key> = {
   enter: Key.Enter,
@@ -197,7 +198,7 @@ export async function simulateKey(combo: string) {
         return;
       }
     } catch (err: any) {
-      console.error("[keyboard] nut-js error:", err.message);
+      log.error("[keyboard] nut-js error:", err.message);
       // Fallback to legacy methods if nut-js fails or times out
     }
   }
@@ -331,7 +332,7 @@ export async function listRunningApps(): Promise<any[]> {
 
           resolve(unique);
         } catch (e: any) {
-          console.error("[keyboard] Error parsing running apps JSON:", e.message);
+          log.error("[keyboard] Error parsing running apps JSON:", e.message);
           resolve([]);
         }
       });

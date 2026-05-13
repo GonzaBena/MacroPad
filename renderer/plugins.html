@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;"
+    />
+    <title>Gestión de Plugins</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="css/plugins.css" />
+    <script src="js/vendor/marked.js"></script>
+    <script src="js/vendor/dompurify.min.js"></script>
+  </head>
+
+  <body class="modal-window">
+    <div class="titlebar draggable">
+      <div class="tb-brand">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--amber)"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="m21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+          ></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        Gestión de Plugins
+      </div>
+      <div class="tb-controls non-draggable">
+        <button class="wbtn close" id="btn-close" aria-label="Cerrar">✕</button>
+      </div>
+    </div>
+
+    <div class="window-content">
+      <div class="tabs">
+        <div class="tab active" data-tab="installed">Instalados</div>
+        <div class="tab" data-tab="install">Instalar plugin</div>
+      </div>
+
+      <div class="tab-pane active" id="tab-installed">
+        <div class="plugins-layout">
+          <div class="plugins-sidebar">
+            <div class="search-box">
+              <input type="text" id="plugin-search" placeholder="Buscar plugins..." spellcheck="false" />
+              <div class="filter-row" style="margin-top: 10px; display: flex; gap: 4px;">
+                <select id="filter-installed-status" class="filter-select" style="flex: 1;">
+                  <option value="all">Todos</option>
+                  <option value="active">Activos</option>
+                  <option value="disabled">Inactivos</option>
+                </select>
+                <button class="btn btn-outline" id="btn-open-plugins-folder" title="Abrir carpeta de plugins" style="padding: 0 10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="plugin-list" id="plugin-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+          <div class="plugins-main" id="plugin-details">
+            <div class="empty-state">
+              <div class="empty-icon">🧩</div>
+              <p>Seleccioná un plugin para ver los detalles</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-install">
+        <div class="plugins-layout">
+          <div class="plugins-sidebar">
+            <div class="search-box">
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="remote-search" placeholder="Buscar en el repositorio..." spellcheck="false" style="flex: 1;" />
+                <button class="btn btn-outline" id="btn-refresh-remote" title="Recargar repositorio" style="padding: 0 10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                </button>
+              </div>
+              <div class="filter-row" style="margin-top: 10px;">
+                <select id="filter-remote-status" class="filter-select" style="width: 100%;">
+                  <option value="all">Todos los plugins</option>
+                  <option value="not-installed">No instalados</option>
+                  <option value="installed">Ya instalados</option>
+                </select>
+              </div>
+              <button class="btn btn-outline" id="btn-install-zip" style="width: 100%; margin-top: 10px; justify-content: center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Instalar desde ZIP
+              </button>
+            </div>
+            <div class="plugin-list" id="remote-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+          <div class="plugins-main" id="remote-details">
+            <div class="empty-state">
+              <div class="empty-icon">🌐</div>
+              <p>Explorá los plugins disponibles en el repositorio oficial</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="../dist-ts/renderer/js/plugins-window.js"></script>
+  </body>
+</html>
