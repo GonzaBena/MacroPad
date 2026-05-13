@@ -1,4 +1,9 @@
 jest.mock('../main-process/window', () => ({ getWindow: jest.fn(() => null) }));
+jest.mock('chokidar', () => ({
+  watch: jest.fn(() => ({
+    on: jest.fn().mockReturnThis(),
+  })),
+}));
 jest.mock('../main-process/keyboard', () => ({ simulateKey: jest.fn(() => Promise.resolve()) }));
 jest.mock('../main-process/media', () => ({ mediaControl: jest.fn(() => Promise.resolve()) }));
 jest.mock('os', () => ({ tmpdir: jest.fn(() => '/tmp') }));

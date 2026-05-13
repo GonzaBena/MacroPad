@@ -353,8 +353,7 @@ export function setupPlugins() {
       } catch (err: any) {
         log.error(`Failed to install plugin ${id}:`, err);
         return { success: false, error: err.message };
-      }
-    },
+      }    },
   );
 
   ipcMain.handle("install-local-plugin", async () => {

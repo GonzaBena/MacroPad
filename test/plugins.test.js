@@ -18,13 +18,19 @@ jest.mock('electron', () => ({
   dialog: {
     showOpenDialog: jest.fn(),
   },
+  webContents: {
+    getAllWebContents: jest.fn(() => []),
+  },
 }));
 
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
   mkdirSync: jest.fn(),
   readFileSync: jest.fn(() => JSON.stringify({ name: 'Test Plugin', version: '1.0.0', id: 'test' })),
-  readdirSync: jest.fn(() => []),
+  readdirSync: jest.fn((path, opts) => {
+    if (opts && opts.withFileTypes) return [];
+    return [];
+  }),
   writeFileSync: jest.fn(),
   unlinkSync: jest.fn(),
   rmSync: jest.fn(),
@@ -33,6 +39,12 @@ jest.mock('fs', () => ({
 
 jest.mock('child_process', () => ({
   execSync: jest.fn(),
+}));
+
+jest.mock('chokidar', () => ({
+  watch: jest.fn(() => ({
+    on: jest.fn().mockReturnThis(),
+  })),
 }));
 
 jest.mock('../main-process/logger', () => ({
@@ -76,7 +88,7 @@ describe('Plugins Main Process', () => {
     expect(result.success).toBe(true);
     expect(global.fetch).toHaveBeenCalledWith('http://example.com/test.zip');
     expect(fs.writeFileSync).toHaveBeenCalled();
-    expect(execSync).toHaveBeenCalledWith(expect.stringContaining('tar -xf'));
+    expect(execSync).toHaveBeenCalledWith(expect.stringMatching(/tar -xf|Expand-Archive/));
     expect(fs.unlinkSync).toHaveBeenCalled();
   });
 
@@ -132,7 +144,7 @@ describe('Plugins Main Process', () => {
 
       expect(result.success).toBe(true);
       expect(result.id).toBe('valid-id');
-      expect(execSync).toHaveBeenCalledWith(expect.stringContaining('tar -xf'));
+      expect(execSync).toHaveBeenCalledWith(expect.stringMatching(/tar -xf|Expand-Archive/));
     });
 
     it('fails when manifest.json is missing', async () => {
