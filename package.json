@@ -7,11 +7,12 @@
     "type": "git",
     "url": "https://github.com/GonzaBena/MacroPad.git"
   },
-  "main": "main.js",
+  "main": "dist-ts/main.js",
   "scripts": {
     "start": "electron . --enable-logging",
     "dev": "concurrently \"tsc --watch\" \"electron . --enable-logging\"",
-    "build": "electron-builder",
+    "build": "npm run compile && electron-builder",
+    "compile": "tsc",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
