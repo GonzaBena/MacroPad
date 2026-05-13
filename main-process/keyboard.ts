@@ -1,65 +1,51 @@
 import { ipcMain } from "electron";
 import { exec, execFile } from "child_process";
-import { keyboard, Key } from "@nut-tree-fork/nut-js";
 // @ts-ignore
 import { getWindow } from "./window";
 import log from './logger';
 
-const NUT_KEY_MAP: Record<string, Key> = {
-  enter: Key.Enter,
-  return: Key.Enter,
-  tab: Key.Tab,
-  space: Key.Space,
-  escape: Key.Escape,
-  esc: Key.Escape,
-  backspace: Key.Backspace,
-  delete: Key.Delete,
-  up: Key.Up,
-  down: Key.Down,
-  left: Key.Left,
-  right: Key.Right,
-  home: Key.Home,
-  end: Key.End,
-  pageup: Key.PageUp,
-  pagedown: Key.PageDown,
-  f1: Key.F1,
-  f2: Key.F2,
-  f3: Key.F3,
-  f4: Key.F4,
-  f5: Key.F5,
-  f6: Key.F6,
-  f7: Key.F7,
-  f8: Key.F8,
-  f9: Key.F9,
-  f10: Key.F10,
-  f11: Key.F11,
-  f12: Key.F12,
-  ins: Key.Insert,
-  insert: Key.Insert,
-  prtsc: Key.Print,
-  scrolllock: Key.ScrollLock,
-  pause: Key.Pause,
+// nut-js key names as strings to avoid top-level native module require
+const NUT_KEY_NAMES: Record<string, string> = {
+  enter: 'Enter', return: 'Enter', tab: 'Tab', space: 'Space',
+  escape: 'Escape', esc: 'Escape', backspace: 'Backspace', delete: 'Delete',
+  up: 'Up', down: 'Down', left: 'Left', right: 'Right',
+  home: 'Home', end: 'End', pageup: 'PageUp', pagedown: 'PageDown',
+  f1: 'F1', f2: 'F2', f3: 'F3', f4: 'F4', f5: 'F5', f6: 'F6',
+  f7: 'F7', f8: 'F8', f9: 'F9', f10: 'F10', f11: 'F11', f12: 'F12',
+  ins: 'Insert', insert: 'Insert', prtsc: 'Print',
+  scrolllock: 'ScrollLock', pause: 'Pause',
 };
 
-const NUT_MOD_MAP: Record<string, Key> = {
-  cmd: Key.LeftSuper,
-  command: Key.LeftSuper,
-  ctrl: Key.LeftControl,
-  control: Key.LeftControl,
-  alt: Key.LeftAlt,
-  option: Key.LeftAlt,
-  shift: Key.LeftShift,
+const NUT_MOD_NAMES: Record<string, string> = {
+  cmd: 'LeftSuper', command: 'LeftSuper',
+  ctrl: 'LeftControl', control: 'LeftControl',
+  alt: 'LeftAlt', option: 'LeftAlt',
+  shift: 'LeftShift',
 };
 
-function getNutKey(k: string): Key | null {
+let nutJsLoaded = false;
+let nutJsCache: { keyboard: any; Key: any } | null = null;
+function loadNutJs(): { keyboard: any; Key: any } | null {
+  if (nutJsLoaded) return nutJsCache;
+  try {
+    nutJsCache = require("@nut-tree-fork/nut-js");
+  } catch (e: any) {
+    log.warn("[keyboard] @nut-tree-fork/nut-js not available:", e.message);
+    nutJsCache = null;
+  }
+  nutJsLoaded = true;
+  return nutJsCache;
+}
+
+function getNutKey(Key: any, k: string): any | null {
   const lower = k.toLowerCase();
-  if (NUT_KEY_MAP[lower]) return NUT_KEY_MAP[lower];
+  if (NUT_KEY_NAMES[lower]) return Key[NUT_KEY_NAMES[lower]];
 
   // Alphanumeric
   if (k.length === 1) {
     const char = k.toUpperCase();
-    if (char >= "A" && char <= "Z") return (Key as any)[char];
-    if (char >= "0" && char <= "9") return (Key as any)["Num" + char];
+    if (char >= "A" && char <= "Z") return Key[char];
+    if (char >= "0" && char <= "9") return Key["Num" + char];
   }
   return null;
 }
@@ -169,7 +155,7 @@ export async function simulateKey(combo: string) {
     return;
   }
   for (const mod of mods) {
-    if (!NUT_MOD_MAP[mod]) {
+    if (!NUT_MOD_NAMES[mod]) {
       if (win) win.webContents.send("serial-error", `Modificador inválido: ${mod}`);
       return;
     }
@@ -177,29 +163,34 @@ export async function simulateKey(combo: string) {
 
   // Use nut-js for native speed on Windows and Mac
   if (process.platform === "win32" || process.platform === "darwin") {
-    try {
-      const nutKeys: Key[] = [];
-      for (const mod of mods) {
-        if (NUT_MOD_MAP[mod]) nutKeys.push(NUT_MOD_MAP[mod]);
+    const nut = loadNutJs();
+    if (nut) {
+      try {
+        const { Key, keyboard } = nut;
+        const nutKeys: any[] = [];
+        for (const mod of mods) {
+          const k = Key[NUT_MOD_NAMES[mod]];
+          if (k !== undefined) nutKeys.push(k);
+        }
+        const mainKey = getNutKey(Key, keyPart);
+        if (mainKey !== null && mainKey !== undefined) {
+          nutKeys.push(mainKey);
+          // Timeout protected nut-js call
+          await Promise.race([
+            (async () => {
+              await keyboard.pressKey(...nutKeys);
+              await keyboard.releaseKey(...nutKeys);
+            })(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("NutJS Timeout")), 2000),
+            ),
+          ]);
+          return;
+        }
+      } catch (err: any) {
+        log.error("[keyboard] nut-js error:", err.message);
+        // Fallback to legacy methods if nut-js fails or times out
       }
-      const mainKey = getNutKey(keyPart);
-      if (mainKey) {
-        nutKeys.push(mainKey);
-        // Timeout protected nut-js call
-        await Promise.race([
-          (async () => {
-            await keyboard.pressKey(...nutKeys);
-            await keyboard.releaseKey(...nutKeys);
-          })(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("NutJS Timeout")), 2000),
-          ),
-        ]);
-        return;
-      }
-    } catch (err: any) {
-      log.error("[keyboard] nut-js error:", err.message);
-      // Fallback to legacy methods if nut-js fails or times out
     }
   }
 
