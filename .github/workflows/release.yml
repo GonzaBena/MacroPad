@@ -37,6 +37,9 @@ jobs:
       - name: Rebuild native modules
         run: npx @electron/rebuild
 
+      - name: Compile TypeScript
+        run: npm run compile
+
       - name: Build installers
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
