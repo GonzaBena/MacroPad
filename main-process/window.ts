@@ -10,13 +10,14 @@ let themePreviewWindow: BrowserWindow | null = null;
 let selectionWindow: BrowserWindow | null = null;
 
 export function createWindow(startupMode: string = "normal") {
+  const root = app.getAppPath();
   mainWindow = new BrowserWindow({
     width: 1800,
     height: 1000,
     minWidth: 800,
     minHeight: 520,
     frame: false,
-    icon: path.join(__dirname, "..", "assets", "logo.png"),
+    icon: path.join(root, "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -26,7 +27,7 @@ export function createWindow(startupMode: string = "normal") {
     show: startupMode !== "minimized" && startupMode !== "hidden",
   });
 
-  mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+  mainWindow.loadFile(path.join(root, "renderer", "index.html"));
 
   mainWindow.once("ready-to-show", () => {
     if (!mainWindow) return;
@@ -71,7 +72,7 @@ export function createConfigWindow() {
     height: 700,
     resizable: true,
     frame: false,
-    icon: path.join(__dirname, "..", "assets", "logo.png"),
+    icon: path.join(app.getAppPath(), "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -80,7 +81,7 @@ export function createConfigWindow() {
     },
   });
 
-  configWindow.loadFile(path.join(__dirname, "..", "renderer", "config.html"));
+  configWindow.loadFile(path.join(app.getAppPath(), "renderer", "config.html"));
 
   configWindow.on("closed", () => {
     configWindow = null;
@@ -100,7 +101,7 @@ export function createAboutWindow() {
     height: 400,
     resizable: false,
     frame: false,
-    icon: path.join(__dirname, "..", "assets", "logo.png"),
+    icon: path.join(app.getAppPath(), "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -109,7 +110,7 @@ export function createAboutWindow() {
     },
   });
 
-  aboutWindow.loadFile(path.join(__dirname, "..", "renderer", "about.html"));
+  aboutWindow.loadFile(path.join(app.getAppPath(), "renderer", "about.html"));
 
   aboutWindow.on("closed", () => {
     aboutWindow = null;
@@ -131,7 +132,7 @@ export function createThemePreviewWindow(parentWindow: BrowserWindow) {
     modal: true,
     frame: false,
     resizable: false,
-    icon: path.join(__dirname, "..", "assets", "logo.png"),
+    icon: path.join(app.getAppPath(), "assets", "logo.png"),
     backgroundColor: "#0c0e14",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
@@ -141,7 +142,7 @@ export function createThemePreviewWindow(parentWindow: BrowserWindow) {
   });
 
   themePreviewWindow.loadFile(
-    path.join(__dirname, "..", "renderer", "theme-preview.html"),
+    path.join(app.getAppPath(), "renderer", "theme-preview.html"),
   );
 
   themePreviewWindow.on("closed", () => {
@@ -189,7 +190,7 @@ export function createSelectionWindow() {
   }
 
   selectionWindow.setAlwaysOnTop(true, "screen-saver");
-  selectionWindow.loadFile(path.join(__dirname, "..", "renderer", "selection.html"));
+  selectionWindow.loadFile(path.join(app.getAppPath(), "renderer", "selection.html"));
 
   selectionWindow.on("closed", () => {
     selectionWindow = null;

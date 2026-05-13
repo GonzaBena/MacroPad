@@ -24,8 +24,11 @@ app.setAppUserModelId("PokePad");
 // Habilitar hot reload en desarrollo
 if (!app.isPackaged) {
   try {
-    require("electron-reload")(__dirname, {
-      electron: path.join(__dirname, "node_modules", ".bin", "electron"),
+    const electronPath = path.join(app.getAppPath(), "node_modules", ".bin", "electron.cmd");
+    require("electron-reload")(app.getAppPath(), {
+      electron: electronPath,
+      forceHardReset: true,
+      hardResetMethod: 'exit'
     });
   } catch (err) {
     console.error("electron-reload failed to initialize", err);
@@ -173,7 +176,7 @@ if (!gotTheLock) {
       }
     };
 
-    const BUILTIN_THEMES_DIR = path.join(__dirname, "assets", "themes");
+    const BUILTIN_THEMES_DIR = path.join(app.getAppPath(), "assets", "themes");
     const USER_THEMES_DIR = path.join(app.getPath("userData"), "themes");
     
     // Only watch builtin themes in development

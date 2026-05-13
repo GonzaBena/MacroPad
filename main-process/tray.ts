@@ -6,7 +6,7 @@ let tray: Tray | null = null;
 export function setupTray(mainWindow: BrowserWindow) {
   if (tray) return tray;
 
-  const iconPath = path.join(__dirname, "..", "assets", "logo.png");
+  const iconPath = path.join(app.getAppPath(), "assets", "logo.png");
   tray = new Tray(iconPath);
 
   const contextMenu = Menu.buildFromTemplate([

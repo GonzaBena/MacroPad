@@ -7,7 +7,13 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git tag *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\gonza\\\\documents\\\\workspace\\\\dev\\\\MacroPad\" | Where-Object { $_.Name -ne 'node_modules' } | Select-Object Name, PSIsContainer)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gonza\\\\documents\\\\workspace\\\\dev\\\\MacroPad\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(xargs wc -l)",
+      "Bash(npm start *)",
+      "Bash(Remove-Item *)"
     ]
   }
 }

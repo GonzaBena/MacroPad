@@ -4,7 +4,7 @@ import * as path from "path";
 // @ts-ignore
 import { getWindow } from "./window";
 
-const BUILTIN_THEMES_DIR = path.join(__dirname, "..", "assets", "themes");
+const BUILTIN_THEMES_DIR = path.join(app.getAppPath(), "assets", "themes");
 const USER_THEMES_DIR = path.join(app.getPath("userData"), "themes");
 
 function ensureUserThemesDir() {
