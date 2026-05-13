@@ -178,7 +178,6 @@ export function saveConfigView(): void {
   if (startupModeEl) state.config.startupMode = startupModeEl.value;
   if (zoomEnabledEl) state.config.enableZoom = zoomEnabledEl.checked;
   if (accentEl) state.config.accentColor = accentEl.value;
-  if (activityBarEl) state.config.activityBarPosition = activityBarEl.value as any;
 
   saveConfig();
   showToast("Configuración", "Los cambios han sido guardados y aplicados.");

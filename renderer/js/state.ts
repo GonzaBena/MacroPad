@@ -86,8 +86,7 @@ export const state: AppState & {
     sidebarCollapsed: false,
     initialTab: "workflows",
     activeSidebarSection: "serial",
-    workflowSort: "original",
-    activityBarPosition: "right"
+    workflowSort: "original"
   },
   dragSrcPath: null,
   dragSrcWorkflow: null,
@@ -201,8 +200,6 @@ export async function applyConfig(): Promise<void> {
   const appBody = document.getElementById("app-body");
   if (appBody) {
     appBody.classList.toggle("sidebar-collapsed", !!state.config.sidebarCollapsed);
-    appBody.classList.toggle("ab-right", state.config.activityBarPosition === "right");
-    appBody.classList.toggle("ab-left", state.config.activityBarPosition === "left");
   }
 
   const content = document.getElementById("main-content");

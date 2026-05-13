@@ -62,14 +62,6 @@ body {
     height: 100%;
 }
 
-.app-body.ab-right {
-    flex-direction: row-reverse;
-}
-
-.app-body.ab-left {
-    flex-direction: row;
-}
-
 .activity-bar {
     width: 48px;
     background: var(--surface2);
@@ -81,11 +73,6 @@ body {
     gap: 12px;
     flex-shrink: 0;
     z-index: 10;
-}
-
-.app-body.ab-right .activity-bar {
-    border-right: none;
-    border-left: 1px solid var(--border);
 }
 
 .ab-btn {
@@ -140,4 +127,3 @@ body {
     visibility: hidden;
     pointer-events: none;
 }
-

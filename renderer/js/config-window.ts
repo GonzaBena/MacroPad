@@ -62,8 +62,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const startupModeEl = document.getElementById("cfg-startup-mode") as HTMLSelectElement | null;
     const zoomEnabledEl = document.getElementById("cfg-zoom-enabled") as HTMLInputElement | null;
     const accentEl = document.getElementById("cfg-accent") as HTMLInputElement | null;
-    const pickerEl = document.getElementById("cfg-accent-picker") as HTMLInputElement | null;
-    const activityBarEl = document.getElementById("cfg-activity-bar") as HTMLSelectElement | null;
+    const pickerEl = document.getElementById('cfg-accent-picker') as HTMLInputElement | null;
 
     const populateThemes = async () => {
         if (!themeEl) return;
@@ -90,7 +89,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (initialTabEl) initialTabEl.value = state.config.initialTab || "monitor";
     if (startupModeEl) startupModeEl.value = state.config.startupMode || "none";
     if (zoomEnabledEl) zoomEnabledEl.checked = state.config.enableZoom !== false;
-    if (activityBarEl) activityBarEl.value = state.config.activeSidebarSection || "serial";
     if (accentEl) { accentEl.value = (state.config.accentColor || "#f5a623").toUpperCase(); }
     if (pickerEl) pickerEl.value = state.config.accentColor || "#f5a623";
 
@@ -107,11 +105,6 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     zoomEnabledEl?.addEventListener("change", () => {
         state.config.enableZoom = zoomEnabledEl.checked;
-        saveConfig();
-    });
-
-    activityBarEl?.addEventListener("change", () => {
-        state.config.activeSidebarSection = activityBarEl.value;
         saveConfig();
     });
 
