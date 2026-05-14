@@ -37,6 +37,24 @@ declare global {
 // ── Event delegation para el flow-container ──
 export function initFlowDelegation() {
   const panel = document.querySelector(".panel") as HTMLElement | null;
+  const sigList = document.getElementById("signal-list");
+
+  if (sigList) {
+    sigList.addEventListener("click", (e) => {
+      const card = (e.target as HTMLElement).closest(".sig-card") as HTMLElement | null;
+      if (card && card.dataset.sig) {
+        selectSignal(card.dataset.sig);
+      }
+    });
+
+    sigList.addEventListener("contextmenu", (e) => {
+      const card = (e.target as HTMLElement).closest(".sig-card") as HTMLElement | null;
+      if (card && card.dataset.sig) {
+        showSignalContextMenu(e, card.dataset.sig);
+      }
+    });
+  }
+
   if (!panel) return;
 
   panel.addEventListener("click", (e) => {
@@ -728,10 +746,7 @@ function makeSignalCard(sig: string, entry: SignalEntry) {
       ${runCount > 0 ? `<span class="sig-run-count" title="Veces ejecutado">▶ ${runCount}</span>` : ""}
     </div>`;
 
-  div.addEventListener("click", () => selectSignal(sig));
-  div.addEventListener("contextmenu", (e) => showSignalContextMenu(e, sig));
-
-  // Drag & Drop for workflows
+  // Drag & Drop for workflows (remain on element for simplicity with native DnD)
   div.addEventListener("dragstart", (e) => {
     state.dragSrcWorkflow = sig;
     div.classList.add("dragging");

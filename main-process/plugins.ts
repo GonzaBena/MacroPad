@@ -434,11 +434,12 @@ export function setupPlugins() {
     }
   });
 
-  // Initial load
-  loadPlugins();
-
-  // Watch plugin directories for external changes (manual edits, etc.)
-  setupPluginWatcher();
+  // Initial load deferred (Lazy Loading)
+  setTimeout(() => {
+    log.info("[plugins] Performing deferred initial load");
+    loadPlugins();
+    setupPluginWatcher();
+  }, 2000);
 }
 
 function setupPluginWatcher() {

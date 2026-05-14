@@ -28,13 +28,16 @@ import {
 } from "./workflows.js";
 
 window.addEventListener("DOMContentLoaded", async () => {
-  // 1. Cargar las vistas
-  await loadView("main-sidebar", "views/sidebar.html");
-  await loadView("tab-monitor", "views/monitor.html");
-  await loadView("tab-workflows", "views/workflows.html");
-  await loadView("tab-metrics", "views/metrics.html");
-  await loadView("cmd-modal-overlay", "views/cmd-modal.html");
-  await loadView("app-modal-container", "views/app-modal.html");
+  // 1. Cargar las vistas en paralelo
+  const viewPromises = [
+    loadView("main-sidebar", "views/sidebar.html"),
+    loadView("tab-monitor", "views/monitor.html"),
+    loadView("tab-workflows", "views/workflows.html"),
+    loadView("tab-metrics", "views/metrics.html"),
+    loadView("cmd-modal-overlay", "views/cmd-modal.html"),
+    loadView("app-modal-container", "views/app-modal.html")
+  ];
+  await Promise.all(viewPromises);
 
   // 2. Cablear event listeners de index.html (sin onclick inline — requerido por CSP)
   document.getElementById("wbtn-min")?.addEventListener("click", () => window.arduino.minimize());
@@ -69,7 +72,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   initMenu();
   initKeyboardShortcuts();
   initZoom();
-  await loadPlugins();
+
+  // Cargar datos en paralelo para acelerar el arranque
+  await Promise.all([
+    loadPlugins(),
+    loadConfig(),
+    loadSignalsData()
+  ]);
+
   renderPluginActivityIcons();
   buildStepMenu();
   initFlowDelegation(); // Event delegation para step cards
@@ -80,7 +90,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     buildStepMenu();
   });
 
-  // 4. Cablear elementos de las vistas cargadas
+  // 4. Cablear elementos de las vistas cargadas (resto del código igual...)
   // Sidebar — Serial
   document.getElementById("btn-conn")?.addEventListener("click", toggleConnect);
   document.getElementById("btn-refresh-ports")?.addEventListener("click", refreshPorts);

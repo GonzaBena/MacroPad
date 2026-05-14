@@ -213,7 +213,10 @@ export function setupPersistence() {
   ipcMain.handle("load-data", () => loadData());
 
   ipcMain.handle("save-data", (_, data: unknown) => {
-    if (data === null || typeof data !== "object" || Array.isArray(data)) return { ok: false };
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+      log.warn("[persistence] Received invalid data payload for save-data");
+      return { ok: false };
+    }
     saveData(data);
     return { ok: true };
   });

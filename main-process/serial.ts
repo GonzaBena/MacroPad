@@ -255,8 +255,11 @@ export function setupSerial() {
     };
   });
 
-  // Start the background scanner
-  startAutoConnect();
+  // Start the background scanner with a delay (Lazy Loading)
+  autoConnectTimer = setTimeout(() => {
+    log.info("[serial] Starting background auto-connect scanner");
+    startAutoConnect();
+  }, 5000);
 }
 
 function connectSerial(portPath: string, baudRate: number | string = 9600, isReconnect: boolean = false) {

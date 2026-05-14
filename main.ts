@@ -1,4 +1,4 @@
-import { app, ipcMain, dialog, BrowserWindow } from "electron";
+import { app, ipcMain, dialog, BrowserWindow, shell } from "electron";
 import log from './main-process/logger';
 import { FilePathSchema, ThemeIdSchema, RegionRectSchema } from "./src/types/ipc-schemas";
 import {
@@ -21,6 +21,7 @@ import { getThemeList, getThemeData, openThemesFolder, importExternalTheme } fro
 import { setupUpdater } from "./main-process/updater";
 import * as path from "path";
 import * as fs from "fs";
+import { URL } from "url";
 
 // Forzar el nombre correcto en notificaciones de Windows
 app.setAppUserModelId("PokePad");
@@ -79,6 +80,24 @@ if (!gotTheLock) {
     if (mainWindow) {
       setupTray(mainWindow);
       setupUpdater(mainWindow);
+
+      // Bloquear navegaciones no deseadas (Seguridad)
+      mainWindow.webContents.on("will-navigate", (event, url) => {
+        const parsedUrl = new URL(url);
+        if (parsedUrl.protocol !== "file:") {
+          event.preventDefault();
+          shell.openExternal(url);
+        }
+      });
+
+      // Limitar apertura de nuevas ventanas (Seguridad)
+      mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        const parsedUrl = new URL(url);
+        if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+          shell.openExternal(url);
+        }
+        return { action: "deny" };
+      });
     }
 
     setupSerial();

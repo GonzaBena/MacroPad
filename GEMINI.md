@@ -71,3 +71,6 @@ For core features, you must update:
 - `renderer/js/workflows.js`: Core logic for the workflow editor UI.
 - `renderer/js/ui.js`: General UI helpers (modals, toasts, view loading).
 - `pokepad-data.json`: Local persistence file (created at runtime).
+
+## Roadmap & Refactoring
+Para detalles sobre el plan de mejora de seguridad, rendimiento y la futura arquitectura modular, consulta [REFACTORING.md](./REFACTORING.md).
