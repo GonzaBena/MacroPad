@@ -15,6 +15,16 @@
 
 ---
 
+## Documentación para Desarrolladores 🛠️
+
+Si quieres entender cómo funciona PokePad por dentro o quieres extender sus funcionalidades:
+
+- **[Guía del Desarrollador (DEVELOPER.md)](./DEVELOPER.md)**: Arquitectura general, Main vs Renderer, y patrones de diseño.
+- **[Guía de Plugins (PLUGIN_API.md)](./PLUGIN_API.md)**: Cómo crear tus propios bloques y pestañas.
+- **[Guía de Contribución (CONTRIBUTING.md)](./CONTRIBUTING.md)**: Cómo ayudar al proyecto, reportar bugs y enviar PRs.
+
+---
+
 ## Instalación
 
 ```bash

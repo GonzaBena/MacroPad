@@ -1,3 +1,4 @@
+import { blockRegistry } from "./registry/block-registry.js";
 import {
   state,
   SIG_COLORS,
@@ -183,15 +184,15 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Context Menu Logic ──
-let activeContextMenu: HTMLElement | null = null;
 let stepClipboard: Step | null = null;
 
-function closeContextMenu() {
-  if (activeContextMenu) {
-    activeContextMenu.remove();
-    activeContextMenu = null;
+export function closeContextMenu() {
+  if ((window as any).activeContextMenu) {
+    (window as any).activeContextMenu.remove();
+    (window as any).activeContextMenu = null;
   }
 }
+(window as any).closeContextMenu = closeContextMenu;
 
 document.addEventListener("click", (e) => {
   closeContextMenu();
@@ -255,7 +256,7 @@ function showSignalContextMenu(e: MouseEvent, sig: string) {
   document.body.appendChild(menu);
 
   positionContextMenu(e, menu);
-  activeContextMenu = menu;
+  (window as any).activeContextMenu = menu;
 }
 
 function showStepContextMenu(e: MouseEvent, path: number[], onEdit: (() => void) | null = null) {
@@ -320,7 +321,7 @@ function showStepContextMenu(e: MouseEvent, path: number[], onEdit: (() => void)
   document.body.appendChild(menu);
 
   positionContextMenu(e, menu);
-  activeContextMenu = menu;
+  (window as any).activeContextMenu = menu;
 }
 
 function renderContextMenuOptions(menu: HTMLElement, options: any[]) {
@@ -893,7 +894,11 @@ function addGlobalVar() {
   const name = nameInp.value.trim().replace(/\s+/g, "_");
   if (!name) { nameInp.focus(); return; }
 
-  state.globalVariables[name] = coerceToType(valInp.value, typeSel?.value || inferType(valInp.value));
+  const type = typeSel?.value || inferType(valInp.value);
+  state.globalVariables[name] = {
+    value: coerceToType(valInp.value, type),
+    type: type as any
+  };
   saveSignals();
   nameInp.value = "";
   valInp.value  = "";
@@ -914,9 +919,15 @@ export function renderGlobalVarsSection() {
     return;
   }
 
-  entries.forEach(([name, value]) => {
-    const type = inferType(value);
-    const meta = GV_TYPES[type] || GV_TYPES.string;
+  entries.forEach(([name, varInfo]) => {
+    // Handle legacy data or new structure
+    const info = (varInfo && typeof varInfo === "object" && "type" in varInfo) 
+      ? varInfo as { value: any, type: string }
+      : { value: varInfo, type: inferType(varInfo) };
+
+    const meta = GV_TYPES[info.type] || GV_TYPES.string;
+    const value = info.value;
+    
     const displayVal = Array.isArray(value)
       ? `[${value.length} items]`
       : (value !== null && typeof value === "object")
@@ -940,7 +951,7 @@ export function renderGlobalVarsSection() {
         <button class="btn-icon gv-del sb-gv-del" title="Eliminar" aria-label="Eliminar variable">✕</button>
       </div>`;
 
-    row.querySelector(".sb-gv-edit")?.addEventListener("click", () => openGvEditModal(name, value));
+    row.querySelector(".sb-gv-edit")?.addEventListener("click", () => openGvEditModal(name, varInfo));
 
     row.querySelector(".sb-gv-del")?.addEventListener("click", () => {
       delete state.globalVariables[name];
@@ -961,9 +972,14 @@ function openGvEditModal(oldName: string, oldValue: any) {
   const valInp  = document.getElementById("gv-edit-value") as HTMLInputElement;
   const typeSel = document.getElementById("gv-edit-type") as HTMLSelectElement;
 
+  // Handle legacy or new structure
+  const info = (oldValue && typeof oldValue === "object" && "type" in oldValue)
+    ? oldValue as { value: any, type: string }
+    : { value: oldValue, type: inferType(oldValue) };
+
   nameInp.value = oldName;
-  valInp.value  = valueForEdit(oldValue);
-  typeSel.value = inferType(oldValue);
+  valInp.value  = valueForEdit(info.value);
+  typeSel.value = info.type;
   modal.classList.remove("d-none");
   setTimeout(() => nameInp.focus(), 50);
 
@@ -980,7 +996,10 @@ function openGvEditModal(oldName: string, oldValue: any) {
         if (sig.steps) renameVarInSteps(sig.steps, oldName, newName);
       });
     }
-    state.globalVariables[newName] = coerceToType(valInp.value, typeSel.value);
+    state.globalVariables[newName] = {
+      value: coerceToType(valInp.value, typeSel.value),
+      type: typeSel.value as any
+    };
     saveSignals();
     renderGlobalVarsSection();
     renderFlow();
@@ -1050,7 +1069,7 @@ function showFolderContextMenu(e: MouseEvent, id: string) {
   menu.onclick = (ev) => ev.stopPropagation();
   document.body.appendChild(menu);
   positionContextMenu(e, menu);
-  activeContextMenu = menu;
+  (window as any).activeContextMenu = menu;
 }
 
 function renameFolder(id: string) {
@@ -1403,7 +1422,7 @@ export async function importWorkflow(e: MouseEvent) {
   if (x + 160 > window.innerWidth) x -= 160;
   menu.style.left = `${x}px`;
   menu.style.top = `${y}px`;
-  activeContextMenu = menu;
+  (window as any).activeContextMenu = menu;
 }
 (window as any).importWorkflow = importWorkflow;
 
@@ -2036,44 +2055,23 @@ function toggleStepMenuAt(x: number, y: number) {
 }
 
 function getStepSummary(step: Step) {
-  const p = step.params || {};
-  switch (step.type) {
-    case "keypress": return p.combo || "–";
-    case "wait": return `${p.ms ?? 500} ms`;
-    case "clipboard": return p.text ? `"${String(p.text).slice(0, 28)}"` : "–";
-    case "open_url": return p.url || "–";
-    case "run_cmd": return p.cmd || "–";
-    case "open_file": return p.path ? p.path.split(/[\\/]/).pop() : "–";
-    case "open_app": return p.appDisplayName || (p.path ? p.path.split(/[\\/]/).pop() : "–");
-    case "notify": return [p.title, p.body].filter(Boolean).join(" · ").slice(0, 36) || "–";
-    case "run_script": {
-      const lines = (p.code || "").split("\n").filter((l: string) => l.trim()).length;
-      return `${p.lang || "python"} · ${lines} línea${lines !== 1 ? "s" : ""}`;
-    }
-    case "loop":
-      return p.mode === "foreach"
-        ? `foreach $${p.list_name || "?"}  as $${p.var_name || "item"}`
-        : `× ${p.iterations ?? 5}`;
-    case "condition": return (p.type || "").replace(/_/g, " ");
-    case "set_variable": return `$${p.name || "?"} = ${p.value ?? ""}`;
-    case "modify_variable": return `$${p.name || "?"} ${p.op || "="} ${p.value ?? ""}`;
-    case "list_operation": return `${p.op || "append"} → $${p.name || "?"}`;
-    case "media": return (p.action || "").replace(/_/g, " ");
-    case "screenshot": return p.filename || "auto";
-    case "screenshot_region": return p.filename || "selección";
-    case "note": return (p.text || "").replace(/\n/g, " ").slice(0, 40) || "–";
-    default: {
-      const manifest = state.pluginManifests[step.type];
-      if (manifest && manifest.params) {
-        return manifest.params.slice(0, 2).map((ps: any) => p[ps.name] || "?").join(" · ");
-      }
-      return "";
-    }
+  const def = blockRegistry.get(step.type);
+  if (def && def.getSummary) {
+    return def.getSummary(step);
   }
+
+  const p = step.params || {};
+  // Fallback purely for plugins or unknown types
+  const manifest = state.pluginManifests[step.type];
+  if (manifest && manifest.params) {
+    return manifest.params.slice(0, 2).map((ps: any) => p[ps.name] || "?").join(" · ");
+  }
+  return "";
 }
 
 export function makeStepCard(step: Step, idx: number, path: number[]) {
   const meta = STEP_TYPES[step.type] || STEP_TYPES.notify;
+  const def = blockRegistry.get(step.type);
   const pathStr = JSON.stringify(path);
   const card = document.createElement("div");
   card.className = "step-card";
@@ -2193,7 +2191,17 @@ export function makeStepCard(step: Step, idx: number, path: number[]) {
   } else {
     const params = document.createElement("div");
     params.className = "step-params";
-    buildStepParams(params, step, path);
+    
+    if (def && def.renderParams) {
+      def.renderParams(params, step, path, {
+        discoverVariables,
+        updateParam,
+        renderFlow
+      });
+    } else {
+      buildStepParams(params, step, path);
+    }
+    
     card.appendChild(params);
   }
 
@@ -2332,26 +2340,50 @@ function moveStep(srcPath: number[], destPath: number[]) {
   renderFlow();
 }
 
-function discoverVariables(currentPath: number[] | null = null) {
-  const vars = new Set<string>();
+function discoverVariables(currentPath: number[] | null = null, typeFilter: string | null = null) {
+  const vars: Array<{ name: string; type: string }> = [];
+  const seen = new Set<string>();
 
-  // Add global variables
-  Object.keys(state.globalVariables || {}).forEach(v => vars.add(v.trim()));
+  const addVar = (name: string, type: string) => {
+    const cleanName = name.trim();
+    if (!cleanName || seen.has(cleanName)) return;
+    if (typeFilter && type !== typeFilter && type !== "any") {
+      // In some cases, we might want to allow string vars for everything
+      if (typeFilter !== "string" && type === "string") {
+         // allow string for now as it's the most common, but we could be stricter
+      } else if (typeFilter === "int" && type !== "int") {
+        return;
+      } else if (typeFilter === "list" && type !== "list") {
+        return;
+      }
+    }
+    vars.push({ name: cleanName, type });
+    seen.add(cleanName);
+  };
 
-  if (!state.selectedSig) return Array.from(vars).sort();
+  // Add global variables — read explicit type from VariableInfo, fall back to inference
+  Object.entries(state.globalVariables || {}).forEach(([name, val]) => {
+    const type = (val && typeof val === "object" && !Array.isArray(val) && "type" in val)
+      ? (val as any).type as string
+      : inferType(val);
+    addVar(name, type);
+  });
+
+  if (!state.selectedSig) return vars.sort((a, b) => a.name.localeCompare(b.name));
 
   const scan = (steps: Step[], pathPrefix: number[] = []) => {
     if (!steps || !Array.isArray(steps)) return;
     steps.forEach((s, i) => {
       if (!s) return;
       const p = [...pathPrefix, i];
-      if (s.type === "set_variable" && s.params?.name)
-        vars.add(s.params.name.trim());
+      if (s.type === "set_variable" && s.params?.name) {
+        addVar(s.params.name.trim(), s.params.type || "string");
+      }
       if (s.type === "loop" && s.params?.mode === "foreach") {
         const vname = (s.params.var_name || "item").trim();
         // Solo mostrar si el bloque actual está DENTRO de este bucle
         if (currentPath && isPathParent(p, currentPath)) {
-          vars.add(vname);
+          addVar(vname, "any"); // foreach items are 'any' type until we have better inference
         }
       }
       if (s.params?.steps) scan(s.params.steps, p);
@@ -2361,7 +2393,7 @@ function discoverVariables(currentPath: number[] | null = null) {
   const rootSteps = state.signals[state.selectedSig]?.steps;
   if (rootSteps) scan(rootSteps, []);
 
-  return Array.from(vars).sort();
+  return vars.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function buildStepParams(container: HTMLElement, step: Step, path: number[]) {
@@ -2380,12 +2412,13 @@ function buildStepParams(container: HTMLElement, step: Step, path: number[]) {
   function resolveForPreview(val: any) {
     if (typeof val !== "string" || !val.includes("$")) return null;
     const vars: any = state.globalVariables || {};
+    const unwrap = (v: any) => (v && typeof v === "object" && "value" in v) ? v.value : v;
     if (/^\$[a-zA-Z0-9_]+$/.test(val)) {
       const name = val.substring(1);
-      return name in vars ? String(vars[name] ?? "") : null;
+      return name in vars ? String(unwrap(vars[name]) ?? "") : null;
     }
     const result = val.replace(/\$([a-zA-Z0-9_]+)/g, (m, name) =>
-      name in vars ? String(vars[name] ?? "") : m
+      name in vars ? String(unwrap(vars[name]) ?? "") : m
     );
     return result !== val ? result : null;
   }
@@ -2437,28 +2470,28 @@ function buildStepParams(container: HTMLElement, step: Step, path: number[]) {
     hint.textContent = text;
     return hint;
   }
-  function makeVarLink(param: string) {
+  function makeVarLink(param: string, typeFilter: string | null = null) {
     const btn = document.createElement("button");
     btn.className = "btn-var-link";
-    btn.title = "Vincular a variable";
+    btn.title = "Vincular a variable" + (typeFilter ? ` (${typeFilter})` : "");
     btn.textContent = "v";
     btn.onclick = (e) => {
       e.stopPropagation();
       closeContextMenu();
-      const vars = discoverVariables(path);
+      const vars = discoverVariables(path, typeFilter);
       if (!vars.length) {
-        showToast("Sin variables", "Definí una variable primero");
+        showToast("Sin variables", `Definí una variable de tipo ${typeFilter || 'cualquiera'} primero`);
         return;
       }
 
       const menu = document.createElement("div");
       menu.className = "context-menu";
-      vars.forEach((v) => {
+      vars.forEach((v: {name: string, type: string}) => {
         const item = document.createElement("div");
         item.className = "context-menu-item";
-        item.textContent = `$${v}`;
+        item.innerHTML = `<span>$${v.name}</span><span class="var-type-tag">${v.type}</span>`;
         item.onclick = () => {
-          updateParam(path, param, `$${v}`);
+          updateParam(path, param, `$${v.name}`);
           renderFlow();
           closeContextMenu();
         };
@@ -2468,7 +2501,7 @@ function buildStepParams(container: HTMLElement, step: Step, path: number[]) {
       const rect = btn.getBoundingClientRect();
       menu.style.left = `${rect.left}px`;
       menu.style.top = `${rect.bottom + 5}px`;
-      activeContextMenu = menu;
+      (window as any).activeContextMenu = menu;
     };
     return btn;
   }

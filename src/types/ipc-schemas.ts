@@ -34,7 +34,13 @@ const SignalEntrySchema = z.object({
 
 export const UpdateSignalMapSchema = z.record(SignalEntrySchema);
 
-export const UpdateGlobalVarsSchema = z.record(z.unknown());
+const VariableInfoSchema = z.object({
+  value: z.unknown(),
+  type: z.enum(["string", "int", "float", "bool", "list", "json", "any"]),
+});
+
+// Accept VariableInfo objects; fall back to unknown for legacy raw values
+export const UpdateGlobalVarsSchema = z.record(z.union([VariableInfoSchema, z.unknown()]));
 
 export const TestSequenceSchema = z.string().min(1);
 

@@ -138,6 +138,26 @@ if (!gotTheLock) {
       if (parent) createThemePreviewWindow(parent);
     });
 
+    ipcMain.handle("get-state", async () => {
+      const { loadData } = require("./main-process/persistence");
+      const { getConnectionStatus } = require("./main-process/serial");
+      const { getLoadedPlugins } = require("./main-process/plugins");
+      
+      const data = loadData();
+      const connected = getConnectionStatus().connected;
+      const pluginManifests = {};
+      getLoadedPlugins().forEach((p: any) => {
+        pluginManifests[p.id] = p;
+      });
+
+      return {
+        ...data,
+        connected,
+        pluginManifests,
+        version: app.getVersion()
+      };
+    });
+
     ipcMain.handle("get-app-version", () => {
       return app.getVersion();
     });

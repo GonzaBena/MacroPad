@@ -1,0 +1,30 @@
+{
+  "id": "com.pokepad.template",
+  "name": "Template Plugin",
+  "description": "A well-commented template to help you build your own plugins.",
+  "version": "1.0.0",
+  "author": "PokePad Team",
+  "icon": "🧩",
+  "color": "var(--blue)",
+  "params": [
+    {
+      "name": "textToLog",
+      "label": "Text to log",
+      "type": "string",
+      "placeholder": "Type something here...",
+      "default": "Hello from the template!",
+      "required": true
+    },
+    {
+      "name": "repeatCount",
+      "label": "Number of repeats",
+      "type": "number",
+      "default": 1
+    }
+  ],
+  "ui": {
+    "sidebarIcon": "🛠️",
+    "sidebarLabel": "Template UI",
+    "entryPath": "ui/index.html"
+  }
+}

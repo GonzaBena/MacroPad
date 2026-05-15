@@ -181,6 +181,14 @@ function startAutoConnect() {
   autoConnectTimer = setTimeout(scan, 1000);
 }
 
+export function getConnectionStatus() {
+  return {
+    connected: !!(activePort && activePort.isOpen),
+    port: lastPortPath,
+    baud: lastBaudRate
+  };
+}
+
 export function setupSerial() {
   ipcMain.handle("list-ports", async () => {
     try {
@@ -248,11 +256,7 @@ export function setupSerial() {
   });
 
   ipcMain.handle("get-connection-status", () => {
-    return {
-      connected: !!(activePort && activePort.isOpen),
-      port: lastPortPath,
-      baud: lastBaudRate
-    };
+    return getConnectionStatus();
   });
 
   // Start the background scanner with a delay (Lazy Loading)

@@ -1,5 +1,5 @@
 import { state, loadSignalsData, loadConfig, saveConfig, saveSignals, loadPlugins } from './state.js';
-import { loadView, initResizers, initMenu, initKeyboardShortcuts, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
+import { loadView, initResizers, initMenu, initKeyboardShortcuts, initUIEventListeners, showToast, openConfigView, undo, redo, exportConfig, importConfig, closeConfigView, saveConfigView, closeCmdModal, about, applyTheme } from './ui.js';
 import { handleConnectionStatus, refreshPorts, toggleConnect, cancelReconnect } from './connection.js';
 import { log, filterLog, clearLog, sendSerial } from './monitor.js';
 import { renderMetrics } from './metrics.js';
@@ -27,19 +27,30 @@ import {
   refreshRunningApps,
 } from "./workflows.js";
 
+import { uiRegistry } from './registry/ui-registry.js';
+import { registerCoreTabs } from './registry/core-tabs.js';
+
+// Register tabs
+registerCoreTabs();
+
 window.addEventListener("DOMContentLoaded", async () => {
-  // 1. Cargar las vistas en paralelo
-  const viewPromises = [
+  // 1. Cargar el sidebar y modales básicos
+  const essentialViews = [
     loadView("main-sidebar", "views/sidebar.html"),
-    loadView("tab-monitor", "views/monitor.html"),
-    loadView("tab-workflows", "views/workflows.html"),
-    loadView("tab-metrics", "views/metrics.html"),
     loadView("cmd-modal-overlay", "views/cmd-modal.html"),
     loadView("app-modal-container", "views/app-modal.html")
   ];
-  await Promise.all(viewPromises);
+  await Promise.all(essentialViews);
 
-  // 2. Cablear event listeners de index.html (sin onclick inline — requerido por CSP)
+  // 2. Cargar las pestañas registradas en paralelo
+  const tabs = uiRegistry.getAllTabs();
+  const tabPromises = tabs.map(tab => loadView(tab.containerId, tab.viewPath));
+  await Promise.all(tabPromises);
+
+  // Inicializar listeners de UI (modales, etc)
+  initUIEventListeners();
+
+  // 3. Cablear event listeners de index.html (sin onclick inline — requerido por CSP)
   document.getElementById("wbtn-min")?.addEventListener("click", () => window.arduino.minimize());
   document.getElementById("wbtn-max")?.addEventListener("click", () => window.arduino.maximize());
   document.getElementById("wbtn-close")?.addEventListener("click", () => window.arduino.close());
@@ -51,19 +62,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("menu-plugin-manager")?.addEventListener("click", () => window.arduino.openPluginManagerWindow());
   document.getElementById("menu-check-updates")?.addEventListener("click", () => window.arduino.checkForUpdates());
 
-  // Tabs — delegado con data-tab
+  // Tabs — delegado dinámicamente con UIRegistry
   document.querySelectorAll(".tab[data-tab]").forEach((tabEl) => {
     tabEl.addEventListener("click", () => {
-      const name = (tabEl as HTMLElement).dataset.tab;
-      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-      document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
-      tabEl.classList.add("active");
-      document.getElementById(`tab-${name}`)?.classList.add("active");
-      
-      // Deactivate plugin icons if a standard tab is clicked
-      document.querySelectorAll(".ab-btn-plugin").forEach(btn => btn.classList.remove("active"));
-
-      if (name === "metrics") renderMetrics();
+      const id = (tabEl as HTMLElement).dataset.tab;
+      if (id) {
+        uiRegistry.activateTab(id);
+        
+        // Deactivate plugin icons if a standard tab is clicked
+        document.querySelectorAll(".ab-btn-plugin").forEach(btn => btn.classList.remove("active"));
+      }
     });
   });
 
@@ -85,9 +93,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   initFlowDelegation(); // Event delegation para step cards
 
   window.arduino.onPluginsChanged(async (updatedPlugins) => {
+    console.log("[main] Plugins changed, re-loading...");
     await loadPlugins(updatedPlugins);
     renderPluginActivityIcons();
     buildStepMenu();
+    renderFlow();
   });
 
   // 4. Cablear elementos de las vistas cargadas (resto del código igual...)

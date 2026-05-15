@@ -9,9 +9,19 @@ import {
   RemotePlugin,
 } from "../src/types/pokepad";
 
+/**
+ * Plugin management system for PokePad's Main Process.
+ * Handles discovery, loading, installation, and execution of local and remote plugins.
+ */
+
 const plugins: Map<string, { manifest: PluginManifest; execute: Function }> =
   new Map();
 
+/**
+ * Extracts a ZIP archive to a destination directory using platform-native commands.
+ * @param zipPath Absolute path to the .zip file
+ * @param destDir Absolute path to the destination folder
+ */
 function extractZip(zipPath: string, destDir: string): void {
   const { execSync } = require("child_process");
   if (process.platform === "win32") {
@@ -26,6 +36,10 @@ function extractZip(zipPath: string, destDir: string): void {
 // Mock registry for development
 const MOCK_REGISTRY: RemotePlugin[] = [];
 
+/**
+ * Returns the primary directory where user plugins are stored.
+ * Ensures the directory exists before returning.
+ */
 export function getPluginsDir() {
   const dirs = [
     path.join(app.getPath("userData"), "plugins"),
@@ -45,6 +59,10 @@ export function getPluginsDir() {
   return dirs[0]; // Return the main one for "open folder" action
 }
 
+/**
+ * Scans the plugin directories and loads all valid plugins into memory.
+ * Plugins are validated by checking for manifest.json and either index.js or UI extensions.
+ */
 export async function loadPlugins() {
   const pluginsDirs = [
     path.join(app.getAppPath(), "plugins"), // Built-ins first
@@ -105,10 +123,16 @@ export async function loadPlugins() {
   }
 }
 
+/**
+ * Returns an array of manifests for all currently loaded plugins.
+ */
 export function getLoadedPlugins(): PluginManifest[] {
   return Array.from(plugins.values()).map((p) => p.manifest);
 }
 
+/**
+ * Notifies all renderer windows that the list of plugins has changed.
+ */
 function broadcastPluginsChanged() {
   const pluginList = getLoadedPlugins();
   webContents.getAllWebContents().forEach((wc) => {
@@ -116,6 +140,12 @@ function broadcastPluginsChanged() {
   });
 }
 
+/**
+ * Executes a plugin's background logic.
+ * @param pluginId The ID of the plugin to execute
+ * @param params The parameters configured for this specific step instance
+ * @param context The current execution context (variables, etc.)
+ */
 export async function executePlugin(
   pluginId: string,
   params: any,
@@ -144,6 +174,9 @@ export async function executePlugin(
   }
 }
 
+/**
+ * Registers all IPC handlers related to plugin management.
+ */
 export function setupPlugins() {
   ipcMain.handle("get-plugins", async () => {
     return getLoadedPlugins();
@@ -437,8 +470,10 @@ export function setupPlugins() {
   // Initial load deferred (Lazy Loading)
   setTimeout(() => {
     log.info("[plugins] Performing deferred initial load");
-    loadPlugins();
-    setupPluginWatcher();
+    loadPlugins().then(() => {
+      broadcastPluginsChanged();
+      setupPluginWatcher();
+    });
   }, 2000);
 }
 

@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld("arduino", {
   readPluginAsset: (params: { pluginId: string; assetPath: string }) => ipcRenderer.invoke("read-plugin-asset", params),
   onPluginsChanged: (cb: (plugins: any[]) => void) => safeOn("plugins-changed", cb),
 
+  // State Management
+  getState: () => ipcRenderer.invoke("get-state"),
+
   // Region Selection
   startRegionSelection: () => ipcRenderer.send("start-region-selection"),
   onRegionSelected: (cb: (rect: any) => void) => safeOn("region-selection-complete", cb),

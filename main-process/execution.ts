@@ -34,6 +34,10 @@ try {
 // Maximum command length to prevent abuse
 const MAX_CMD_LENGTH = 4096;
 
+/**
+ * Initialises the execution engine by setting up IPC listeners and injection functions.
+ * @param promptRegion Callback to trigger region selection on the renderer side.
+ */
 export function setupExecution(promptRegion: () => Promise<any>) {
   promptForRegionFn = promptRegion;
   ipcMain.on("update-signal-map", (_, map: unknown) => {
@@ -58,7 +62,14 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Triggers the execution of a workflow sequence based on an incoming signal string.
+ * This function handles signal matching, application-specific priority, and debouncing.
+ * @param incomingSignal The signal ID (e.g., 'BTN_1') or speed category ('RAPIDA').
+ * @param isTest Whether this is a manual test trigger from the UI.
+ */
 export async function executeSequence(incomingSignal: string, isTest: boolean = false) {
+
   const win = getWindow();
 
   // 1. Gather all candidate workflows for this signal (unique by their key)
@@ -163,6 +174,12 @@ export async function executeSequence(incomingSignal: string, isTest: boolean = 
   }
 }
 
+/**
+ * Recursively executes an array of steps within a given context.
+ * @param steps Array of steps to execute.
+ * @param context Current execution context.
+ * @returns Promise resolving to true if all steps succeeded, false otherwise.
+ */
 async function executeStepsRecursive(steps: Step[], context: ExecutionContext): Promise<boolean> {
   const win = getWindow();
   let allOk = true;
@@ -180,6 +197,34 @@ async function executeStepsRecursive(steps: Step[], context: ExecutionContext): 
   return allOk;
 }
 
+/**
+ * Helper to unwrap VariableInfo or return the raw value.
+ */
+function getVarValue(v: any): any {
+  if (v !== null && typeof v === "object" && "value" in v && "type" in v) {
+    return v.value;
+  }
+  return v;
+}
+
+/**
+ * Updates a variable in the context, preserving the VariableInfo wrapper if present.
+ */
+function setVar(context: ExecutionContext, name: string, value: any): void {
+  const existing = context.variables[name];
+  if (existing !== null && existing !== undefined && typeof existing === "object" && "value" in existing && "type" in existing) {
+    context.variables[name] = { ...existing, value };
+  } else {
+    context.variables[name] = value;
+  }
+}
+
+/**
+ * Resolves a value by interpolating variables (e.g., "$my_var") from the execution context.
+ * Supports exact variable matching, string interpolation, and special escape sequences like \n and \s.
+ * @param val The raw value or string template.
+ * @param context Current execution context.
+ */
 function resolveValue(val: any, context: ExecutionContext): any {
   if (typeof val !== "string") return val;
 
@@ -187,7 +232,7 @@ function resolveValue(val: any, context: ExecutionContext): any {
   if (val.startsWith("$") && !val.includes(" ")) {
     const varName = val.substring(1);
     if (context.variables[varName] !== undefined) {
-      return context.variables[varName];
+      return getVarValue(context.variables[varName]);
     }
   }
 
@@ -196,7 +241,7 @@ function resolveValue(val: any, context: ExecutionContext): any {
     /\$([a-zA-Z0-9_]+)/g,
     (match, name, offset, wholeString) => {
       if (context.variables[name] !== undefined) {
-        const v = context.variables[name];
+        const v = getVarValue(context.variables[name]);
         if (Array.isArray(v)) return JSON.stringify(v);
         if (typeof v === "string") {
           const before = wholeString[offset - 1];
@@ -216,7 +261,14 @@ function resolveValue(val: any, context: ExecutionContext): any {
   return result.replace(/\\s/g, " ").replace(/\\n/g, "\n");
 }
 
+/**
+ * Executes a single workflow step.
+ * Dispatches built-in actions or routes to the plugin engine for custom block types.
+ * @param step The step definition to execute.
+ * @param context Current execution context.
+ */
 export async function executeStep(step: Step, context: ExecutionContext) {
+
   const win = getWindow();
   const p = step.params || {};
 
@@ -299,18 +351,23 @@ export async function executeStep(step: Step, context: ExecutionContext) {
       let name = String(p.name || "").trim();
       if (name.startsWith("$")) name = name.substring(1);
       if (!name) throw new Error("Nombre de variable vacío");
+      const type = p.type || "string";
       let val = p.value;
-      if (p.type === "int") val = parseInt(val) || 0;
-      else if (p.type === "list") {
+      if (type === "int") val = parseInt(val) || 0;
+      else if (type === "float") val = parseFloat(val) || 0.0;
+      else if (type === "bool") val = val === "true" || val === true || val === 1;
+      else if (type === "list") {
         try {
           val = typeof val === "string" ? JSON.parse(val) : val;
           if (!Array.isArray(val)) val = [];
         } catch (e) {
           val = [];
         }
+      } else if (type === "json") {
+        try { val = typeof val === "string" ? JSON.parse(val) : val; } catch {}
       }
-      context.variables[name] = val;
-      log.debug(`[execution] Variable set: ${name} =`, val);
+      context.variables[name] = { value: val, type };
+      log.debug(`[execution] Variable set: ${name} (${type}) =`, val);
       break;
     }
     case "modify_variable": {
@@ -320,31 +377,26 @@ export async function executeStep(step: Step, context: ExecutionContext) {
         throw new Error(`Variable "${name}" no encontrada`);
       const op = p.op;
       let val = resolveValue(p.value, context);
+      const currentVal = getVarValue(context.variables[name]);
 
       if (op === "add") {
-        const current = parseFloat(context.variables[name] as any) || 0;
-        context.variables[name] = current + (parseFloat(val) || 0);
+        setVar(context, name, (parseFloat(currentVal) || 0) + (parseFloat(val) || 0));
       } else if (op === "sub") {
-        const current = parseFloat(context.variables[name] as any) || 0;
-        context.variables[name] = current - (parseFloat(val) || 0);
+        setVar(context, name, (parseFloat(currentVal) || 0) - (parseFloat(val) || 0));
       } else if (op === "set") {
-        context.variables[name] = val;
+        setVar(context, name, val);
       } else if (op === "concat") {
-        const current =
-          context.variables[name] !== undefined &&
-          context.variables[name] !== null
-            ? String(context.variables[name])
-            : "";
+        const current = currentVal !== undefined && currentVal !== null ? String(currentVal) : "";
         const toAdd = val !== undefined && val !== null ? String(val) : "";
-        context.variables[name] = current + toAdd;
+        setVar(context, name, current + toAdd);
       }
-      log.debug(`[execution] Variable modified: ${name} (${op}) ->`, context.variables[name]);
+      log.debug(`[execution] Variable modified: ${name} (${op}) ->`, getVarValue(context.variables[name]));
       break;
     }
     case "list_operation": {
       let name = String(p.name || "").trim();
       if (name.startsWith("$")) name = name.substring(1);
-      const list = context.variables[name];
+      const list = getVarValue(context.variables[name]);
       if (!name || !Array.isArray(list))
         throw new Error(`Lista "${name}" no encontrada`);
       const op = p.op;
@@ -352,7 +404,7 @@ export async function executeStep(step: Step, context: ExecutionContext) {
 
       if (op === "append") list.push(val);
       else if (op === "pop") list.pop();
-      else if (op === "clear") context.variables[name] = [];
+      else if (op === "clear") setVar(context, name, []);
       else if (op === "remove_at") {
         const idx = parseInt(val);
         if (!isNaN(idx)) list.splice(idx, 1);

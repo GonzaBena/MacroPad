@@ -195,3 +195,164 @@
     </div>
   </div>
 </div>
+
+<!-- Modal: Editor de Código -->
+<div class="modal-overlay d-none" id="code-editor-modal">
+  <div class="modal-content max-w-800 h-600 d-flex flex-col">
+    <div class="modal-header d-flex justify-between align-center">
+      <div id="code-editor-title">Editor de Código</div>
+      <div class="code-editor-lang-badge" id="code-editor-lang">python</div>
+    </div>
+    <div class="modal-body flex-1 p-0 overflow-hidden d-flex flex-col">
+      <div class="code-editor-container flex-1 d-flex">
+        <div class="code-editor-gutter" id="code-editor-gutter">1</div>
+        <div class="code-editor-body">
+          <pre class="code-editor-highlight" id="code-editor-highlight" aria-hidden="true"><code id="code-editor-code"></code></pre>
+          <textarea id="code-editor-textarea" class="code-editor-textarea" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="flex-1">
+        <span class="param-hint">Podés usar $variables dentro del código.</span>
+      </div>
+      <button class="btn-header-small" id="btn-code-editor-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-code-editor-save">Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.h-600 { height: 600px; }
+.max-w-800 { max-width: 800px; }
+
+.code-editor-lang-badge {
+  background: var(--surface3);
+  color: var(--amber);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.code-editor-container {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+.code-editor-gutter {
+  width: 40px;
+  min-width: 40px;
+  background: #1e1e1e;
+  color: #858585;
+  text-align: right;
+  padding: 10px 10px 10px 0;
+  border-right: 1px solid #333;
+  user-select: none;
+  overflow: hidden;
+}
+
+.code-editor-body {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.code-editor-highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre;
+  word-wrap: normal;
+  overflow: hidden;
+  pointer-events: none;
+  background: transparent;
+  color: #d4d4d4;
+  border: none;
+  tab-size: 4;
+  -moz-tab-size: 4;
+}
+
+.code-editor-textarea {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: #d4d4d4;
+  z-index: 1;
+  border: none;
+  outline: none;
+  padding: 10px;
+  resize: none;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 4;
+  -moz-tab-size: 4;
+}
+
+/* Syntax highlight token colors (VS Code dark+ palette) */
+.ed-kw  { color: #569cd6; }          /* keywords  — blue */
+.ed-str { color: #ce9178; }          /* strings   — orange */
+.ed-cmt { color: #6a9955; font-style: italic; }  /* comments  — green */
+.ed-num { color: #b5cea8; }          /* numbers   — mint */
+.ed-bi  { color: #dcdcaa; }          /* builtins  — yellow */
+.ed-var { color: #4fc1ff; }          /* $variables — cyan */
+.ed-fn  { color: #dcdcaa; }          /* function names */
+.ed-dec { color: #4ec9b0; }          /* decorators / class names */
+
+/* Custom styles for variable links */
+.btn-var-link {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  transition: all 0.2s;
+}
+
+.btn-var-link:hover {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.btn-var-link.active {
+  background: var(--amber);
+  color: #000;
+  border-color: var(--amber);
+}
+
+.var-type-tag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 6px;
+  background: var(--surface3);
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.context-menu-item .var-type-tag {
+  opacity: 0.7;
+}
+</style>

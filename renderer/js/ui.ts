@@ -69,12 +69,213 @@ function closeConfirm(): void {
   confirmCallback = null;
 }
 
-document.getElementById("confirm-ok")?.addEventListener("click", handleConfirmOk);
-document.getElementById("confirm-cancel")?.addEventListener("click", closeConfirm);
-document.getElementById("confirm-modal")?.addEventListener("keydown", (e: KeyboardEvent) => {
-  if (e.key === "Enter") handleConfirmOk();
-  if (e.key === "Escape") closeConfirm();
-});
+export function escHtml(str: any): string {
+  if (typeof str !== "string") return String(str || "");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+(window as any).escHtml = escHtml;
+
+export function escAttr(str: any): string {
+  return escHtml(str).replace(/'/g, "&apos;");
+}
+(window as any).escAttr = escAttr;
+
+// ── Syntax Highlight ─────────────────────────────────────────────────────────
+
+const PY_KW = new Set(['False','None','True','and','as','assert','async','await','break','class','continue','def','del','elif','else','except','finally','for','from','global','if','import','in','is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield']);
+const PY_BI = new Set(['abs','all','any','bool','bytearray','bytes','callable','chr','classmethod','compile','complex','delattr','dict','dir','divmod','enumerate','eval','exec','filter','float','format','frozenset','getattr','globals','hasattr','hash','help','hex','id','input','int','isinstance','issubclass','iter','len','list','locals','map','max','memoryview','min','next','object','oct','open','ord','pow','print','property','range','repr','reversed','round','set','setattr','slice','sorted','staticmethod','str','sum','super','tuple','type','vars','zip']);
+const JS_KW = new Set(['async','await','break','case','catch','class','const','continue','debugger','default','delete','do','else','export','extends','finally','for','from','function','if','import','in','instanceof','let','new','of','return','static','super','switch','this','throw','try','typeof','var','void','while','with','yield','true','false','null','undefined']);
+const JS_BI = new Set(['console','Math','JSON','Object','Array','String','Number','Boolean','Promise','setTimeout','setInterval','clearTimeout','clearInterval','fetch','window','document','process','require','module','exports','Buffer','Error','Map','Set','Symbol','Proxy','Reflect','WeakMap','WeakSet','RegExp','Date','parseInt','parseFloat','isNaN','isFinite','encodeURIComponent','decodeURIComponent']);
+
+function syntaxHighlight(code: string, lang: string): string {
+  const isPy = lang === 'python';
+  const isJS = lang === 'javascript';
+  if (!isPy && !isJS) return escHtml(code);
+
+  const keywords = isPy ? PY_KW : JS_KW;
+  const builtins = isPy ? PY_BI : JS_BI;
+
+  const out: string[] = [];
+  let i = 0;
+  const n = code.length;
+
+  const e = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const sp = (cls: string, s: string) => `<span class="ed-${cls}">${e(s)}</span>`;
+
+  while (i < n) {
+    // Python triple-quoted strings
+    if (isPy && (code.startsWith('"""', i) || code.startsWith("'''", i))) {
+      const q = code.slice(i, i + 3);
+      const end = code.indexOf(q, i + 3);
+      const s = end === -1 ? code.slice(i) : code.slice(i, end + 3);
+      out.push(sp('str', s)); i += s.length; continue;
+    }
+    // JS template literals
+    if (isJS && code[i] === '`') {
+      let j = i + 1;
+      while (j < n && code[j] !== '`') { if (code[j] === '\\') j++; j++; }
+      out.push(sp('str', code.slice(i, j + 1))); i = j + 1; continue;
+    }
+    // Python comment
+    if (isPy && code[i] === '#') {
+      let j = i; while (j < n && code[j] !== '\n') j++;
+      out.push(sp('cmt', code.slice(i, j))); i = j; continue;
+    }
+    // JS line comment
+    if (isJS && code.startsWith('//', i)) {
+      let j = i; while (j < n && code[j] !== '\n') j++;
+      out.push(sp('cmt', code.slice(i, j))); i = j; continue;
+    }
+    // JS block comment
+    if (isJS && code.startsWith('/*', i)) {
+      const end = code.indexOf('*/', i + 2);
+      const s = end === -1 ? code.slice(i) : code.slice(i, end + 2);
+      out.push(sp('cmt', s)); i += s.length; continue;
+    }
+    // Python decorator
+    if (isPy && code[i] === '@') {
+      let j = i + 1;
+      while (j < n && /[a-zA-Z0-9_.]/.test(code[j])) j++;
+      out.push(sp('dec', code.slice(i, j))); i = j; continue;
+    }
+    // Strings (single/double quote)
+    if (code[i] === '"' || code[i] === "'") {
+      const q = code[i]; let j = i + 1;
+      while (j < n && code[j] !== q && code[j] !== '\n') { if (code[j] === '\\') j++; j++; }
+      out.push(sp('str', code.slice(i, j + 1))); i = j + 1; continue;
+    }
+    // $variables (PokePad interpolation)
+    if (code[i] === '$' && /[a-zA-Z_]/.test(code[i + 1] || '')) {
+      let j = i + 1;
+      while (j < n && /[a-zA-Z0-9_]/.test(code[j])) j++;
+      out.push(sp('var', code.slice(i, j))); i = j; continue;
+    }
+    // Numbers
+    if (/\d/.test(code[i])) {
+      let j = i;
+      if (code.startsWith('0x', i)) { j += 2; while (j < n && /[0-9a-fA-F]/.test(code[j])) j++; }
+      else {
+        while (j < n && /[\d.]/.test(code[j])) j++;
+        if (j < n && (code[j] === 'e' || code[j] === 'E')) {
+          j++; if (j < n && (code[j] === '+' || code[j] === '-')) j++;
+          while (j < n && /\d/.test(code[j])) j++;
+        }
+      }
+      out.push(sp('num', code.slice(i, j))); i = j; continue;
+    }
+    // Identifiers → keywords, builtins, or plain
+    if (/[a-zA-Z_]/.test(code[i])) {
+      let j = i;
+      while (j < n && /[a-zA-Z0-9_]/.test(code[j])) j++;
+      const word = code.slice(i, j);
+      // Check if it's a function call (followed by '(')
+      const after = code[j];
+      if (keywords.has(word)) out.push(sp('kw', word));
+      else if (builtins.has(word)) out.push(sp('bi', word));
+      else if (after === '(') out.push(sp('fn', word));
+      else out.push(e(word));
+      i = j; continue;
+    }
+    // Plain character
+    out.push(e(code[i])); i++;
+  }
+
+  return out.join('');
+}
+
+// ── Code Editor Modal ─────────────────────────────────────────────────────────
+
+let codeEditorCallback: ((code: string) => void) | null = null;
+
+export function showCodeEditor(title: string, lang: string, initialCode: string, callback: (code: string) => void): void {
+  const modal    = document.getElementById("code-editor-modal");
+  const textarea = document.getElementById("code-editor-textarea") as HTMLTextAreaElement | null;
+  const titleEl  = document.getElementById("code-editor-title");
+  const langEl   = document.getElementById("code-editor-lang");
+  const gutter   = document.getElementById("code-editor-gutter");
+  const hlCode   = document.getElementById("code-editor-code");
+
+  if (!modal || !textarea || !titleEl || !langEl || !gutter) return;
+
+  titleEl.textContent = title;
+  langEl.textContent  = lang;
+  textarea.value      = initialCode || "";
+  codeEditorCallback  = callback;
+
+  modal.classList.remove("d-none");
+  textarea.focus();
+
+  const updateAll = () => {
+    const code  = textarea.value;
+    const lines = code.split("\n").length;
+    // Gutter
+    gutter.innerHTML = Array.from({ length: lines }, (_, idx) => idx + 1).join("<br>");
+    // Syntax highlight — trailing newline keeps last-line height correct
+    if (hlCode) hlCode.innerHTML = syntaxHighlight(code, lang) + "\n";
+  };
+
+  const syncScroll = () => {
+    const pre = document.getElementById("code-editor-highlight");
+    if (pre) { pre.scrollTop = textarea.scrollTop; pre.scrollLeft = textarea.scrollLeft; }
+    gutter.scrollTop = textarea.scrollTop;
+  };
+
+  textarea.oninput  = updateAll;
+  textarea.onscroll = syncScroll;
+
+  // Tab key → 4 spaces (prevent focus change)
+  textarea.onkeydown = (e: KeyboardEvent) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const s = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      textarea.value = textarea.value.slice(0, s) + "    " + textarea.value.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = s + 4;
+      updateAll();
+    }
+    if (e.key === "Escape") closeCodeEditor();
+  };
+
+  updateAll();
+}
+(window as any).showCodeEditor = showCodeEditor;
+
+function handleCodeEditorSave(): void {
+  const textarea = document.getElementById("code-editor-textarea") as HTMLTextAreaElement | null;
+  if (textarea && codeEditorCallback) {
+    codeEditorCallback(textarea.value);
+  }
+  closeCodeEditor();
+}
+
+function closeCodeEditor(): void {
+  document.getElementById("code-editor-modal")?.classList.add("d-none");
+  codeEditorCallback = null;
+}
+
+export function initUIEventListeners(): void {
+  document.getElementById("btn-code-editor-save")?.addEventListener("click", handleCodeEditorSave);
+  document.getElementById("btn-code-editor-cancel")?.addEventListener("click", closeCodeEditor);
+  
+  document.getElementById("confirm-ok")?.addEventListener("click", handleConfirmOk);
+  document.getElementById("confirm-cancel")?.addEventListener("click", closeConfirm);
+  document.getElementById("confirm-modal")?.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Enter") handleConfirmOk();
+    if (e.key === "Escape") closeConfirm();
+  });
+
+  document.getElementById("prompt-ok")?.addEventListener("click", handlePromptConfirm);
+  document.getElementById("prompt-cancel")?.addEventListener("click", closePrompt);
+  document.getElementById("prompt-input")?.addEventListener("keydown", (e: any) => {
+    if (e.key === "Enter") handlePromptConfirm();
+    if (e.key === "Escape") closePrompt();
+  });
+}
 
 let promptCallback: ((val: string) => void) | null = null;
 
@@ -109,14 +310,6 @@ function closePrompt(): void {
   document.getElementById("prompt-modal")?.classList.add("d-none");
   promptCallback = null;
 }
-
-// Attach listeners to prompt modal buttons
-document.getElementById("prompt-ok")?.addEventListener("click", handlePromptConfirm);
-document.getElementById("prompt-cancel")?.addEventListener("click", closePrompt);
-document.getElementById("prompt-input")?.addEventListener("keydown", (e: any) => {
-  if (e.key === "Enter") handlePromptConfirm();
-  if (e.key === "Escape") closePrompt();
-});
 
 export function initConfigColorPicker(): void {
   const hexInput = document.getElementById("cfg-accent") as HTMLInputElement | null;
@@ -253,23 +446,6 @@ export function about(): void {
   window.arduino.openAboutWindow();
 }
 (window as any).about = about;
-
-// ── Utilities ──
-
-export function escHtml(s: string | number): string {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-export function escAttr(s: string | number): string {
-  return String(s)
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
-    .replace(/"/g, "&quot;");
-}
 
 export function initResizers(): void {
   setupResizer("main-resizer", "main-content", "--main-sidebar-w", 200, 600);

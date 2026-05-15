@@ -1,4 +1,9 @@
 import { AppState, Step, StepType, AppConfig, GlobalVariables, SignalMap } from '../../src/types/pokepad';
+import { blockRegistry } from './registry/block-registry.js';
+import { registerCoreBlocks } from './blocks/core-blocks.js';
+
+// Inicializar bloques core
+registerCoreBlocks();
 
 export interface StepTypeInfo {
   label: string;
@@ -7,36 +12,7 @@ export interface StepTypeInfo {
   isContainer?: boolean;
 }
 
-export const STEP_TYPES: Record<StepType, StepTypeInfo> = {
-    keypress: { label: "Simular tecla", icon: "⌨", cls: "t-keypress" },
-    wait: { label: "Esperar", icon: "◷", cls: "t-wait" },
-    clipboard: { label: "Copiar texto", icon: "⎘", cls: "t-clipboard" },
-    media: { label: "Media", icon: "▶", cls: "t-media" },
-    open_url: { label: "Abrir URL", icon: "↗", cls: "t-open_url" },
-    run_cmd: { label: "Ejecutar cmd", icon: "$", cls: "t-run_cmd" },
-    open_file: { label: "Abrir archivo", icon: "⌂", cls: "t-open_file" },
-    open_app: { label: "Abrir aplicación", icon: "🚀", cls: "t-open_app" },
-    set_variable: { label: "Definir variable", icon: "📦", cls: "t-var" },
-    modify_variable: { label: "Modificar variable", icon: "⚙", cls: "t-var" },
-    list_operation: { label: "Operación de lista", icon: "▤", cls: "t-var" },
-    loop: {
-        label: "Bucle (Repetir)",
-        icon: "🔄",
-        cls: "t-loop",
-        isContainer: true,
-    },
-    condition: {
-        label: "Condicional (Si...)",
-        icon: "❓",
-        cls: "t-condition",
-        isContainer: true,
-    },
-    notify: { label: "Notificación", icon: "◉", cls: "t-notify" },
-    run_script: { label: "Ejecutar script", icon: "{ }", cls: "t-run_script" },
-    screenshot: { label: "Captura de pantalla", icon: "📸", cls: "t-screenshot" },
-    screenshot_region: { label: "Captura de región", icon: "✂️", cls: "t-screenshot" },
-    note: { label: "Nota / Comentario", icon: "📝", cls: "t-note" },
-};
+export const STEP_TYPES: Record<string, StepTypeInfo> = blockRegistry.getStepTypesConfig() as any;
 
 export const MEDIA_OPTIONS = [
     { value: "play_pause", label: "Play / Pause" },
