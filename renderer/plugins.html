@@ -54,7 +54,10 @@
         <div class="plugins-layout">
           <div class="plugins-sidebar">
             <div class="search-box">
-              <input type="text" id="plugin-search" placeholder="Buscar plugins..." spellcheck="false" />
+              <div class="search-input-wrap">
+                <input type="text" id="plugin-search" placeholder="Buscar plugins... (#tag)" spellcheck="false" />
+                <div class="tag-suggest-dropdown" id="installed-tag-suggest"></div>
+              </div>
               <div class="filter-row" style="margin-top: 10px; display: flex; gap: 4px;">
                 <select id="filter-installed-status" class="filter-select" style="flex: 1;">
                   <option value="all">Todos</option>
@@ -84,7 +87,10 @@
           <div class="plugins-sidebar">
             <div class="search-box">
               <div style="display: flex; gap: 8px;">
-                <input type="text" id="remote-search" placeholder="Buscar en el repositorio..." spellcheck="false" style="flex: 1;" />
+                <div class="search-input-wrap" style="flex: 1;">
+                  <input type="text" id="remote-search" placeholder="Buscar en el repositorio... (#tag)" spellcheck="false" style="width: 100%;" />
+                  <div class="tag-suggest-dropdown" id="remote-tag-suggest"></div>
+                </div>
                 <button class="btn btn-outline" id="btn-refresh-remote" title="Recargar repositorio" style="padding: 0 10px;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                 </button>

@@ -73,6 +73,8 @@ export interface PluginManifest {
   path?: string;
   /** Whether the plugin is currently enabled */
   enabled?: boolean;
+  /** Tags for categorization and search filtering */
+  tags?: string[];
   /** Optional UI extension configuration for adding tabs to the sidebar */
   ui?: {
     /** SVG path or Emoji for the sidebar tab */

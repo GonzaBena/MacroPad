@@ -6,6 +6,7 @@
   "author": "PokePad Team",
   "icon": "🧩",
   "color": "var(--blue)",
+  "tags": ["template", "example", "demo"],
   "params": [
     {
       "name": "textToLog",

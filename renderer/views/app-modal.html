@@ -204,13 +204,7 @@
       <div class="code-editor-lang-badge" id="code-editor-lang">python</div>
     </div>
     <div class="modal-body flex-1 p-0 overflow-hidden d-flex flex-col">
-      <div class="code-editor-container flex-1 d-flex">
-        <div class="code-editor-gutter" id="code-editor-gutter">1</div>
-        <div class="code-editor-body">
-          <pre class="code-editor-highlight" id="code-editor-highlight" aria-hidden="true"><code id="code-editor-code"></code></pre>
-          <textarea id="code-editor-textarea" class="code-editor-textarea" spellcheck="false" autocomplete="off"></textarea>
-        </div>
-      </div>
+      <div class="code-editor-container flex-1" id="code-editor-cm"></div>
     </div>
     <div class="modal-footer">
       <div class="flex-1">
@@ -238,80 +232,26 @@
 }
 
 .code-editor-container {
-  background: #1e1e1e;
-  color: #d4d4d4;
-  font-family: 'Space Mono', monospace;
-  font-size: 13px;
-  line-height: 1.5;
   overflow: hidden;
 }
 
-.code-editor-gutter {
-  width: 40px;
-  min-width: 40px;
-  background: #1e1e1e;
-  color: #858585;
-  text-align: right;
-  padding: 10px 10px 10px 0;
-  border-right: 1px solid #333;
-  user-select: none;
-  overflow: hidden;
+/* Let CodeMirror fill the container */
+#code-editor-cm .cm-editor {
+  height: 100%;
 }
-
-.code-editor-body {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-}
-
-.code-editor-highlight {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  padding: 10px;
-  font-family: 'Space Mono', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre;
-  word-wrap: normal;
-  overflow: hidden;
-  pointer-events: none;
-  background: transparent;
-  color: #d4d4d4;
-  border: none;
-  tab-size: 4;
-  -moz-tab-size: 4;
-}
-
-.code-editor-textarea {
-  position: absolute;
-  inset: 0;
-  background: transparent;
-  color: transparent;
-  caret-color: #d4d4d4;
-  z-index: 1;
-  border: none;
-  outline: none;
-  padding: 10px;
-  resize: none;
-  font-family: 'Space Mono', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre;
-  overflow: auto;
-  tab-size: 4;
-  -moz-tab-size: 4;
+#code-editor-cm {
+  height: 100%;
 }
 
 /* Syntax highlight token colors (VS Code dark+ palette) */
-.ed-kw  { color: #569cd6; }          /* keywords  — blue */
-.ed-str { color: #ce9178; }          /* strings   — orange */
-.ed-cmt { color: #6a9955; font-style: italic; }  /* comments  — green */
-.ed-num { color: #b5cea8; }          /* numbers   — mint */
-.ed-bi  { color: #dcdcaa; }          /* builtins  — yellow */
-.ed-var { color: #4fc1ff; }          /* $variables — cyan */
-.ed-fn  { color: #dcdcaa; }          /* function names */
-.ed-dec { color: #4ec9b0; }          /* decorators / class names */
+.ed-kw  { color: #569cd6; }
+.ed-str { color: #ce9178; }
+.ed-cmt { color: #6a9955; font-style: italic; }
+.ed-num { color: #b5cea8; }
+.ed-bi  { color: #dcdcaa; }
+.ed-var { color: #4fc1ff; }
+.ed-fn  { color: #dcdcaa; }
+.ed-dec { color: #4ec9b0; }
 
 /* Custom styles for variable links */
 .btn-var-link {

@@ -20,6 +20,8 @@ describe('validateData', () => {
     signals: {},
     folders: [],
     globalVariables: {},
+    stats: { sig: 0, act: 0, err: 0, success: 0, failure: 0 },
+    history: [],
     config: {
       theme: 'dark',
       closeBehavior: 'close',

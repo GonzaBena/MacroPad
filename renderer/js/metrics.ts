@@ -28,17 +28,25 @@ export function renderMetrics() {
   state.history.forEach(item => {
     const row = document.createElement('div');
     row.className = 'history-item';
-    
-    const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const label = state.signals[item.signal]?.label || item.signal;
+
+    const date = new Date(item.timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dateStr = isToday
+      ? timeStr
+      : date.toLocaleDateString([], { day: '2-digit', month: '2-digit' }) + ' ' + timeStr;
+
+    // Use stored label first, fall back to current signal label, then signal ID
+    const label = item.label || state.signals[item.signal]?.label || item.signal;
     const statusClass = item.success ? 'success' : 'failure';
-    const statusText = item.success ? 'Éxito' : 'Fallo';
+    const statusText  = item.success ? 'Éxito' : 'Fallo';
 
     row.innerHTML = `
       <div class="hi-status ${statusClass}"></div>
       <div class="hi-info">
         <div class="hi-workflow">${label}</div>
-        <div class="hi-time">${time}</div>
+        <div class="hi-time">${dateStr}</div>
       </div>
       <div class="hi-badge ${statusClass}">${statusText}</div>
     `;

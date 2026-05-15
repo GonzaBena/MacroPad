@@ -1,0 +1,179 @@
+:root {
+  --bg:      #0d0d0f;
+  --surface: #1a1a1f;
+  --accent:  #00e5ff;
+  --amber:   #ffb300;
+  --red:     #ff3b5c;
+  --green:   #00e676;
+  --text:    #e0e0e0;
+  --muted:   #555566;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ── HUD ─────────────────────────────────────────────────────────────────── */
+
+#hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid #2a2a35;
+  flex-shrink: 0;
+  height: 40px;
+}
+
+#hud .title {
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent);
+}
+
+#hud .info {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 20px;
+}
+
+#hud .info span { color: var(--text); }
+#hud .info .val { color: var(--accent); }
+
+/* ── Canvas ──────────────────────────────────────────────────────────────── */
+
+#canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+/* ── Overlays ────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13,13,15,0.88);
+  backdrop-filter: blur(4px);
+  gap: 16px;
+  z-index: 10;
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h1 {
+  font-size: 48px;
+  letter-spacing: 8px;
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent), 0 0 60px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.overlay h2 {
+  font-size: 22px;
+  letter-spacing: 4px;
+  color: var(--text);
+}
+
+.overlay p {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+.overlay .level-badge {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--amber);
+  text-shadow: 0 0 10px var(--amber);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn {
+  margin-top: 8px;
+  padding: 10px 32px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+
+.btn:hover {
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--accent);
+}
+
+.btn.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+.btn.danger:hover {
+  background: var(--red);
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--red);
+}
+
+.btn.success {
+  border-color: var(--green);
+  color: var(--green);
+}
+.btn.success:hover {
+  background: var(--green);
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--green);
+}
+
+/* ── Hint ────────────────────────────────────────────────────────────────── */
+
+#hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "com.atlas.sp1ng",
+  "name": "SP1NG",
+  "description": "Juego de física orbital con un solo botón. Orbitá alrededor de nodos y lanzate al siguiente para llegar a la meta.",
+  "version": "1.0.0",
+  "author": "Atlas",
+  "icon": "🌀",
+  "color": "var(--accent)",
+  "params": [],
+  "ui": {
+    "sidebarIcon": "🌀",
+    "sidebarLabel": "SP1NG",
+    "entryPath": "ui/index.html"
+  }
+}

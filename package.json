@@ -1,6 +1,6 @@
 {
   "name": "pokepad",
-  "version": "0.3.0",
+  "version": "1.1.0",
   "description": "PokePad - Control your PC with Arduino",
   "author": "Atlas",
   "repository": {
@@ -10,9 +10,11 @@
   "main": "dist-ts/main.js",
   "scripts": {
     "start": "electron . --enable-logging",
-    "dev": "concurrently \"tsc -p tsconfig.main.json --watch\" \"tsc -p tsconfig.renderer.json --watch\" \"electron . --enable-logging\"",
+    "dev": "concurrently \"tsc -p tsconfig.main.json --watch\" \"tsc -p tsconfig.renderer.json --watch\" \"npm run bundle:cm:watch\" \"electron . --enable-logging\"",
     "build": "npm run compile && electron-builder",
-    "compile": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
+    "compile": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && npm run bundle:cm",
+    "bundle:cm": "esbuild src/codemirror-bundle.ts --bundle --format=iife --global-name=CM --outfile=renderer/js/vendor/codemirror.bundle.js --minify",
+    "bundle:cm:watch": "esbuild src/codemirror-bundle.ts --bundle --format=iife --global-name=CM --outfile=renderer/js/vendor/codemirror.bundle.js --watch",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
@@ -42,6 +44,14 @@
     }
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.2",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.43.0",
     "@nut-tree-fork/nut-js": "^4.2.6",
     "@serialport/parser-readline": "^12.0.0",
     "chokidar": "^3.6.0",
@@ -65,6 +75,7 @@
     "electron": "^40.0.0",
     "electron-builder": "^26.0.0",
     "electron-reload": "^2.0.0-alpha.1",
+    "esbuild": "^0.28.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.4.1",
     "typescript": "^6.0.3"

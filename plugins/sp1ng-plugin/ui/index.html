@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SP1NG</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="hud">
+  <div class="title">SP!NG</div>
+  <div class="info">
+    <div>NIVEL <span class="val" id="hud-level">1</span></div>
+    <div>INTENTOS <span class="val" id="hud-tries">0</span></div>
+    <div>NODOS <span class="val" id="hud-nodes">0/0</span></div>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+
+  <!-- START -->
+  <div class="overlay" id="ov-start">
+    <h1>SP!NG</h1>
+    <p>MANTENÉ presionado para orbitar<br>SOLTÁ para lanzarte al siguiente nodo</p>
+    <p style="color:var(--amber)">Alcanzá el nodo ★ para ganar</p>
+    <button class="btn" onclick="startGame()">JUGAR</button>
+  </div>
+
+  <!-- DEAD -->
+  <div class="overlay hidden" id="ov-dead">
+    <h2 style="color:var(--red)">FUERA DE ÓRBITA</h2>
+    <p class="level-badge" id="dead-level">NIVEL 1</p>
+    <button class="btn danger" onclick="restartLevel()">REINTENTAR</button>
+  </div>
+
+  <!-- WIN -->
+  <div class="overlay hidden" id="ov-win">
+    <h2 style="color:var(--green)">¡NODO ALCANZADO!</h2>
+    <p class="level-badge" id="win-level">NIVEL 1 COMPLETADO</p>
+    <p id="win-msg"></p>
+    <button class="btn success" id="btn-next" onclick="nextLevel()">SIGUIENTE NIVEL →</button>
+  </div>
+
+  <!-- COMPLETE -->
+  <div class="overlay hidden" id="ov-complete">
+    <h1>GG</h1>
+    <h2>TODOS LOS NIVELES COMPLETADOS</h2>
+    <p style="color:var(--amber)">Sos un maestro del SP!NG</p>
+    <button class="btn" onclick="startGame()">JUGAR DE NUEVO</button>
+  </div>
+
+  <div id="hint">MANTENÉ PRESIONADO</div>
+</div>
+
+<!-- levels.js antes que game.js (Game depende de LEVEL_DEFS) -->
+<!-- main.js antes que game.js (Game depende de canvas/ctx/W/H) -->
+<script src="levels.js"></script>
+<script src="main.js"></script>
+<script src="game.js"></script>
+
+</body>
+</html>

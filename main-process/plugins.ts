@@ -8,6 +8,7 @@ import {
   ExecutionContext,
   RemotePlugin,
 } from "../src/types/pokepad";
+import { loadData, saveData } from "./persistence";
 
 /**
  * Plugin management system for PokePad's Main Process.
@@ -16,6 +17,35 @@ import {
 
 const plugins: Map<string, { manifest: PluginManifest; execute: Function }> =
   new Map();
+
+/**
+ * Replaces all occurrences of blocks from a specific plugin with "note" blocks.
+ * @param data The full application data object
+ * @param pluginId The ID of the plugin being removed
+ * @param pluginName The display name of the plugin
+ */
+function cleanupPluginBlocks(data: any, pluginId: string, pluginName: string) {
+  function processSteps(steps: any[]) {
+    if (!Array.isArray(steps)) return;
+    steps.forEach((step) => {
+      if (step.type === pluginId) {
+        step.type = "note";
+        step.params = {
+          text: `⚠️ Aquí había un bloque del plugin "${pluginName}" que fue eliminado.`,
+        };
+      }
+      if (step.params && Array.isArray(step.params.steps)) {
+        processSteps(step.params.steps);
+      }
+    });
+  }
+
+  if (data.signals) {
+    Object.values(data.signals).forEach((sig: any) => {
+      if (sig.steps) processSteps(sig.steps);
+    });
+  }
+}
 
 /**
  * Extracts a ZIP archive to a destination directory using platform-native commands.
@@ -230,10 +260,16 @@ export function setupPlugins() {
     }
 
     try {
+      // 1. Cleanup blocks in data
+      const data = loadData();
+      cleanupPluginBlocks(data, id, plugin.manifest.name);
+      saveData(data);
+
+      // 2. Delete plugin files
       fs.rmSync(pluginPath, { recursive: true, force: true });
       await loadPlugins();
       broadcastPluginsChanged();
-      log.info(`Plugin ${id} deleted`);
+      log.info(`Plugin ${id} deleted and blocks replaced with notes`);
       return { success: true };
     } catch (err: any) {
       log.error(`Failed to delete plugin ${id}:`, err);

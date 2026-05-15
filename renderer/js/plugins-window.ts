@@ -46,11 +46,30 @@ async function init() {
   });
 
   // Search local
-  const searchInput = document.getElementById(
-    "plugin-search",
-  ) as HTMLInputElement;
+  const searchInput = document.getElementById("plugin-search") as HTMLInputElement;
+  const installedSuggest = document.getElementById("installed-tag-suggest") as HTMLElement;
+
   searchInput?.addEventListener("input", () => {
+    const tq = getTagQuery(searchInput);
+    if (tq !== null) {
+      const allTags = [...new Set(allPlugins.flatMap((p) => p.tags || []))].sort();
+      renderTagSuggest(installedSuggest, tq.query, allTags, (tag) => {
+        applyTagSuggestion(searchInput, tag, tq.start);
+        installedSuggest.style.display = "none";
+      });
+    } else {
+      installedSuggest.style.display = "none";
+      installedSuggest.innerHTML = "";
+    }
     renderPluginList(searchInput.value);
+  });
+
+  searchInput?.addEventListener("keydown", (e) => {
+    handleSuggestKeydown(e, installedSuggest);
+  });
+
+  searchInput?.addEventListener("blur", () => {
+    setTimeout(() => { installedSuggest.style.display = "none"; }, 150);
   });
 
   // Filter local status
@@ -68,11 +87,30 @@ async function init() {
     });
 
   // Search remote
-  const remoteSearchInput = document.getElementById(
-    "remote-search",
-  ) as HTMLInputElement;
+  const remoteSearchInput = document.getElementById("remote-search") as HTMLInputElement;
+  const remoteSuggest = document.getElementById("remote-tag-suggest") as HTMLElement;
+
   remoteSearchInput?.addEventListener("input", () => {
+    const tq = getTagQuery(remoteSearchInput);
+    if (tq !== null) {
+      const allTags = [...new Set(remotePlugins.flatMap((p) => p.tags || []))].sort();
+      renderTagSuggest(remoteSuggest, tq.query, allTags, (tag) => {
+        applyTagSuggestion(remoteSearchInput, tag, tq.start);
+        remoteSuggest.style.display = "none";
+      });
+    } else {
+      remoteSuggest.style.display = "none";
+      remoteSuggest.innerHTML = "";
+    }
     renderRemoteList(remoteSearchInput.value);
+  });
+
+  remoteSearchInput?.addEventListener("keydown", (e) => {
+    handleSuggestKeydown(e, remoteSuggest);
+  });
+
+  remoteSearchInput?.addEventListener("blur", () => {
+    setTimeout(() => { remoteSuggest.style.display = "none"; }, 150);
   });
 
   // Filter remote status
@@ -164,13 +202,108 @@ async function refreshRemotePlugins() {
   }
 }
 
-function renderPluginList(filterText = "") {
+function getTagQuery(input: HTMLInputElement): { query: string; start: number } | null {
+  const val = input.value;
+  const cursor = input.selectionStart ?? val.length;
+  const before = val.slice(0, cursor);
+  const hashIdx = before.lastIndexOf('#');
+  if (hashIdx === -1) return null;
+  const fragment = before.slice(hashIdx + 1);
+  if (/\s/.test(fragment)) return null;
+  return { query: fragment, start: hashIdx };
+}
+
+function applyTagSuggestion(input: HTMLInputElement, tag: string, start: number): void {
+  const cursor = input.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, start) + '#' + tag + ' ' + input.value.slice(cursor);
+  const newCursor = start + 1 + tag.length + 1;
+  input.setSelectionRange(newCursor, newCursor);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function renderTagSuggest(
+  suggestEl: HTMLElement,
+  query: string,
+  availableTags: string[],
+  onSelect: (tag: string) => void,
+): void {
+  const matches = availableTags.filter((t) =>
+    t.toLowerCase().startsWith(query.toLowerCase()),
+  );
+  if (matches.length === 0) {
+    suggestEl.style.display = 'none';
+    suggestEl.innerHTML = '';
+    return;
+  }
+  suggestEl.style.display = 'block';
+  suggestEl.innerHTML = matches
+    .map(
+      (t) =>
+        `<div class="tag-suggest-item" data-tag="${t}"><span class="tag-suggest-prefix">#</span>${t}</div>`,
+    )
+    .join('');
+  suggestEl.querySelectorAll('.tag-suggest-item').forEach((item) => {
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      onSelect((item as HTMLElement).dataset.tag!);
+    });
+  });
+}
+
+function handleSuggestKeydown(e: KeyboardEvent, suggestEl: HTMLElement): boolean {
+  if (suggestEl.style.display === 'none' || !suggestEl.style.display) return false;
+  const items = Array.from(suggestEl.querySelectorAll('.tag-suggest-item'));
+  const focusedIdx = items.findIndex((it) => it.classList.contains('focused'));
+
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    suggestEl.style.display = 'none';
+    return true;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = Math.min(focusedIdx + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('focused', i === next));
+    (items[next] as HTMLElement).scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = Math.max(focusedIdx - 1, 0);
+    items.forEach((it, i) => it.classList.toggle('focused', i === prev));
+    (items[prev] as HTMLElement).scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  if (e.key === 'Enter') {
+    const focused = items[focusedIdx] as HTMLElement | undefined;
+    if (focused) {
+      e.preventDefault();
+      focused.dispatchEvent(new MouseEvent('mousedown'));
+      return true;
+    }
+  }
+  return false;
+}
+
+function parseSearchInput(value: string): { text: string; tags: string[] } {
+  const tags: string[] = [];
+  const text = value
+    .replace(/#(\w+)/g, (_, tag) => { tags.push(tag.toLowerCase()); return ''; })
+    .trim();
+  return { text, tags };
+}
+
+
+function renderPluginList(rawFilterText = "") {
   const container = document.getElementById("plugin-list");
   if (!container) return;
 
   const statusFilter =
     (document.getElementById("filter-installed-status") as HTMLSelectElement)
       ?.value || "all";
+
+  const { text: filterText, tags: inlineTags } = parseSearchInput(rawFilterText);
+  const effectiveTag = inlineTags[0] ?? null;
 
   const filtered = allPlugins.filter((p) => {
     const matchesSearch =
@@ -181,7 +314,9 @@ function renderPluginList(filterText = "") {
     if (statusFilter === "active") matchesStatus = p.enabled === true;
     if (statusFilter === "disabled") matchesStatus = p.enabled === false;
 
-    return matchesSearch && matchesStatus;
+    const matchesTag = !effectiveTag || (p.tags || []).includes(effectiveTag);
+
+    return matchesSearch && matchesStatus && matchesTag;
   });
 
   if (filtered.length === 0) {
@@ -190,17 +325,22 @@ function renderPluginList(filterText = "") {
   }
 
   container.innerHTML = filtered
-    .map(
-      (p) => `
+    .map((p) => {
+      const tagsHtml =
+        p.tags && p.tags.length > 0
+          ? `<div class="plugin-item-tags">${p.tags.map((t) => `<span class="plugin-tag">${t}</span>`).join("")}</div>`
+          : "";
+      return `
     <div class="plugin-item ${p.id === selectedPluginId ? "active" : ""} ${!p.enabled ? "plugin-item-disabled" : ""}" data-id="${p.id}">
       <div class="plugin-item-icon">${p.icon || "🧩"}</div>
       <div class="plugin-item-info">
         <div class="plugin-item-name">${p.name}</div>
         <div class="plugin-item-meta">v${p.version} • ${p.enabled ? "Activo" : "Inactivo"}</div>
+        ${tagsHtml}
       </div>
     </div>
-  `,
-    )
+  `;
+    })
     .join("");
 
   container.querySelectorAll(".plugin-item").forEach((item) => {
@@ -211,13 +351,16 @@ function renderPluginList(filterText = "") {
   });
 }
 
-function renderRemoteList(filterText = "") {
+function renderRemoteList(rawFilterText = "") {
   const container = document.getElementById("remote-list");
   if (!container) return;
 
   const statusFilter =
     (document.getElementById("filter-remote-status") as HTMLSelectElement)
       ?.value || "all";
+
+  const { text: filterText, tags: inlineTags } = parseSearchInput(rawFilterText);
+  const effectiveTag = inlineTags[0] ?? null;
 
   const filtered = remotePlugins.filter((p) => {
     const matchesSearch =
@@ -230,7 +373,9 @@ function renderRemoteList(filterText = "") {
     if (statusFilter === "installed") matchesStatus = isInstalled;
     if (statusFilter === "not-installed") matchesStatus = !isInstalled;
 
-    return matchesSearch && matchesStatus;
+    const matchesTag = !effectiveTag || (p.tags || []).includes(effectiveTag);
+
+    return matchesSearch && matchesStatus && matchesTag;
   });
 
   if (filtered.length === 0) {
@@ -241,6 +386,10 @@ function renderRemoteList(filterText = "") {
   container.innerHTML = filtered
     .map((p) => {
       const isInstalled = allPlugins.some((ap) => ap.id === p.id);
+      const tagsHtml =
+        p.tags && p.tags.length > 0
+          ? `<div class="plugin-item-tags">${p.tags.map((t) => `<span class="plugin-tag">${t}</span>`).join("")}</div>`
+          : "";
       return `
           <div class="plugin-item ${p.id === selectedRemoteId ? "active" : ""} ${p.isVerified ? "plugin-item-verified" : ""} ${isInstalled ? "plugin-item-installed" : ""}" data-id="${p.id}">
             <div class="plugin-item-icon">${p.icon || "🧩"}</div>
@@ -249,7 +398,8 @@ function renderRemoteList(filterText = "") {
                 ${formatDisplayName(p.name, p.id)}
                 ${p.isVerified ? '<span class="verified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : ""}
               </div>
-              <div class="plugin-item-meta">v${p.version} • ${isInstalled ? "Ya instalado" : (p.author || "Anónimo")}</div>
+              <div class="plugin-item-meta">v${p.version} • ${isInstalled ? "Ya instalado" : p.author || "Anónimo"}</div>
+              ${tagsHtml}
             </div>
           </div>
         `;
@@ -354,7 +504,7 @@ async function selectPlugin(id: string) {
     ?.addEventListener("click", async () => {
       if (
         !confirm(
-          `¿Eliminar el plugin "${plugin.name}"? Esta acción no se puede deshacer.`,
+          `¿Eliminar el plugin "${plugin.name}"? Esta acción no se puede deshacer.\n\nTodos los bloques de este plugin en tus workflows se convertirán en notas descriptivas.`,
         )
       )
         return;

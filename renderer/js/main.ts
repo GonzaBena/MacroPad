@@ -94,7 +94,19 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   window.arduino.onPluginsChanged(async (updatedPlugins) => {
     console.log("[main] Plugins changed, re-loading...");
+
+    // Check if current active plugin was deleted
+    const activePluginBtn = document.querySelector(".ab-btn-plugin.active") as HTMLElement;
+    if (activePluginBtn) {
+      const pluginId = activePluginBtn.dataset.pluginId;
+      if (pluginId && !updatedPlugins.find((p) => p.id === pluginId)) {
+        // Active plugin deleted, redirect to workflows tab
+        uiRegistry.activateTab("workflows");
+      }
+    }
+
     await loadPlugins(updatedPlugins);
+    await loadSignalsData(); // Reload signals to reflect any block conversions
     renderPluginActivityIcons();
     buildStepMenu();
     renderFlow();
@@ -230,6 +242,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   window.arduino.onData(({ signal }) => {
+    // Re-dispatch as a DOM event so plugins in iframes can listen without overriding IPC
+    window.dispatchEvent(new CustomEvent('pokepad-serial-data', { detail: signal }));
+
     state.stats.sig++;
     const sigEl = document.getElementById("st-sig");
     if (sigEl) sigEl.textContent = String(state.stats.sig);
@@ -283,10 +298,11 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     state.history.unshift({
       signal,
+      label: entry?.label || signal,
       success,
       timestamp: Date.now()
     });
-    if (state.history.length > 10) state.history.pop();
+    if (state.history.length > 500) state.history.length = 500;
 
     // Increment run counter
     if (entry) {

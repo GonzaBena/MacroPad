@@ -26,6 +26,8 @@ export function validateData(raw: any) {
     signals: {},
     folders: [],
     globalVariables: {},
+    stats: { sig: 0, act: 0, err: 0, success: 0, failure: 0 },
+    history: [],
     config: {
       theme: "dark",
       closeBehavior: "close",
@@ -97,6 +99,34 @@ export function validateData(raw: any) {
         data.globalVariables[key] = val;
       }
     }
+  }
+
+  // Validate stats — preserve cumulative counters across restarts and updates
+  if (raw.stats && typeof raw.stats === "object") {
+    const s = raw.stats;
+    if (typeof s.sig     === "number") data.stats.sig     = s.sig;
+    if (typeof s.act     === "number") data.stats.act     = s.act;
+    if (typeof s.err     === "number") data.stats.err     = s.err;
+    if (typeof s.success === "number") data.stats.success = s.success;
+    if (typeof s.failure === "number") data.stats.failure = s.failure;
+  }
+
+  // Validate history — keep up to 500 most recent entries
+  if (Array.isArray(raw.history)) {
+    data.history = raw.history
+      .filter((h: any) =>
+        h && typeof h === "object" &&
+        typeof h.signal    === "string" &&
+        typeof h.success   === "boolean" &&
+        typeof h.timestamp === "number"
+      )
+      .map((h: any) => ({
+        signal:    h.signal,
+        label:     typeof h.label === "string" ? h.label : h.signal,
+        success:   h.success,
+        timestamp: h.timestamp,
+      }))
+      .slice(0, 500);
   }
 
   return data;

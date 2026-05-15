@@ -61,51 +61,98 @@ export async function loadPluginView(pluginId: string): Promise<void> {
   container.innerHTML = `<div style="padding: 20px; color: var(--muted);">Cargando ${plugin.name}...</div>`;
   
   try {
-    const html = await window.arduino.readPluginAsset({ 
+    let html = await window.arduino.readPluginAsset({ 
       pluginId, 
       assetPath: plugin.ui.entryPath 
     });
 
     if (html) {
-      // Sanitize and inject
-      const purify = (window as any).DOMPurify;
-      if (purify) {
-        container.innerHTML = purify.sanitize(html, {
-          ADD_TAGS: ['script', 'link'], // Allow scripts/links if we trust them? 
-          // Actually, for security, let's see. Scripts won't run if just injected via innerHTML.
-        });
-      } else {
-        container.innerHTML = html;
+      // ─── Asset Inlining (CSS & JS) ───
+      // Determine base path for relative assets
+      const entryPathParts = plugin.ui.entryPath.split(/[\\\/]/);
+      entryPathParts.pop(); // Remove index.html
+      const basePath = entryPathParts.length > 0 ? entryPathParts.join("/") + "/" : "";
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+
+      // Inline Stylesheets
+      const links = doc.querySelectorAll('link[rel="stylesheet"]');
+      for (const link of Array.from(links)) {
+        const href = link.getAttribute("href");
+        if (href && !href.startsWith("http")) {
+           const css = await window.arduino.readPluginAsset({ 
+             pluginId, 
+             assetPath: basePath + href 
+           });
+           if (css) {
+             const style = doc.createElement("style");
+             style.textContent = css;
+             link.replaceWith(style);
+           }
+        }
       }
 
-      // Re-trigger scripts manually if needed, or use a safer method
-      // For now, let's assume we want to support scripts.
-      setupPluginScripts(container, pluginId);
+      // Inline Scripts
+      const scripts = doc.querySelectorAll('script[src]');
+      for (const script of Array.from(scripts)) {
+        const src = script.getAttribute("src");
+        if (src && !src.startsWith("http")) {
+           const js = await window.arduino.readPluginAsset({ 
+             pluginId, 
+             assetPath: basePath + src 
+           });
+           if (js) {
+             const inlineScript = doc.createElement("script");
+             inlineScript.textContent = js;
+             // Preserve attributes like type="module" if needed
+             Array.from(script.attributes).forEach(attr => {
+               if (attr.name !== "src") inlineScript.setAttribute(attr.name, attr.value);
+             });
+             script.replaceWith(inlineScript);
+           }
+        }
+      }
+
+      // Re-serialize the fully bundled HTML
+      const bundledHtml = doc.documentElement.outerHTML;
+
+      // Clear container and setup iframe
+      container.innerHTML = "";
+      const iframe = document.createElement("iframe");
+      
+      iframe.sandbox.add("allow-scripts");
+      iframe.sandbox.add("allow-same-origin");
+      iframe.sandbox.add("allow-forms");
+      iframe.sandbox.add("allow-modals");
+      
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "none";
+      iframe.style.background = "transparent";
+      
+      container.appendChild(iframe);
+
+      // Inject the fully bundled content
+      iframe.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <script>
+              // Inject a helper to easily access the bridge
+              window.arduino = window.parent.arduino;
+            </script>
+          </head>
+          <body>
+            ${bundledHtml}
+          </body>
+        </html>
+      `;
     } else {
       container.innerHTML = `<div style="padding: 20px; color: var(--red);">Error: No se pudo cargar el archivo ${plugin.ui.entryPath}</div>`;
     }
   } catch (err: any) {
     container.innerHTML = `<div style="padding: 20px; color: var(--red);">Error al cargar la vista del plugin: ${err.message}</div>`;
   }
-}
-
-function setupPluginScripts(container: HTMLElement, pluginId: string): void {
-  // Find all <script> tags and re-create them so they execute
-  const scripts = container.querySelectorAll("script");
-  scripts.forEach(oldScript => {
-    const newScript = document.createElement("script");
-    Array.from(oldScript.attributes).forEach(attr => {
-      newScript.setAttribute(attr.name, attr.value);
-    });
-    
-    if (oldScript.src) {
-        // If it's a local path, we might need to fetch it via IPC too
-        // For simplicity, we suggest plugins use inline scripts or relative paths that we might need to intercept.
-        // THIS IS COMPLEX. A simpler way is to have plugins provide a .js entry too.
-    } else {
-      newScript.textContent = oldScript.textContent;
-    }
-    
-    oldScript.parentNode?.replaceChild(newScript, oldScript);
-  });
 }

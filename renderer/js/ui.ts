@@ -188,79 +188,57 @@ function syntaxHighlight(code: string, lang: string): string {
   return out.join('');
 }
 
-// ── Code Editor Modal ─────────────────────────────────────────────────────────
+// ── Code Editor Modal (CodeMirror 6) ─────────────────────────────────────────
 
 let codeEditorCallback: ((code: string) => void) | null = null;
+let activeCmEditor: any = null;
 
 export function showCodeEditor(title: string, lang: string, initialCode: string, callback: (code: string) => void): void {
-  const modal    = document.getElementById("code-editor-modal");
-  const textarea = document.getElementById("code-editor-textarea") as HTMLTextAreaElement | null;
-  const titleEl  = document.getElementById("code-editor-title");
-  const langEl   = document.getElementById("code-editor-lang");
-  const gutter   = document.getElementById("code-editor-gutter");
-  const hlCode   = document.getElementById("code-editor-code");
+  const modal   = document.getElementById("code-editor-modal");
+  const titleEl = document.getElementById("code-editor-title");
+  const langEl  = document.getElementById("code-editor-lang");
+  const mount   = document.getElementById("code-editor-cm");
 
-  if (!modal || !textarea || !titleEl || !langEl || !gutter) return;
+  if (!modal || !titleEl || !langEl || !mount) return;
 
   titleEl.textContent = title;
   langEl.textContent  = lang;
-  textarea.value      = initialCode || "";
   codeEditorCallback  = callback;
 
+  // Destroy previous instance if any
+  if (activeCmEditor) { activeCmEditor.destroy(); activeCmEditor = null; }
+  mount.innerHTML = "";
+
+  // CodeMirror bundle exposes CM.createEditor via window
+  const CM = (window as any).CM;
+  if (CM?.createEditor) {
+    activeCmEditor = CM.createEditor(mount, initialCode || "", lang);
+  }
+
   modal.classList.remove("d-none");
-  textarea.focus();
-
-  const updateAll = () => {
-    const code  = textarea.value;
-    const lines = code.split("\n").length;
-    // Gutter
-    gutter.innerHTML = Array.from({ length: lines }, (_, idx) => idx + 1).join("<br>");
-    // Syntax highlight — trailing newline keeps last-line height correct
-    if (hlCode) hlCode.innerHTML = syntaxHighlight(code, lang) + "\n";
-  };
-
-  const syncScroll = () => {
-    const pre = document.getElementById("code-editor-highlight");
-    if (pre) { pre.scrollTop = textarea.scrollTop; pre.scrollLeft = textarea.scrollLeft; }
-    gutter.scrollTop = textarea.scrollTop;
-  };
-
-  textarea.oninput  = updateAll;
-  textarea.onscroll = syncScroll;
-
-  // Tab key → 4 spaces (prevent focus change)
-  textarea.onkeydown = (e: KeyboardEvent) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const s = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      textarea.value = textarea.value.slice(0, s) + "    " + textarea.value.slice(end);
-      textarea.selectionStart = textarea.selectionEnd = s + 4;
-      updateAll();
-    }
-    if (e.key === "Escape") closeCodeEditor();
-  };
-
-  updateAll();
+  activeCmEditor?.focus();
 }
 (window as any).showCodeEditor = showCodeEditor;
 
 function handleCodeEditorSave(): void {
-  const textarea = document.getElementById("code-editor-textarea") as HTMLTextAreaElement | null;
-  if (textarea && codeEditorCallback) {
-    codeEditorCallback(textarea.value);
+  if (codeEditorCallback && activeCmEditor) {
+    codeEditorCallback(activeCmEditor.getValue());
   }
   closeCodeEditor();
 }
 
 function closeCodeEditor(): void {
   document.getElementById("code-editor-modal")?.classList.add("d-none");
+  if (activeCmEditor) { activeCmEditor.destroy(); activeCmEditor = null; }
   codeEditorCallback = null;
 }
 
 export function initUIEventListeners(): void {
   document.getElementById("btn-code-editor-save")?.addEventListener("click", handleCodeEditorSave);
   document.getElementById("btn-code-editor-cancel")?.addEventListener("click", closeCodeEditor);
+  document.getElementById("code-editor-modal")?.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Escape") closeCodeEditor();
+  });
   
   document.getElementById("confirm-ok")?.addEventListener("click", handleConfirmOk);
   document.getElementById("confirm-cancel")?.addEventListener("click", closeConfirm);

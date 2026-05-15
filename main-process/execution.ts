@@ -421,14 +421,14 @@ export async function executeStep(step: Step, context: ExecutionContext) {
       const innerSteps: Step[] = p.steps || [];
 
       if (p.mode === "foreach") {
-        let list = resolveValue(p.list_name, context);
+        let list = null;
+        let rawListName = String(p.list_name || "").trim();
+        if (rawListName.startsWith("$")) rawListName = rawListName.substring(1);
 
-        if (!Array.isArray(list) && p.list_name) {
-          let rawName = String(p.list_name).trim();
-          if (rawName.startsWith("$")) rawName = rawName.substring(1);
-          if (Array.isArray(context.variables[rawName])) {
-            list = context.variables[rawName];
-          }
+        if (context.variables[rawListName] !== undefined) {
+          list = getVarValue(context.variables[rawListName]);
+        } else {
+          list = resolveValue(p.list_name, context);
         }
 
         // Auto-parse if it's a string representation of a list
@@ -450,7 +450,8 @@ export async function executeStep(step: Step, context: ExecutionContext) {
           log.debug(`[execution] Starting loop foreach on list (length: ${list.length})`);
           try {
             for (const item of list) {
-              context.variables[varName] = item;
+              const type = typeof item === 'number' ? 'int' : typeof item === 'boolean' ? 'bool' : 'string';
+              context.variables[varName] = { value: item, type };
               await executeStepsRecursive(innerSteps, context);
             }
           } finally {
