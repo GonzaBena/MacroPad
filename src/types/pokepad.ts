@@ -83,6 +83,8 @@ export interface PluginManifest {
     sidebarLabel?: string;
     /** Path to the HTML file inside the plugin folder to load as a view */
     entryPath: string;
+    /** Whether the plugin requires exclusive hardware access (pauses background workflows) */
+    exclusiveHardware?: boolean;
   };
 }
 

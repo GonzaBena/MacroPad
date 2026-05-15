@@ -10,6 +10,7 @@
   "ui": {
     "sidebarIcon": "🌀",
     "sidebarLabel": "SP1NG",
-    "entryPath": "ui/index.html"
+    "entryPath": "ui/index.html",
+    "exclusiveHardware": true
   }
 }

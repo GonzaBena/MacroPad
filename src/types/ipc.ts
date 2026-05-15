@@ -40,6 +40,7 @@ export interface ArduinoApi {
   updateSignals: (map: SignalMap) => void;
   updateGlobalVars: (vars: GlobalVariables) => void;
   testSequence: (signal: string) => void;
+  setHardwareExclusive: (isExclusive: boolean) => void;
   selectFile: () => Promise<string | null>;
   fileExists: (path: string) => Promise<boolean>;
 

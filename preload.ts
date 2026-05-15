@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("arduino", {
   updateSignals: (map: SignalMap) => ipcRenderer.send("update-signal-map", map),
   updateGlobalVars: (vars: GlobalVariables) => ipcRenderer.send("update-global-vars", vars),
   testSequence: (signal: string) => ipcRenderer.send("test-sequence", signal),
+  setHardwareExclusive: (isExclusive: boolean) => ipcRenderer.send("set-hardware-exclusive", isExclusive),
   selectFile: () => ipcRenderer.invoke("select-file"),
   fileExists: (path: string) => ipcRenderer.invoke("file-exists", path),
 

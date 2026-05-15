@@ -79,6 +79,9 @@ class UIRegistry {
 
     this.activeTabId = id;
 
+    // Reset hardware exclusive mode when switching to a core tab
+    window.arduino.setHardwareExclusive(false);
+
     // Disparar callback de activación si existe
     if (tab.onActivate) {
       await tab.onActivate();

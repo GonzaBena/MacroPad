@@ -24,6 +24,7 @@ let signalMap: SignalMap = {};
 let globalVars: GlobalVariables = {};
 const runningSequences = new Set<string>();
 let promptForRegionFn: (() => Promise<{ x: number; y: number; width: number; height: number } | null>) | null = null;
+let hardwareExclusiveMode = false;
 
 // Private temp directory for scripts
 const SCRIPT_DIR = path.join(os.tmpdir(), "pokepad_scripts");
@@ -56,6 +57,11 @@ export function setupExecution(promptRegion: () => Promise<any>) {
     if (!result.success) return;
     executeSequence(result.data, true);
   });
+
+  ipcMain.on("set-hardware-exclusive", (_, isExclusive: boolean) => {
+    hardwareExclusiveMode = isExclusive;
+    log.info(`[execution] Hardware exclusive mode set to: ${isExclusive}`);
+  });
 }
 
 function sleep(ms: number) {
@@ -69,6 +75,10 @@ function sleep(ms: number) {
  * @param isTest Whether this is a manual test trigger from the UI.
  */
 export async function executeSequence(incomingSignal: string, isTest: boolean = false) {
+  if (hardwareExclusiveMode && !isTest) {
+    log.debug(`[execution] Ignoring signal "${incomingSignal}" due to hardware exclusive mode.`);
+    return;
+  }
 
   const win = getWindow();
 
