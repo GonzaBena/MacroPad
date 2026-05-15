@@ -44,6 +44,7 @@ export const state: AppState & {
   history: any[];
   pluginManifests: Record<string, any>;
   insertionPoint: { path: number[]; index: number } | null;
+  hardwareExclusiveMode: boolean;
 } = {
   connected: false,
   signals: {},
@@ -73,7 +74,8 @@ export const state: AppState & {
   runningApps: [],
   history: [],
   pluginManifests: {},
-  insertionPoint: null
+  insertionPoint: null,
+  hardwareExclusiveMode: false,
 };
 
 export async function loadPlugins(incoming?: any[]): Promise<void> {

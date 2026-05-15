@@ -59,6 +59,7 @@ export async function loadPluginView(pluginId: string): Promise<void> {
 
   // 1.5 Handle hardware exclusive mode
   const isExclusive = !!plugin.ui?.exclusiveHardware;
+  state.hardwareExclusiveMode = isExclusive;
   window.arduino.setHardwareExclusive(isExclusive);
 
   // 2. Fetch HTML content

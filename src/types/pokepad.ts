@@ -75,6 +75,14 @@ export interface PluginManifest {
   enabled?: boolean;
   /** Tags for categorization and search filtering */
   tags?: string[];
+  /** Minimum MacroPad app version required (e.g. "1.1.0"). Plugin is disabled if app is older. */
+  minAppVersion?: string;
+  /** Maximum MacroPad app version this plugin is compatible with (e.g. "2.0.0"). */
+  maxAppVersion?: string;
+  /** Set at runtime by the loader when minAppVersion/maxAppVersion don't match the running app. */
+  incompatible?: boolean;
+  /** Human-readable reason why the plugin is incompatible (set at runtime). */
+  incompatibleReason?: string;
   /** Optional UI extension configuration for adding tabs to the sidebar */
   ui?: {
     /** SVG path or Emoji for the sidebar tab */

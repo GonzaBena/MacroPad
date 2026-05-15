@@ -63,6 +63,28 @@ function extractZip(zipPath: string, destDir: string): void {
   }
 }
 
+function parseSemver(v: string): [number, number, number] {
+  const parts = v.replace(/^v/, "").split(".").map(Number);
+  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+}
+
+function semverCompare(a: string, b: string): number {
+  const [aMaj, aMin, aPat] = parseSemver(a);
+  const [bMaj, bMin, bPat] = parseSemver(b);
+  return aMaj !== bMaj ? aMaj - bMaj : aMin !== bMin ? aMin - bMin : aPat - bPat;
+}
+
+function checkAppVersionCompatibility(
+  manifest: PluginManifest,
+  appVersion: string,
+): { compatible: boolean; reason?: string } {
+  if (manifest.minAppVersion && semverCompare(appVersion, manifest.minAppVersion) < 0)
+    return { compatible: false, reason: `Requires app >= ${manifest.minAppVersion} (current: ${appVersion})` };
+  if (manifest.maxAppVersion && semverCompare(appVersion, manifest.maxAppVersion) > 0)
+    return { compatible: false, reason: `Requires app <= ${manifest.maxAppVersion} (current: ${appVersion})` };
+  return { compatible: true };
+}
+
 // Mock registry for development
 const MOCK_REGISTRY: RemotePlugin[] = [];
 
@@ -121,6 +143,15 @@ export async function loadPlugins() {
             // Default to enabled if not specified (legacy support)
             if (manifest.enabled === undefined) {
               manifest.enabled = true;
+            }
+
+            // Check app version compatibility
+            const compat = checkAppVersionCompatibility(manifest, app.getVersion());
+            if (!compat.compatible) {
+              manifest.incompatible = true;
+              manifest.incompatibleReason = compat.reason;
+              manifest.enabled = false;
+              log.warn(`Plugin ${manifest.name} (${manifest.id}) incompatible: ${compat.reason}`);
             }
 
             let execute: Function | null = null;

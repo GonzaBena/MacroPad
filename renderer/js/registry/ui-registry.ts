@@ -1,3 +1,5 @@
+import { state } from '../state.js';
+
 /**
  * Define una pestaña (Tab) de la interfaz principal de la aplicación.
  * Las pestañas aparecen en la barra lateral (Activity Bar) y cargan diferentes vistas.
@@ -80,6 +82,7 @@ class UIRegistry {
     this.activeTabId = id;
 
     // Reset hardware exclusive mode when switching to a core tab
+    state.hardwareExclusiveMode = false;
     window.arduino.setHardwareExclusive(false);
 
     // Disparar callback de activación si existe

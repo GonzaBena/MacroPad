@@ -3,6 +3,7 @@
   "name": "Template Plugin",
   "description": "A well-commented template to help you build your own plugins.",
   "version": "1.0.0",
+  "minAppVersion": "1.0.0",
   "author": "PokePad Team",
   "icon": "🧩",
   "color": "var(--blue)",

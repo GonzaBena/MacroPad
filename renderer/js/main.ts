@@ -249,12 +249,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     const sigEl = document.getElementById("st-sig");
     if (sigEl) sigEl.textContent = String(state.stats.sig);
     log(signal, "sig");
-    const entry = state.signals[signal];
-    if (entry?.steps?.length) {
-      state.stats.act += entry.steps.length;
-      const actEl = document.getElementById("st-act");
-      if (actEl) actEl.textContent = String(state.stats.act);
-      log(`Ejecutando ${entry.steps.length} paso(s) para "${signal}"`, "act");
+
+    // Skip execution stats/log when a plugin holds exclusive hardware access —
+    // the main process is already blocking workflow execution in that case.
+    if (!state.hardwareExclusiveMode) {
+      const entry = state.signals[signal];
+      if (entry?.steps?.length) {
+        state.stats.act += entry.steps.length;
+        const actEl = document.getElementById("st-act");
+        if (actEl) actEl.textContent = String(state.stats.act);
+        log(`Ejecutando ${entry.steps.length} paso(s) para "${signal}"`, "act");
+      }
     }
   });
 
