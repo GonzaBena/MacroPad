@@ -145,7 +145,7 @@ if (!gotTheLock) {
       
       const data = loadData();
       const connected = getConnectionStatus().connected;
-      const pluginManifests = {};
+      const pluginManifests: Record<string, any> = {};
       getLoadedPlugins().forEach((p: any) => {
         pluginManifests[p.id] = p;
       });
